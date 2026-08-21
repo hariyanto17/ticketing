@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #09090b;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+/* Keyboard focus rings styling */
+*:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* Printing styles optimization */
+@media print {
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12px !important;
+  }
+
+  /* Hide UI wrapper controls */
+  header,
+  aside,
+  nav,
+  button,
+  .no-print,
+  .modal-backdrop,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Force print wrapper blocks to occupy full widths */
+  .print-area,
+  .print-container {
+    width: 100% !important;
+    max-width: 80mm !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+}

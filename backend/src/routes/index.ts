@@ -1,0 +1,42 @@
+import { Router } from "express";
+import authRouter from "../modules/auth/router";
+import usersRouter from "../modules/users/router";
+import rolesRouter from "../modules/roles/router";
+import branchesRouter from "../modules/branches/router";
+import genresRouter from "../modules/genres/router";
+import productionHousesRouter from "../modules/production-houses/router";
+import distributorsRouter from "../modules/distributors/router";
+import moviesRouter from "../modules/movies/router";
+import studiosRouter from "../modules/studios/router";
+import seatsRouter from "../modules/seats/router";
+import schedulesRouter from "../modules/schedules/router";
+import ordersRouter from "../modules/orders/router";
+import ticketsRouter from "../modules/tickets/router";
+import cashDrawersRouter from "../modules/cash-drawers/router";
+import dailyClosingsRouter from "../modules/daily-closings/router";
+import settingsRouter from "../modules/settings/router";
+import reportsRouter from "../modules/reports/router";
+import bookingsRouter from "../modules/bookings/router";
+
+const router = Router();
+
+router.use("/auth", authRouter);
+router.use("/users", usersRouter);
+router.use("/roles", rolesRouter);
+router.use("/branches", branchesRouter);
+router.use("/genres", genresRouter);
+router.use("/production-houses", productionHousesRouter);
+router.use("/distributors", distributorsRouter);
+router.use("/movies", moviesRouter);
+router.use("/studios", studiosRouter);
+router.use("/seats", seatsRouter);
+router.use("/schedules", schedulesRouter);
+router.use("/orders", ordersRouter);
+router.use("/tickets", ticketsRouter);
+router.use("/cash-drawers", cashDrawersRouter);
+router.use("/daily-closings", dailyClosingsRouter);
+router.use("/settings", settingsRouter);
+router.use("/reports", reportsRouter);
+router.use("/bookings", bookingsRouter);
+
+export default router;

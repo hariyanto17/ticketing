@@ -1,0 +1,1 @@
+ALTER TABLE "Movie" ALTER COLUMN "language" DROP NOT NULL;

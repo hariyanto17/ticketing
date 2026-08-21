@@ -1,0 +1,439 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Branch {
+  id        String    @id @default(uuid())
+  name      String
+  code      String
+  address   String
+  city      String
+  province  String
+  phone     String
+  email     String
+  timezone  String
+  status    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  users     User[]
+  studios   Studio[]
+  ticketPrices TicketPrice[]
+  orders  Order[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  branchId     String
+  roleId       String
+  username     String   @unique
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  avatar       String?
+  isActive     Boolean  @default(true)
+  status       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+  auditLogs AuditLog[]
+  orders Order[] @relation("CashierOrders")
+  ticketScans TicketScan[]
+  drawersOpened CashDrawer[] @relation("OpenedDrawers")
+  drawersClosed CashDrawer[] @relation("ClosedDrawers")
+  closings      DailyClosing[]
+  reprints      TicketReprint[]
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  status      String
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  name        String
+  roles       RolePermission[]
+  menus       MenuPermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model Menu {
+  id        String           @id @default(uuid())
+  parentId  String?
+  name      String
+  icon      String?
+  url       String?
+  sortOrder Int?
+  status    String
+  parent    Menu?            @relation("MenuToMenu", fields: [parentId], references: [id])
+  children  Menu[]           @relation("MenuToMenu")
+  permissions MenuPermission[]
+}
+
+model MenuPermission {
+  menuId       String
+  permissionId String
+
+  menu       Menu       @relation(fields: [menuId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([menuId, permissionId])
+}
+
+model Genre {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  movies      MovieGenre[]
+}
+
+model Movie {
+  id                String           @id @default(uuid())
+  title             String
+  originalTitle     String?
+  synopsis          String?
+  durationMinutes   Int?
+  releaseDate       DateTime?
+  endDate           DateTime?
+  censorshipRating  String           @default("SU")
+  language          String?
+  subtitle          String?
+  poster            String?
+  trailerUrl        String?
+  status            String           @default("DRAFT") // DRAFT, COMING_SOON, NOW_SHOWING, ENDED, ARCHIVED
+  source            String           @default("MANUAL")
+  externalMovieId   String?          @unique
+  externalDistributorId String?
+  externalSnapshot  Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  slug              String           @unique
+
+  // Relations
+  productionHouseId String
+  productionHouse  ProductionHouse  @relation(fields: [productionHouseId], references: [id])
+  distributorId     String?
+  distributor       Distributor?     @relation(fields: [distributorId], references: [id])
+  
+  genres           MovieGenre[]
+  showtimes        Showtime[]
+}
+
+model MovieGenre {
+  movieId String
+  genreId String
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([movieId, genreId])
+}
+
+model ProductionHouse {
+  id            String   @id @default(uuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  isActive      Boolean  @default(true)
+  movies        Movie[]
+}
+
+model Distributor {
+  id            String   @id @default(uuid())
+  name          String
+  externalDistributorId String? @unique
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  isActive      Boolean  @default(true)
+  movies        Movie[]
+}
+
+model Supplier {
+  id                String             @id @default(uuid())
+  name              String
+  phone             String
+  email             String
+  address           String
+  status            String
+}
+
+model Studio {
+  id        String   @id @default(uuid())
+  branchId  String
+  name      String
+  code      String   @unique
+  capacity  Int
+  layoutRows Int?
+  layoutColumns Int?
+  type      String   @default("REGULAR") // REGULAR, PREMIERE, VIP
+  status    String   @default("ACTIVE")  // ACTIVE, MAINTENANCE, CLOSED
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  seats  Seat[]
+  showtimes Showtime[]
+}
+
+model Seat {
+  id           String   @id @default(uuid())
+  studioId     String
+  row          String
+  column       Int
+  seatNumber   Int
+  seatLabel    String
+  seatType     String   @default("REGULAR") // REGULAR, VIP, COUPLE, WHEELCHAIR
+  status       String   @default("ACTIVE")  // ACTIVE, DISABLED
+
+  studio   Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  showtimeSeats ShowtimeSeat[]
+}
+
+model TicketPrice {
+  id        String   @id @default(uuid())
+  branchId  String
+  name      String
+  price     Float
+  dayType   String
+  startDate DateTime
+  endDate   DateTime
+  status    String
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  showtimes Showtime[]
+}
+
+model Showtime {
+  id              String        @id @default(uuid())
+  movieId         String
+  studioId        String
+  ticketPriceId   String?
+  businessDate    DateTime      @default(now())
+  startTime       DateTime
+  endTime         DateTime?
+  ticketPrice     Float         @default(0.0)
+  status          String        @default("DRAFT") // DRAFT, PUBLISHED, CLOSED
+  createdAt       DateTime      @default(now())
+
+  movie       Movie       @relation(fields: [movieId], references: [id])
+  studio      Studio      @relation(fields: [studioId], references: [id])
+  ticketPriceRel TicketPrice? @relation(fields: [ticketPriceId], references: [id])
+  showtimeSeats ShowtimeSeat[]
+  orders        Order[]
+}
+
+
+model ShowtimeSeat {
+  id           String   @id @default(uuid())
+  showtimeId   String
+  seatId       String
+  status       String
+  reservedUntil DateTime?
+  ticketId     String?
+
+  showtime Showtime @relation(fields: [showtimeId], references: [id])
+  seat     Seat     @relation(fields: [seatId], references: [id])
+  ticket   Ticket?
+}
+
+model Member {
+  id       String   @id @default(uuid())
+  name     String
+  phone    String
+  email    String
+  birthday DateTime?
+  gender   String?
+  point    Int      @default(0)
+  status   String
+  customers Customer[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  memberId  String?
+  name      String
+  phone     String
+  email     String
+  createdAt DateTime @default(now())
+
+  member Member? @relation(fields: [memberId], references: [id])
+}
+
+model Promotion {
+  id            String   @id @default(uuid())
+  title         String
+  type          String
+  discountType  String
+  discountValue Float
+  startDate     DateTime
+  endDate       DateTime
+  status        String
+  vouchers      Voucher[]
+}
+
+model Voucher {
+  id            String   @id @default(uuid())
+  promotionId   String
+  code          String   @unique
+  discountType  String
+  discountValue Float
+  minimumPurchase Float
+  quota         Int
+  used          Int      @default(0)
+  expiredAt     DateTime
+  status        String
+
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+}
+
+model Order {
+  id            String   @id @default(uuid())
+  orderNumber   String   @unique
+  bookingNumber String?  @unique
+  cashierId     String?
+  scheduleId    String
+  branchId      String
+  totalAmount   Float
+  paymentMethod String   // CASH, QRIS
+  paymentStatus String   // PENDING, PAID, FAILED, REFUNDED
+  orderStatus   String   // PENDING, PAID, CANCELLED, REFUNDED
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+  createdAt     DateTime @default(now())
+
+  cashier  User?    @relation("CashierOrders", fields: [cashierId], references: [id])
+  schedule Showtime @relation(fields: [scheduleId], references: [id])
+  branch   Branch   @relation(fields: [branchId], references: [id])
+  tickets  Ticket[]
+  payments Payment[]
+}
+
+model Ticket {
+  id             String   @id @default(uuid())
+  ticketNumber   String   @unique
+  orderId        String
+  showtimeSeatId String   @unique
+  qrCode         String
+  status         String   @default("ACTIVE") // ACTIVE, USED, CANCELLED
+  createdAt      DateTime @default(now())
+
+  order        Order        @relation(fields: [orderId], references: [id])
+  showtimeSeat ShowtimeSeat @relation(fields: [showtimeSeatId], references: [id])
+  ticketScans  TicketScan[]
+  reprints     TicketReprint[]
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String
+  amount        Float
+  amountReceived Float?
+  change        Float?
+  paidAt        DateTime @default(now())
+  status        String   // PENDING, PAID, FAILED, REFUNDED
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+
+model TicketScan {
+  id         String   @id @default(uuid())
+  ticketId   String
+  gate       String
+  operatorId String
+  scanTime   DateTime
+  result     String
+
+  ticket   Ticket @relation(fields: [ticketId], references: [id])
+  operator User   @relation(fields: [operatorId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  module      String
+  action      String
+  oldData     String?
+  newData     String?
+  ipAddress   String
+  entity      String?
+  entityId    String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model CashDrawer {
+  id             String    @id @default(uuid())
+  openingBalance Float
+  closingBalance Float?
+  expectedBalance Float?
+  actualBalance  Float?
+  difference     Float?
+  openedById     String
+  closedById     String?
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  status         String    @default("OPEN") // OPEN, CLOSED
+
+  openedBy User  @relation("OpenedDrawers", fields: [openedById], references: [id])
+  closedBy User? @relation("ClosedDrawers", fields: [closedById], references: [id])
+}
+
+model DailyClosing {
+  id                String   @id @default(uuid())
+  businessDate      DateTime @unique
+  totalTicketsSold  Int
+  totalRevenue      Float
+  cashRevenue       Float
+  qrisRevenue       Float
+  totalRefunds      Float
+  totalTransactions Int
+  closedById        String
+  closedAt          DateTime @default(now())
+
+  closedBy User @relation(fields: [closedById], references: [id])
+}
+
+model TicketReprint {
+  id             String   @id @default(uuid())
+  ticketId       String
+  reprintedById  String
+  reprintedAt    DateTime @default(now())
+  reason         String
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id])
+  reprintedBy User   @relation(fields: [reprintedById], references: [id])
+}

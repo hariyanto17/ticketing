@@ -1,0 +1,26 @@
+appId: com.planetcinema.printer-agent
+productName: Planet Cinema Printer Agent
+directories:
+  app: .
+  output: dist-installers
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  requestedExecutionLevel: asInvoker
+  icon: ./build/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: ./build/icon.ico
+  uninstallDisplayName: Planet Cinema Printer Agent
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Planet Cinema Printer Agent
+files:
+  - dist/**
+  - package.json
+  - "node_modules/**/*"
+extraMetadata:
+  main: dist/main.js

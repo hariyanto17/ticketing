@@ -87,6 +87,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin"] },
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin"] },
     { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin"] },
+    { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin"] },
     { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin"] },
   ];
 

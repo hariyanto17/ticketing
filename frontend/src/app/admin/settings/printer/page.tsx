@@ -19,11 +19,11 @@ export default function PrinterSetupPage({ publicSetup = false }: { publicSetup?
   const [agentToken, setAgentToken] = useState("");
 
   useEffect(() => {
-    setAgentToken(localStorage.getItem("printerAgentToken") || "");
+    setAgentToken(localStorage.getItem("printerAgentToken") || process.env.NEXT_PUBLIC_PRINTER_AGENT_TOKEN || "");
   }, []);
 
   const refreshStatus = async () => {
-    if (!localStorage.getItem("printerAgentToken")) {
+    if (!process.env.NEXT_PUBLIC_PRINTER_AGENT_TOKEN && !localStorage.getItem("printerAgentToken")) {
       setIsLoading(false);
       return;
     }

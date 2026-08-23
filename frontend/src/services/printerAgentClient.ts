@@ -1,5 +1,6 @@
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 18765;
+const DEFAULT_TOKEN = process.env.NEXT_PUBLIC_PRINTER_AGENT_TOKEN || "";
 
 export interface PrinterAgentPrinter {
   id: string;
@@ -34,7 +35,7 @@ export class PrinterAgentClient {
   private readonly token: string;
 
   constructor(token?: string, baseUrl?: string) {
-    this.token = token || (typeof window !== "undefined" ? localStorage.getItem("printerAgentToken") || "" : "");
+    this.token = token || (typeof window !== "undefined" ? localStorage.getItem("printerAgentToken") || DEFAULT_TOKEN : DEFAULT_TOKEN);
     this.baseUrl = baseUrl || `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
   }
 
@@ -104,6 +105,6 @@ export class PrinterAgentClient {
 }
 
 export const createPrinterAgentClient = () => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("printerAgentToken") || "" : "";
+  const token = typeof window !== "undefined" ? localStorage.getItem("printerAgentToken") || DEFAULT_TOKEN : DEFAULT_TOKEN;
   return new PrinterAgentClient(token);
 };

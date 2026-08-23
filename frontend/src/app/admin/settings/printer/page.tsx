@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n";
 
-export default function PrinterSetupPage() {
+export default function PrinterSetupPage({ publicSetup = false }: { publicSetup?: boolean }) {
   const { t } = useTranslation();
   const { success: toastSuccess, error: toastError } = useToast();
   const [printers, setPrinters] = useState<PrinterAgentPrinter[]>([]);
@@ -16,8 +16,18 @@ export default function PrinterSetupPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [agentStatus, setAgentStatus] = useState<"connected" | "not-running" | "not-found" | "ready" | "error">("not-running");
+  const [agentToken, setAgentToken] = useState("");
+
+  useEffect(() => {
+    setAgentToken(localStorage.getItem("printerAgentToken") || "");
+  }, []);
 
   const refreshStatus = async () => {
+    if (!localStorage.getItem("printerAgentToken")) {
+      setIsLoading(false);
+      return;
+    }
+
     const client = createPrinterAgentClient();
     try {
       const nextHealth = await client.getHealth();
@@ -63,6 +73,11 @@ export default function PrinterSetupPage() {
     }
   };
 
+  const handleTokenSave = () => {
+    localStorage.setItem("printerAgentToken", agentToken.trim());
+    void refreshStatus();
+  };
+
   const handleTestPrint = async () => {
     const client = createPrinterAgentClient();
     try {
@@ -96,6 +111,27 @@ export default function PrinterSetupPage() {
           <RefreshCw className="w-4 h-4" /> Refresh
         </button>
       </div>
+
+      {publicSetup && (
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Printer Agent Connection</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Enter the token from the printer agent on this cashier computer.</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="password"
+              value={agentToken}
+              onChange={(event) => setAgentToken(event.target.value)}
+              placeholder="Printer agent token"
+              className="flex-1 px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm"
+            />
+            <button onClick={handleTokenSave} className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">
+              Connect
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-6">
         <div className="flex items-center justify-between gap-4">

@@ -18,7 +18,12 @@ const server = createServer(app);
 // Boot Socket.IO
 initSocket(server);
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors({
+    origin: (_origin, callback) => callback(null, true),
+    credentials: true,
+  }),
+);
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use(bodyParser.json());

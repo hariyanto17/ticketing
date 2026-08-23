@@ -20,14 +20,7 @@ export class PrinterAgentServer {
 
     this.app.use(express.json({ limit: "1mb" }));
     this.app.use(cors({
-      origin: (origin, callback) => {
-        const allowed = this.configService.getSettings().corsOrigins;
-        if (!origin || allowed.includes(origin)) {
-          callback(null, true);
-          return;
-        }
-        callback(new Error("Origin not allowed"));
-      },
+      origin: (_origin, callback) => callback(null, true),
       credentials: true,
       methods: ["GET", "POST", "PUT", "OPTIONS"],
       allowedHeaders: ["Content-Type", "X-Printer-Agent-Token"],

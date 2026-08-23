@@ -1,9 +1,9 @@
 {
   "name": "planet-cinema-printer-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Local printer agent for Planet Cinema cashiers.",
-  "main": "dist/main.js",
+  "main": "dist/main/main.js",
   "scripts": {
     "dev": "tsx src/main/main.ts",
     "build": "tsc -p tsconfig.json",
@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "electron": "^31.7.1",
     "express": "^4.21.2",
     "printer": "^0.4.0",
     "qrcode-generator": "^1.5.0"
@@ -24,6 +23,7 @@
     "@types/node": "^22.10.2",
     "@types/supertest": "^7.2.1",
     "electron-builder": "^25.0.0",
+    "electron": "^31.7.1",
     "supertest": "^7.2.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"

@@ -18,7 +18,7 @@ export class PrinterTray {
   }
 
   private openSetup() {
-    void shell.openExternal(process.env.CINEMA_PRINTER_SETTINGS_URL || "http://127.0.0.1:3000/admin/settings/printer");
+    void shell.openExternal(process.env.CINEMA_PRINTER_SETTINGS_URL || "https://ticketing-fe.168billiard.online/printer-settings");
   }
 
   destroy() {

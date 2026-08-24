@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n";
 
-export default function PrinterSetupPage({ publicSetup = false }: { publicSetup?: boolean }) {
+export default function PrinterSetupPage() {
   const { t } = useTranslation();
   const { success: toastSuccess, error: toastError } = useToast();
   const [printers, setPrinters] = useState<PrinterAgentPrinter[]>([]);

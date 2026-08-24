@@ -29,6 +29,10 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.use("/api", routes);
 
 app.use(errorHandler);

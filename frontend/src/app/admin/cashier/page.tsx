@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { io } from "socket.io-client";
 import Link from "next/link";
 import { useGetActiveDrawerQuery, useOpenDrawerMutation, useCloseDrawerMutation } from "@/services/opsApi";
+import { createPrinterAgentClient, getPrinterAgentDeviceId } from "@/services/printerAgentClient";
 import { useTranslation } from "@/lib/i18n";
 
 const getRowIndex = (row: string): number => {
@@ -46,6 +47,7 @@ export default function CashierWorkspace() {
   const [amountReceived, setAmountReceived] = useState<number | "">("");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState<any | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Queries
   const { data: moviesResponse, isLoading: moviesLoading, error: moviesError } = useGetMoviesQuery({
@@ -198,6 +200,51 @@ export default function CashierWorkspace() {
       setAmountReceived("");
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
+    }
+  };
+
+  const handlePrintTickets = async () => {
+    const order = checkoutResult?.order;
+    const tickets = checkoutResult?.tickets;
+    if (!order || !selectedSchedule || !tickets?.length) {
+      toastError("Data tiket belum tersedia untuk dicetak.");
+      return;
+    }
+
+    if (!getPrinterAgentDeviceId()) {
+      toastError("Printer agent belum terhubung ke perangkat ini.");
+      return;
+    }
+
+    try {
+      setIsPrinting(true);
+      const client = createPrinterAgentClient();
+      const startTime = new Date(selectedSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const showDate = new Date(selectedSchedule.businessDate).toLocaleDateString("en-CA");
+      const price = order.totalAmount / tickets.length;
+
+      for (const ticket of tickets) {
+        await client.printTicket({
+          mode: "print",
+          ticketNumber: ticket.ticketNumber,
+          orderNumber: order.orderNumber,
+          movie: selectedSchedule.movie.title,
+          studio: `${selectedSchedule.studio.name} (${selectedSchedule.studio.code})`,
+          showDate,
+          showTime: startTime,
+          seat: ticket.showtimeSeat?.seat?.seatLabel || "TBD",
+          price,
+          totalAmount: order.totalAmount,
+          qrCode: ticket.qrCode,
+          customerName: order.customerName || undefined,
+        });
+      }
+
+      toastSuccess(`${tickets.length} tiket berhasil dikirim ke printer.`);
+    } catch (error: any) {
+      toastError(error?.message || "Gagal mencetak tiket melalui printer agent.");
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -356,6 +403,57 @@ export default function CashierWorkspace() {
 
       {/* RIGHT PANEL: BILLING & CHECKOUT */}
       <div className="lg:col-span-4 p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-6">
+        <div className="border-b border-zinc-100 dark:border-zinc-800 pb-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Cash Drawer</h2>
+              <p className="text-xs text-zinc-400 mt-1">
+                {drawerLoading
+                  ? "Checking drawer status..."
+                  : activeDrawer
+                    ? `Opened with ${formatCurrency(activeDrawer.openingBalance)}`
+                    : "Open a drawer before processing checkout."}
+              </p>
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${activeDrawer
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+              : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+              }`}>
+              {activeDrawer ? "Open" : "Closed"}
+            </span>
+          </div>
+
+          {activeDrawer ? (
+            <button
+              type="button"
+              onClick={() => setIsCloseDrawerModalOpen(true)}
+              className="w-full px-3 py-2 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/20"
+            >
+              Close Cash Drawer
+            </button>
+          ) : (
+            <form onSubmit={handleOpenDrawerSubmit} className="space-y-2">
+              <label className="text-xs font-semibold text-zinc-500">Opening Balance (IDR)</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={drawerOpeningBalance}
+                  onChange={(e) => setDrawerOpeningBalance(Number(e.target.value))}
+                  className="min-w-0 flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold"
+                />
+                <button
+                  type="submit"
+                  disabled={isOpeningDrawer || drawerLoading}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 text-white rounded-xl text-xs font-bold"
+                >
+                  {isOpeningDrawer ? "Opening..." : "Open Drawer"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
         <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 dark:border-zinc-800 pb-4 flex items-center gap-2">
           <Ticket className="w-5.5 h-5.5 text-indigo-600" /> {t("cashier.summary")}
         </h2>
@@ -512,13 +610,14 @@ export default function CashierWorkspace() {
 
           <div className="flex gap-3 justify-center">
             {checkoutResult?.order?.id && (
-              <Link
-                href={`/admin/tickets/${checkoutResult.order.id}/print`}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer"
-                target="_blank"
+              <button
+                type="button"
+                onClick={() => void handlePrintTickets()}
+                disabled={isPrinting}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-300 text-white rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer"
               >
-                <Printer className="w-4 h-4" /> {t("cashier.print")}
-              </Link>
+                <Printer className="w-4 h-4" /> {isPrinting ? "Printing..." : t("cashier.print")}
+              </button>
             )}
             <button
               onClick={() => setIsSuccessModalOpen(false)}

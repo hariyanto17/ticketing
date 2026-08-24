@@ -73,3 +73,114 @@ export const me = async (req: Request, res: Response) => {
   const user = (req as any).user;
   return responseHandler.ok(res, user, "Profile retrieved", null);
 };
+
+export const sso = async (req: Request, res: Response) => {
+  const { code } = req.body;
+  if (!code) {
+    throw new AppError("BAD_REQUEST", "SSO exchange code is required");
+  }
+
+  const platformApiUrl = process.env.PLATFORM_API_URL || "http://localhost:5000";
+  
+  const platformRes = await fetch(`${platformApiUrl}/api/applications/exchange`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, application: "TICKETING" }),
+  });
+
+  if (!platformRes.ok) {
+    throw new AppError("UNAUTHORIZED", "SSO verification failed with Platform");
+  }
+
+  const envelope = await platformRes.json() as any;
+  const platformUser = envelope.data;
+
+  let user = await prisma.user.findUnique({
+    where: { platformUserId: platformUser.id },
+    include: { role: true },
+  });
+
+  const roleName = platformUser.application.role === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier";
+  let role = await prisma.role.findFirst({ where: { name: roleName } }) || await prisma.role.findFirst();
+  if (!role) {
+    throw new AppError("INTERNAL_SERVER_ERROR", "No roles configured in Ticketing system");
+  }
+
+  let branch = await prisma.branch.findFirst();
+  if (!branch) {
+    branch = await prisma.branch.create({
+      data: {
+        name: "Default Branch",
+        code: "DEFAULT",
+        address: "Default Address",
+        city: "Default City",
+        province: "Default Province",
+        phone: "0000000",
+        email: "default@test.com",
+        timezone: "Asia/Jakarta",
+        status: "ACTIVE"
+      }
+    });
+  }
+
+  if (!user) {
+    const baseUsername = platformUser.email.split("@")[0];
+    let username = baseUsername;
+    let suffix = 1;
+    while (await prisma.user.findUnique({ where: { username } })) {
+      username = `${baseUsername}${suffix}`;
+      suffix++;
+    }
+
+    user = await prisma.user.create({
+      data: {
+        platformUserId: platformUser.id,
+        branchId: branch.id,
+        roleId: role.id,
+        username,
+        name: platformUser.name,
+        email: platformUser.email,
+        passwordHash: "sso-managed-credentials",
+        isActive: true,
+        status: "ACTIVE",
+      },
+      include: { role: true },
+    });
+  } else {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        name: platformUser.name,
+        roleId: role.id,
+      },
+      include: { role: true },
+    });
+  }
+
+  const token = signToken({ userId: user.id, role: user.role.name });
+  const expires = 60 * 60 * 1000;
+
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: expires,
+  });
+
+  return responseHandler.ok(
+    res,
+    {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        role: user.role.name,
+        isActive: user.isActive,
+      },
+    },
+    "SSO Login successful",
+    null,
+  );
+};

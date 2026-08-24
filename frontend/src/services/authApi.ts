@@ -44,7 +44,14 @@ export const authApi = api.injectEndpoints({
     me: builder.query<MeResponse, void>({
       query: () => "/auth/me",
     }),
+    ssoLogin: builder.mutation<LoginResponse, { code: string }>({
+      query: (body) => ({
+        url: "/auth/sso",
+        method: "POST",
+        body,
+      }),
+    }),
   }),
 });
 
-export const { useLoginMutation, useLogoutMutation, useMeQuery } = authApi;
+export const { useLoginMutation, useLogoutMutation, useMeQuery, useSsoLoginMutation } = authApi;

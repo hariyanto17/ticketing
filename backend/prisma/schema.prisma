@@ -28,6 +28,7 @@ model Branch {
 
 model User {
   id           String   @id @default(uuid())
+  platformUserId String? @unique
   branchId     String
   roleId       String
   username     String   @unique

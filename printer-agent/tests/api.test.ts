@@ -16,45 +16,45 @@ test("printer agent API enforces auth and reports honest macOS capability", asyn
     const config = new ConfigService();
     const server = new PrinterAgentServer(config);
     const app = server.getExpressApp();
-    const token = config.getToken();
+    const deviceId = config.getDeviceId();
 
     const unauthorized = await request(app).get("/api/health");
     assert.equal(unauthorized.status, 401);
 
-    const health = await request(app).get("/api/health").set("X-Printer-Agent-Token", token);
+    const health = await request(app).get("/api/health").set("X-Printer-Agent-Device-Id", deviceId);
     assert.equal(health.status, 200);
     assert.equal(health.body.platform, "darwin");
     assert.equal(health.body.printerBackend, "unsupported");
     assert.equal(health.body.hardwarePrintingSupported, false);
 
-    const printers = await request(app).get("/api/printers").set("X-Printer-Agent-Token", token);
+    const printers = await request(app).get("/api/printers").set("X-Printer-Agent-Device-Id", deviceId);
     assert.deepEqual(printers.body.printers, []);
 
-    const configResponse = await request(app).get("/api/config").set("X-Printer-Agent-Token", token);
+    const configResponse = await request(app).get("/api/config").set("X-Printer-Agent-Device-Id", deviceId);
     assert.equal(configResponse.status, 200);
     assert.equal(configResponse.body.paperWidth, 80);
 
     const savedConfig = await request(app)
       .put("/api/config")
-      .set("X-Printer-Agent-Token", token)
+      .set("X-Printer-Agent-Device-Id", deviceId)
       .send({ ticketPrinterId: null, ticketPrinter: null, paperWidth: 58, autoCut: false });
     assert.equal(savedConfig.status, 200);
     assert.equal(savedConfig.body.paperWidth, 58);
     assert.equal(savedConfig.body.autoCut, false);
 
-    const testPrint = await request(app).post("/api/printers/test").set("X-Printer-Agent-Token", token);
+    const testPrint = await request(app).post("/api/printers/test").set("X-Printer-Agent-Device-Id", deviceId);
     assert.equal(testPrint.status, 501);
     assert.equal(testPrint.body.error.code, "HARDWARE_PRINTING_UNSUPPORTED");
 
     const invalid = await request(app)
       .post("/api/print/ticket")
-      .set("X-Printer-Agent-Token", token)
+      .set("X-Printer-Agent-Device-Id", deviceId)
       .send({ ticketNumber: 42 });
     assert.equal(invalid.status, 400);
 
     const unsupported = await request(app)
       .post("/api/print/ticket")
-      .set("X-Printer-Agent-Token", token)
+      .set("X-Printer-Agent-Device-Id", deviceId)
       .send({ jobId: "mac-job", ticketNumber: "PCM-1", mode: "print" });
     assert.equal(unsupported.status, 501);
     assert.equal(unsupported.body.error.code, "HARDWARE_PRINTING_UNSUPPORTED");

@@ -18,7 +18,7 @@ app.on("ready", async () => {
   try {
     await server.start(settings.port, settings.host);
     console.log(`Printer agent listening on http://${settings.host}:${settings.port}`);
-    tray = new PrinterTray();
+    tray = new PrinterTray(configService.getDeviceId());
     new StartupManager().enable();
   } catch (error) {
     console.error("Failed to start printer agent", error);

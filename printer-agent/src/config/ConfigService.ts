@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 export interface PrinterConfig {
   ticketPrinterId: string | null;
@@ -31,23 +33,19 @@ const defaultSettings: PrinterAgentSettings = {
 export class ConfigService {
   private readonly appDataDir: string;
   private readonly configPath: string;
-  private readonly tokenPath: string;
   private config: PrinterConfig;
-  private token: string;
 
   constructor() {
     const appName = "PlanetCinemaPrinterAgent";
     const platformAppData = process.env.PRINTER_AGENT_DATA_DIR || process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
     this.appDataDir = path.join(platformAppData, appName);
     this.configPath = path.join(this.appDataDir, "printer-config.json");
-    this.tokenPath = path.join(this.appDataDir, "printer-token.txt");
 
     if (!fs.existsSync(this.appDataDir)) {
       fs.mkdirSync(this.appDataDir, { recursive: true });
     }
 
     this.config = this.readConfig();
-    this.token = this.readToken();
   }
 
   private readConfig(): PrinterConfig {
@@ -59,21 +57,6 @@ export class ConfigService {
     } catch {
       return { ...defaultConfig };
     }
-  }
-
-  private readToken(): string {
-    try {
-      if (fs.existsSync(this.tokenPath)) {
-        const existing = fs.readFileSync(this.tokenPath, "utf8").trim();
-        if (existing) return existing;
-      }
-    } catch {
-      // no-op
-    }
-
-    const generated = `pcpa_${Math.random().toString(36).slice(2, 12)}_${Date.now().toString(36)}`;
-    fs.writeFileSync(this.tokenPath, generated, { mode: 0o600 });
-    return generated;
   }
 
   getConfig(): PrinterConfig {
@@ -96,8 +79,21 @@ export class ConfigService {
     return { ...this.config };
   }
 
-  getToken(): string {
-    return this.token;
+  getDeviceId(): string {
+    const machineId = process.platform === "win32" ? this.readWindowsMachineId() : os.hostname();
+    return crypto.createHash("sha256").update(`planet-cinema-printer-agent:${machineId}`).digest("hex");
+  }
+
+  private readWindowsMachineId(): string {
+    try {
+      return execFileSync("reg.exe", ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"], {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 3000,
+      }).match(/MachineGuid\s+REG_SZ\s+([^\r\n]+)/i)?.[1].trim() || os.hostname();
+    } catch {
+      return os.hostname();
+    }
   }
 
   getSettings(): PrinterAgentSettings {

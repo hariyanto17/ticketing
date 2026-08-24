@@ -2,7 +2,7 @@ import { Tray, Menu, app, nativeImage, shell } from "electron";
 
 export class PrinterTray {
   private tray: Tray | null = null;
-  constructor() {
+  constructor(private readonly deviceId: string) {
     this.tray = new Tray(nativeImage.createEmpty());
     const contextMenu = Menu.buildFromTemplate([
       { label: "Planet Cinema Printer Agent", enabled: false },
@@ -18,7 +18,9 @@ export class PrinterTray {
   }
 
   private openSetup() {
-    void shell.openExternal(process.env.CINEMA_PRINTER_SETTINGS_URL || "https://ticketing-fe.168billiard.online/printer-settings");
+    const setupUrl = process.env.CINEMA_PRINTER_SETTINGS_URL || "https://ticketing-fe.168billiard.online/printer-settings";
+    const separator = setupUrl.includes("#") ? "&" : "#";
+    void shell.openExternal(`${setupUrl}${separator}printer-agent-device-id=${encodeURIComponent(this.deviceId)}`);
   }
 
   destroy() {

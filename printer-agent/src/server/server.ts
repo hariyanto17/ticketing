@@ -14,7 +14,7 @@ export class PrinterAgentServer {
 
   constructor(configService: ConfigService) {
     this.configService = configService;
-    this.authService = new AuthService(configService.getToken());
+    this.authService = new AuthService(configService.getDeviceId());
 
     this.printerService = createPrinterService(configService.getConfig());
 
@@ -23,13 +23,13 @@ export class PrinterAgentServer {
       origin: (_origin, callback) => callback(null, true),
       credentials: true,
       methods: ["GET", "POST", "PUT", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "X-Printer-Agent-Token"],
+      allowedHeaders: ["Content-Type", "X-Printer-Agent-Device-Id"],
     }));
 
     this.app.use((req, res, next) => {
-      const token = req.headers["x-printer-agent-token"]?.toString();
-      if (!this.authService.validate(token)) {
-        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or missing printer token." } });
+      const deviceId = req.headers["x-printer-agent-device-id"]?.toString();
+      if (!this.authService.validateDeviceId(deviceId)) {
+        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or missing printer agent device ID." } });
       }
       next();
     });

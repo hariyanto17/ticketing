@@ -1,24 +1,55 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useGetOrderByIdQuery } from "@/services/orderApi";
 import { Spinner } from "@/components/ui/spinner";
 import { Printer, ArrowLeft } from "lucide-react";
+import { createPrinterAgentClient, getPrinterAgentDeviceId } from "@/services/printerAgentClient";
 
 export default function PrintTickets() {
   const params = useParams();
   const orderId = params.id as string;
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const { data: orderResponse, isLoading } = useGetOrderByIdQuery(orderId);
 
-  // Trigger print dialog automatically when loaded
   useEffect(() => {
     if (orderResponse?.data) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 800);
-      return () => clearTimeout(timer);
+      const order = orderResponse.data;
+      const deviceId = getPrinterAgentDeviceId();
+      if (!deviceId) {
+        setPrintError("Printer agent belum terhubung ke perangkat ini.");
+        return;
+      }
+
+      const client = createPrinterAgentClient();
+      const startTime = new Date(order.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const showDate = new Date(order.schedule.businessDate).toLocaleDateString("en-CA");
+      const price = order.totalAmount / order.tickets.length;
+
+      void (async () => {
+        try {
+          for (const ticket of order.tickets) {
+            await client.printTicket({
+              mode: "print",
+              ticketNumber: ticket.ticketNumber,
+              orderNumber: order.orderNumber,
+              movie: order.schedule.movie.title,
+              studio: `${order.schedule.studio.name} (${order.schedule.studio.code})`,
+              showDate,
+              showTime: startTime,
+              seat: ticket.showtimeSeat?.seat?.seatLabel || "TBD",
+              price,
+              totalAmount: order.totalAmount,
+              qrCode: ticket.qrCode,
+              customerName: order.customerName || undefined,
+            });
+          }
+        } catch (error: any) {
+          setPrintError(error?.message || "Gagal mencetak melalui printer agent.");
+        }
+      })();
     }
   }, [orderResponse]);
 
@@ -63,6 +94,12 @@ export default function PrintTickets() {
           <Printer className="w-4 h-4" /> Print Screen
         </button>
       </div>
+
+      {printError && (
+        <div className="max-w-md mx-auto mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs text-amber-800 print:hidden">
+          {printError} You can use Print Screen as a browser fallback.
+        </div>
+      )}
 
       {/* Ticket List */}
       <div className="space-y-8 max-w-sm mx-auto">

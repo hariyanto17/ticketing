@@ -9,6 +9,7 @@ import routes from "./routes";
 import { errorHandler } from "./utils/errorHandler";
 import { initSocket } from "./utils/socket";
 import { PORT } from "./config/constant";
+import internalRouter from "./modules/internal/router";
 
 dotenv.config();
 
@@ -24,8 +25,11 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "OK", timestamp: new Date() });
+});
+
 app.use("/api", routes);
-import internalRouter from "./routes/internal";
 app.use("/api/internal", internalRouter);
 
 app.use(errorHandler);

@@ -25,6 +25,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use("/api", routes);
+import internalRouter from "./routes/internal";
+app.use("/api/internal", internalRouter);
 
 app.use(errorHandler);
 

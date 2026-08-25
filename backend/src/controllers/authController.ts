@@ -184,3 +184,32 @@ export const sso = async (req: Request, res: Response) => {
     null,
   );
 };
+
+export const ssoSync = async (req: Request, res: Response) => {
+  const { platformUserId, status, role } = req.body;
+  if (!platformUserId) {
+    throw new AppError("BAD_REQUEST", "platformUserId is required");
+  }
+
+  const localUser = await prisma.user.findUnique({
+    where: { platformUserId },
+  });
+
+  if (localUser) {
+    const isActive = status === "ACTIVE" && role !== null;
+    const data: any = { isActive };
+    if (role) {
+      const roleName = role === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier";
+      const dbRole = await prisma.role.findFirst({ where: { name: roleName } });
+      if (dbRole) {
+        data.roleId = dbRole.id;
+      }
+    }
+    await prisma.user.update({
+      where: { id: localUser.id },
+      data,
+    });
+  }
+
+  return responseHandler.ok(res, null, "User synced successfully", null);
+};

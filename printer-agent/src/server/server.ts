@@ -121,7 +121,14 @@ export class PrinterAgentServer {
     if (payload.mode !== undefined && payload.mode !== "print" && payload.mode !== "reprint") {
       return { ok: false, code: "INVALID_PAYLOAD", message: "mode must be print or reprint." };
     }
-    const stringFields = ["jobId", "ticketNumber", "orderNumber", "movie", "studio", "showDate", "showTime", "seat", "qrCode"];
+    const requiredStringFields = ["movie", "studio", "showDate", "showTime", "seat", "row"];
+    for (const field of requiredStringFields) {
+      if (typeof payload[field] !== "string" || !payload[field].trim()) {
+        return { ok: false, code: "INVALID_PAYLOAD", message: `${field} is required.` };
+      }
+    }
+
+    const stringFields = ["jobId", "ticketNumber", "orderNumber", "movie", "studio", "showDate", "showTime", "seat", "row", "qrCode"];
     for (const field of stringFields) {
       if (payload[field] !== undefined && typeof payload[field] !== "string") {
         return { ok: false, code: "INVALID_PAYLOAD", message: `${field} must be a string when provided.` };
@@ -130,8 +137,11 @@ export class PrinterAgentServer {
     if (!payload.ticketNumber && !payload.orderNumber) {
       return { ok: false, code: "INVALID_PAYLOAD", message: "ticketNumber or orderNumber is required." };
     }
-    if (payload.price !== undefined && (typeof payload.price !== "number" || !Number.isFinite(payload.price) || payload.price < 0)) {
-      return { ok: false, code: "INVALID_PAYLOAD", message: "price must be a non-negative number when provided." };
+    if (typeof payload.seatNumber !== "number" || !Number.isInteger(payload.seatNumber) || payload.seatNumber < 1) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "seatNumber is required and must be a positive integer." };
+    }
+    if (typeof payload.price !== "number" || !Number.isFinite(payload.price) || payload.price < 0) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "price is required and must be a non-negative number." };
     }
     if (payload.totalAmount !== undefined && (typeof payload.totalAmount !== "number" || !Number.isFinite(payload.totalAmount) || payload.totalAmount < 0)) {
       return { ok: false, code: "INVALID_PAYLOAD", message: "totalAmount must be a non-negative number when provided." };

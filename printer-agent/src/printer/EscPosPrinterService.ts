@@ -50,6 +50,8 @@ export class EscPosPrinterService implements PrinterService {
       showDate: new Date().toISOString().slice(0, 10),
       showTime: "19:30",
       seat: "A1",
+      row: "A",
+      seatNumber: 1,
       price: 50000,
       qrCode: "https://example.com/test-ticket",
     });

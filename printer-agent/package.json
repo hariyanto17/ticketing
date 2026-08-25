@@ -1,6 +1,6 @@
 {
   "name": "planet-cinema-printer-agent",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "description": "Local printer agent for Planet Cinema cashiers.",
   "main": "dist/main/main.js",

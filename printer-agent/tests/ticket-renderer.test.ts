@@ -10,6 +10,8 @@ const payload = {
   showDate: "2026-08-21",
   showTime: "19:30",
   seat: "A1",
+  row: "A",
+  seatNumber: 1,
   price: 50000,
   qrCode: "https://example.com/ticket/PCM-20260821-0001",
 };

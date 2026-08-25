@@ -4,7 +4,8 @@ import type { TicketPrintPayload } from "./PrinterService.js";
 const ESC = 0x1b;
 const GS = 0x1d;
 const LF = 0x0a;
-const LEFT_MARGIN_DOTS = 12;
+const LEFT_MARGIN_DOTS = 24;
+const LEFT_MARGIN_COLUMNS = 3;
 
 export interface TicketRenderOptions {
   paperWidth: 58 | 80;
@@ -18,10 +19,12 @@ export class TicketRenderer {
     const parts: Buffer[] = [Buffer.from([ESC, 0x40, GS, 0x4c, LEFT_MARGIN_DOTS, 0x00, ESC, 0x61, 0x00, ESC, 0x45, 0x01])];
 
     for (const line of lines) {
-      parts.push(Buffer.from(`${line.slice(0, width).padEnd(width, " ")}\n`, "utf8"));
+      const contentWidth = width - LEFT_MARGIN_COLUMNS;
+      parts.push(Buffer.from(`${" ".repeat(LEFT_MARGIN_COLUMNS)}${line.slice(0, contentWidth).padEnd(contentWidth, " ")}\n`, "utf8"));
     }
 
     if (payload.qrCode) {
+      parts.push(Buffer.from(" ".repeat(LEFT_MARGIN_COLUMNS), "utf8"));
       parts.push(this.renderQr(payload.qrCode));
     }
 

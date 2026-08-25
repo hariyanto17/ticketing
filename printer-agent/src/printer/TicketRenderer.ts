@@ -1,4 +1,3 @@
-import QRCode from "qrcode-generator";
 import type { TicketPrintPayload } from "./PrinterService.js";
 
 const ESC = 0x1b;
@@ -21,11 +20,6 @@ export class TicketRenderer {
     for (const line of lines) {
       const contentWidth = width - LEFT_MARGIN_COLUMNS;
       parts.push(Buffer.from(`${" ".repeat(LEFT_MARGIN_COLUMNS)}${line.slice(0, contentWidth).padEnd(contentWidth, " ")}\n`, "utf8"));
-    }
-
-    if (payload.qrCode) {
-      parts.push(Buffer.from(" ".repeat(LEFT_MARGIN_COLUMNS), "utf8"));
-      parts.push(this.renderQr(payload.qrCode));
     }
 
     parts.push(Buffer.from([ESC, 0x45, 0x00, ESC, 0x64, 0x03, LF]));
@@ -62,18 +56,4 @@ export class TicketRenderer {
     ];
   }
 
-  private renderQr(data: string): Buffer {
-    const qr = QRCode(0, "M");
-    qr.addData(data);
-    qr.make();
-
-    const content = Buffer.from(data, "utf8");
-    const storeLength = content.length + 3;
-    const store = Buffer.from([GS, 0x28, 0x6b, storeLength & 0xff, (storeLength >> 8) & 0xff, 0x31, 0x50, 0x30]);
-    const size = Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06]);
-    const errorCorrection = Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]);
-    const print = Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]);
-
-    return Buffer.concat([store, content, size, errorCorrection, print]);
-  }
 }

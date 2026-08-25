@@ -14,14 +14,14 @@ const payload = {
   qrCode: "https://example.com/ticket/PCM-20260821-0001",
 };
 
-test("TicketRenderer emits deterministic ESC/POS initialization, text, QR, feed, and cut", () => {
+test("TicketRenderer emits deterministic ESC/POS initialization, text, feed, and cut", () => {
   const buffer = new TicketRenderer().render(payload, { paperWidth: 80, autoCut: true });
   assert.deepEqual(buffer.subarray(0, 9), Buffer.from([0x1b, 0x40, 0x1d, 0x4c, 0x18, 0x00, 0x1b, 0x61, 0x00]));
   assert.match(buffer.toString("utf8"), /   =+\n/);
   assert.match(buffer.toString("utf8"), /PLANET CINEMA/);
   assert.match(buffer.toString("utf8"), /Price: Rp 50\.000/);
-  assert.match(buffer.toString("utf8"), /https:\/\/example.com\/ticket\/PCM-20260821-0001/);
-  assert.ok(buffer.includes(Buffer.from([0x1d, 0x28, 0x6b])));
+  assert.equal(buffer.includes(Buffer.from("https://example.com/ticket/PCM-20260821-0001", "utf8")), false);
+  assert.equal(buffer.includes(Buffer.from([0x1d, 0x28, 0x6b])), false);
   assert.ok(buffer.includes(Buffer.from([0x1b, 0x64, 0x03])));
   assert.ok(buffer.includes(Buffer.from([0x1d, 0x56, 0x42, 0x00])));
 });

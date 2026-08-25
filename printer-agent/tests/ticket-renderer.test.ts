@@ -16,7 +16,7 @@ const payload = {
 
 test("TicketRenderer emits deterministic ESC/POS initialization, text, QR, feed, and cut", () => {
   const buffer = new TicketRenderer().render(payload, { paperWidth: 80, autoCut: true });
-  assert.deepEqual(buffer.subarray(0, 7), Buffer.from([0x1b, 0x40, 0x1b, 0x61, 0x00, 0x1b, 0x45]));
+  assert.deepEqual(buffer.subarray(0, 9), Buffer.from([0x1b, 0x40, 0x1d, 0x4c, 0x0c, 0x00, 0x1b, 0x61, 0x00]));
   assert.match(buffer.toString("utf8"), /PLANET CINEMA/);
   assert.match(buffer.toString("utf8"), /https:\/\/example.com\/ticket\/PCM-20260821-0001/);
   assert.ok(buffer.includes(Buffer.from([0x1d, 0x28, 0x6b])));

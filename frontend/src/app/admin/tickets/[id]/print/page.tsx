@@ -24,7 +24,7 @@ export default function PrintTickets() {
       }
 
       const client = createPrinterAgentClient();
-      const startTime = new Date(order.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const startTime = new Date(order.schedule.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
       const showDate = new Date(order.schedule.businessDate).toLocaleDateString("en-CA");
       const price = order.totalAmount / order.tickets.length;
 
@@ -36,10 +36,12 @@ export default function PrintTickets() {
               ticketNumber: ticket.ticketNumber,
               orderNumber: order.orderNumber,
               movie: order.schedule.movie.title,
-              studio: `${order.schedule.studio.name} (${order.schedule.studio.code})`,
+              studio: order.schedule.studio.name,
               showDate,
               showTime: startTime,
-              seat: ticket.showtimeSeat?.seat?.seatLabel || "TBD",
+              seat: ticket.showtimeSeat?.seat?.seatLabel,
+              row: ticket.showtimeSeat?.seat?.row,
+              seatNumber: ticket.showtimeSeat?.seat?.seatNumber,
               price,
               totalAmount: order.totalAmount,
               qrCode: ticket.qrCode,

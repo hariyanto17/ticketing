@@ -14,13 +14,17 @@ export interface TicketRenderOptions {
 export class TicketRenderer {
   render(payload: TicketPrintPayload, options: TicketRenderOptions): Buffer {
     const width = options.paperWidth === 58 ? 32 : 42;
-    const lines = this.renderLines(payload, width);
-    const parts: Buffer[] = [Buffer.from([ESC, 0x40, GS, 0x4c, LEFT_MARGIN_DOTS, 0x00, ESC, 0x61, 0x00, ESC, 0x45, 0x01])];
+    const parts: Buffer[] = [Buffer.from([ESC, 0x40, GS, 0x4c, LEFT_MARGIN_DOTS, 0x00, ESC, 0x61, 0x00])];
 
-    for (const line of lines) {
-      const contentWidth = width - LEFT_MARGIN_COLUMNS;
-      parts.push(Buffer.from(`${" ".repeat(LEFT_MARGIN_COLUMNS)}${line.slice(0, contentWidth).padEnd(contentWidth, " ")}\n`, "utf8"));
+    parts.push(Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]));
+    parts.push(this.renderLine(payload.movie || "PLANET CINEMA", width, true));
+    parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]));
+
+    for (const line of this.renderLines(payload, width)) {
+      parts.push(this.renderLine(line, width));
     }
+
+    parts.push(this.renderLine("-".repeat(width - LEFT_MARGIN_COLUMNS), width));
 
     parts.push(Buffer.from([ESC, 0x45, 0x00, ESC, 0x64, 0x03, LF]));
     if (options.autoCut) {
@@ -37,23 +41,25 @@ export class TicketRenderer {
     }).format(price);
 
     return [
-      "=".repeat(width),
-      "PLANET CINEMA".padStart(Math.floor((width + 14) / 2)).padEnd(width),
-      "=".repeat(width),
+      `tanggal tayang : ${formatDate(payload.showDate)}`,
+      `jam tayang : ${payload.showTime || "-"}`,
+      `harga : Rp ${formattedPrice}`,
       "",
-      (payload.movie || "PLANET CINEMA").slice(0, width),
-      "",
-      `Studio: ${payload.studio || "-"}`,
-      `${payload.showDate || "-"} ${payload.showTime || "-"}`,
-      "",
-      `Seat: ${payload.seat || "-"}`,
-      `Ticket: ${payload.ticketNumber || "-"}`,
-      `Order: ${payload.orderNumber || "-"}`,
-      `Price: Rp ${formattedPrice}`,
-      "",
-      "Please keep this ticket for entry validation.",
-      "=".repeat(width),
+      `row: ${payload.row || payload.seat?.charAt(0) || "-"} seat ${payload.seatNumber ?? (payload.seat?.slice(1) || "-")} studio ${payload.studio || "-"}`,
     ];
   }
 
+  private renderLine(line: string, width: number, centered = false): Buffer {
+    const contentWidth = width - LEFT_MARGIN_COLUMNS;
+    const content = line.slice(0, contentWidth);
+    const padded = centered ? content.padStart(Math.floor((contentWidth + content.length) / 2)).padEnd(contentWidth, " ") : content.padEnd(contentWidth, " ");
+    return Buffer.from(`${" ".repeat(LEFT_MARGIN_COLUMNS)}${padded}\n`, "utf8");
+  }
+
+}
+
+function formatDate(value?: string): string {
+  if (!value) return "-";
+  const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
 }

@@ -13,6 +13,8 @@ export interface TicketPrintPayload {
   showDate?: string;
   showTime?: string;
   seat?: string;
+  row?: string;
+  seatNumber?: number;
   price?: number;
   qrCode?: string;
   customerName?: string;

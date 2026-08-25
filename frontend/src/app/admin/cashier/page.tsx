@@ -219,7 +219,7 @@ export default function CashierWorkspace() {
     try {
       setIsPrinting(true);
       const client = createPrinterAgentClient();
-      const startTime = new Date(selectedSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const startTime = new Date(selectedSchedule.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
       const showDate = new Date(selectedSchedule.businessDate).toLocaleDateString("en-CA");
       const price = order.totalAmount / tickets.length;
 
@@ -229,10 +229,12 @@ export default function CashierWorkspace() {
           ticketNumber: ticket.ticketNumber,
           orderNumber: order.orderNumber,
           movie: selectedSchedule.movie.title,
-          studio: `${selectedSchedule.studio.name} (${selectedSchedule.studio.code})`,
+          studio: selectedSchedule.studio.name,
           showDate,
           showTime: startTime,
-          seat: ticket.showtimeSeat?.seat?.seatLabel || "TBD",
+          seat: ticket.showtimeSeat?.seat?.seatLabel,
+          row: ticket.showtimeSeat?.seat?.row,
+          seatNumber: ticket.showtimeSeat?.seat?.seatNumber,
           price,
           totalAmount: order.totalAmount,
           qrCode: ticket.qrCode,

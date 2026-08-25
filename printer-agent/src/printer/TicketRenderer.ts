@@ -39,8 +39,6 @@ export class TicketRenderer {
   private renderLines(payload: TicketPrintPayload, width: number): string[] {
     const price = payload.price ?? payload.totalAmount ?? 0;
     const formattedPrice = new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
       maximumFractionDigits: 0,
     }).format(price);
 
@@ -57,7 +55,7 @@ export class TicketRenderer {
       `Seat: ${payload.seat || "-"}`,
       `Ticket: ${payload.ticketNumber || "-"}`,
       `Order: ${payload.orderNumber || "-"}`,
-      `Price: ${formattedPrice}`,
+      `Price: Rp ${formattedPrice}`,
       "",
       "Please keep this ticket for entry validation.",
       "=".repeat(width),

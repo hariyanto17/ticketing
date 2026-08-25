@@ -19,6 +19,7 @@ test("TicketRenderer emits deterministic ESC/POS initialization, text, QR, feed,
   assert.deepEqual(buffer.subarray(0, 9), Buffer.from([0x1b, 0x40, 0x1d, 0x4c, 0x18, 0x00, 0x1b, 0x61, 0x00]));
   assert.match(buffer.toString("utf8"), /   =+\n/);
   assert.match(buffer.toString("utf8"), /PLANET CINEMA/);
+  assert.match(buffer.toString("utf8"), /Price: Rp 50\.000/);
   assert.match(buffer.toString("utf8"), /https:\/\/example.com\/ticket\/PCM-20260821-0001/);
   assert.ok(buffer.includes(Buffer.from([0x1d, 0x28, 0x6b])));
   assert.ok(buffer.includes(Buffer.from([0x1b, 0x64, 0x03])));

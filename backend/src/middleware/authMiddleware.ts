@@ -22,6 +22,59 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return next(new AppError("UNAUTHORIZED", "Invalid authentication token or account disabled"));
     }
 
+    // Platform Session Revalidation
+    if (user.platformUserId) {
+      try {
+        const platformApiUrl = process.env.PLATFORM_API_URL || "http://localhost:5000";
+        const apiKey = process.env.PLATFORM_INTERNAL_API_KEY || "platform-internal-secret-key-123";
+
+        const platformRes = await fetch(
+          `${platformApiUrl}/api/applications/users/${user.platformUserId}/context?application=TICKETING`,
+          {
+            headers: {
+              "x-platform-internal-key": apiKey,
+            },
+          }
+        );
+
+        if (platformRes.status === 401 || platformRes.status === 403) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { isActive: false },
+          });
+          return next(new AppError("UNAUTHORIZED", "Your access to this application is no longer available."));
+        } else if (platformRes.status === 404) {
+          return next(new AppError("UNAUTHORIZED", "User no longer exists on Platform"));
+        } else if (platformRes.ok) {
+          const envelope = await platformRes.json() as any;
+          const platformContext = envelope.data;
+
+          if (platformContext.status !== "ACTIVE") {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { isActive: false },
+            });
+            return next(new AppError("UNAUTHORIZED", "Your account is disabled on Platform"));
+          }
+
+          // Sync role changes if any
+          const roleName = platformContext.application.role === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier";
+          if (user.role.name !== roleName) {
+            const dbRole = await prisma.role.findFirst({ where: { name: roleName } });
+            if (dbRole) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { roleId: dbRole.id },
+              });
+              user.role = dbRole;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Platform revalidation temporarily unavailable", err);
+      }
+    }
+
     req.user = {
       id: user.id,
       username: user.username,

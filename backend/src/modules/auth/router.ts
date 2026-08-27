@@ -1,14 +1,13 @@
 import { Router } from "express";
-import { loginController, logoutController, meController } from "./controller";
-import { sso, ssoSync } from "../../controllers/authController";
+import { loginController, logoutController, meController, ssoController, ssoSyncController } from "./controller";
 import { catchAsync } from "../../utils/catchAsync";
 import { authMiddleware } from "../../middleware/authMiddleware";
 
 const router = Router();
 
 router.post("/login", catchAsync(loginController));
-router.post("/sso", catchAsync(sso));
-router.post("/sso/sync", catchAsync(ssoSync));
+router.post("/sso", catchAsync(ssoController));
+router.post("/sso/sync", catchAsync(ssoSyncController));
 router.post("/logout", catchAsync(logoutController));
 router.get("/me", catchAsync(authMiddleware), catchAsync(meController));
 

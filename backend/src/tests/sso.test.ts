@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sso } from "../controllers/authController";
-import { prisma } from "../lib/prisma";
+import { sso } from "../modules/auth/controller";
+import { prisma } from "../config/prisma";
 
 test("Ticketing SSO authentication unit flow", async (t) => {
   await t.test("Verify: exchange is resolved correctly and local user created", async () => {

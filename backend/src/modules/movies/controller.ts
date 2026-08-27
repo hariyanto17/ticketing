@@ -7,7 +7,7 @@ import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
 
 export const getMoviesController = async (req: Request, res: Response) => {
-  const { page, limit, search, status, genreId, sortBy, sortOrder, hasSchedule } = req.query;
+  const { page, limit, search, status, genreId, sortBy, sortOrder, hasSchedule, scheduleStartDate, scheduleEndDate, startDate, endDate } = req.query;
 
   const result = await movieService.getAllMovies({
     page: page ? Number(page) : undefined,
@@ -18,6 +18,8 @@ export const getMoviesController = async (req: Request, res: Response) => {
     sortBy: sortBy as string,
     sortOrder: sortOrder as any,
     hasSchedule: hasSchedule === "true",
+    scheduleStartDate: (scheduleStartDate || startDate) as string,
+    scheduleEndDate: (scheduleEndDate || endDate) as string,
   });
 
   return responseHandler.ok(res, result.movies, "Movies retrieved", result.meta);

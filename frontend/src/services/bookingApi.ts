@@ -10,18 +10,25 @@ export interface BookingResponse {
 
 export const bookingApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getPublicMovies: builder.query<{ success: boolean; data: Movie[] }, { status?: string } | void>({
+    getPublicMovies: builder.query<{ success: boolean; data: Movie[] }, { status?: string; startDate?: string; hasSchedule?: boolean } | void>({
       query: (params) => {
-        const queryStr = params?.status ? `?status=${params.status}` : "";
+        const queryParams = new URLSearchParams();
+        if (params?.status) queryParams.append("status", params.status);
+        if (params?.startDate) queryParams.append("startDate", params.startDate);
+        if (params?.hasSchedule !== undefined) queryParams.append("hasSchedule", String(params.hasSchedule));
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
         return `/bookings/movies${queryStr}`;
       },
     }),
     getPublicMovieById: builder.query<{ success: boolean; data: Movie }, string>({
       query: (id) => `/bookings/movies/${id}`,
     }),
-    getPublicSchedules: builder.query<{ success: boolean; data: Schedule[] }, { movieId?: string } | void>({
+    getPublicSchedules: builder.query<{ success: boolean; data: Schedule[] }, { movieId?: string; startDate?: string } | void>({
       query: (params) => {
-        const queryStr = params?.movieId ? `?movieId=${params.movieId}` : "";
+        const queryParams = new URLSearchParams();
+        if (params?.movieId) queryParams.append("movieId", params.movieId);
+        if (params?.startDate) queryParams.append("startDate", params.startDate);
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
         return `/bookings/schedules${queryStr}`;
       },
       providesTags: ["Schedule"],

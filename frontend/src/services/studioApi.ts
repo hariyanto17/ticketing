@@ -117,7 +117,10 @@ export const studioApi = api.injectEndpoints({
     }),
 
     // Schedules
-    getSchedules: builder.query<ApiResponse<Schedule[]>, { movieId?: string; studioId?: string; status?: string }>({
+    getSchedules: builder.query<
+      ApiResponse<Schedule[]>,
+      { movieId?: string; studioId?: string; status?: string; startDate?: string; endDate?: string; minDate?: string }
+    >({
       query: (params) => ({
         url: "/schedules",
         params,

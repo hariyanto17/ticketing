@@ -6,12 +6,14 @@ import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
 
 export const getSchedulesController = async (req: Request, res: Response) => {
-  const { movieId, studioId, status } = req.query;
+  const { movieId, studioId, status, startDate, endDate, minDate } = req.query;
 
   const schedules = await scheduleService.getAllSchedules({
     movieId: movieId as string,
     studioId: studioId as string,
     status: status as string,
+    startDate: (startDate || minDate) as string,
+    endDate: endDate as string,
   });
 
   return responseHandler.ok(res, schedules, "Schedules retrieved");

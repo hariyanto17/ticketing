@@ -80,7 +80,7 @@ export const sso = async (req: Request, res: Response) => {
     throw new AppError("BAD_REQUEST", "SSO exchange code is required");
   }
 
-  const platformApiUrl = process.env.PLATFORM_API_URL || "http://localhost:5000";
+  const platformApiUrl = process.env.PLATFORM_API_URL || process.env.PLATFORM_URL || "http://localhost:4000";
   
   const platformRes = await fetch(`${platformApiUrl}/api/applications/exchange`, {
     method: "POST",

@@ -6,6 +6,7 @@ import { useGetUsersQuery } from "@/services/userApi";
 import { useToast } from "@/components/ui/toast";
 import { DataTable } from "@/components/ui/data-table";
 import { Input, Select, Button } from "@/components/ui/form-controls";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Receipt, Search, Calendar, User as UserIcon, Printer, Trash2, RotateCcw, AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
@@ -181,8 +182,18 @@ export default function TransactionHistory() {
       {/* Filter Toolbar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl">
         <Select label={t("transactions.cashier")} options={cashierOptions} onChange={(e) => setCashierFilter(e.target.value)} />
-        <Input label={t("transactions.startDate")} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        <Input label={t("transactions.endDate")} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        <DateTimePicker
+          mode="date"
+          label={t("transactions.startDate")}
+          value={startDate}
+          onChange={(val) => setStartDate(val || "")}
+        />
+        <DateTimePicker
+          mode="date"
+          label={t("transactions.endDate")}
+          value={endDate}
+          onChange={(val) => setEndDate(val || "")}
+        />
         <Input
           label={t("transactions.searchOrder")}
           placeholder={t("transactions.searchPlaceholder")}

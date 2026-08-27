@@ -11,6 +11,8 @@ interface GetMoviesQuery {
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   hasSchedule?: boolean;
+  scheduleStartDate?: string;
+  scheduleEndDate?: string;
 }
 
 export const getAllMovies = async (query: GetMoviesQuery) => {
@@ -43,10 +45,22 @@ export const getAllMovies = async (query: GetMoviesQuery) => {
   }
 
   if (query.hasSchedule) {
+    const minDate = query.scheduleStartDate ? new Date(query.scheduleStartDate) : new Date();
+    minDate.setHours(0, 0, 0, 0);
+
+    const showtimeWhere: any = {
+      status: "PUBLISHED",
+      businessDate: { gte: minDate },
+    };
+
+    if (query.scheduleEndDate) {
+      const maxDate = new Date(query.scheduleEndDate);
+      maxDate.setHours(23, 59, 59, 999);
+      showtimeWhere.businessDate.lte = maxDate;
+    }
+
     where.showtimes = {
-      some: {
-        status: "PUBLISHED",
-      },
+      some: showtimeWhere,
     };
   }
 

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGetPublicMovieByIdQuery, useGetPublicSchedulesQuery } from "@/services/bookingApi";
 import { Spinner } from "@/components/ui/spinner";
-import { ArrowLeft, Clock, Film, Calendar, Building2, Truck, Languages, PlayCircle } from "lucide-react";
+import { ArrowLeft, Clock, Film, Calendar, Building2, Languages, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 
@@ -25,8 +25,16 @@ export default function PublicMovieDetail() {
   const movieId = params.id as string;
   const { t, locale, formatDate } = useTranslation();
 
+  const todayStr = React.useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
   const { data: movieResponse, isLoading: movieLoading } = useGetPublicMovieByIdQuery(movieId);
-  const { data: schedulesResponse, isLoading: schedulesLoading } = useGetPublicSchedulesQuery({ movieId });
+  const { data: schedulesResponse, isLoading: schedulesLoading } = useGetPublicSchedulesQuery({ movieId, startDate: todayStr });
 
   const [selectedDate, setSelectedDate] = useState<string>("");
 
@@ -123,18 +131,12 @@ export default function PublicMovieDetail() {
               <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">{movie.synopsis || t("movieDetail.noSynopsis")}</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
                   <Building2 className="w-4 h-4 text-indigo-500" /> {t("movieDetail.productionHouse")}
                 </div>
                 <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{movie.productionHouse?.name || t("movieDetail.unavailable")}</p>
-              </div>
-              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  <Truck className="w-4 h-4 text-indigo-500" /> {t("movieDetail.distributor")}
-                </div>
-                <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{movie.distributor?.name || t("movieDetail.unavailable")}</p>
               </div>
             </div>
 

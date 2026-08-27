@@ -13,17 +13,30 @@ export interface TicketRenderOptions {
 export class TicketRenderer {
   render(payload: TicketPrintPayload, options: TicketRenderOptions): Buffer {
     const width = options.paperWidth === 58 ? 32 : 42;
-    const lines = this.renderLines(payload, width);
     const parts: Buffer[] = [Buffer.from([ESC, 0x40, ESC, 0x61, 0x00, ESC, 0x45, 0x01])];
 
-    for (const line of lines) {
-      parts.push(Buffer.from(`${line.slice(0, width).padEnd(width, " ")}\n`, "utf8"));
+    // 1. Customer Copy (Full Ticket)
+    const customerLines = this.renderCustomerLines(payload, width);
+    for (const line of customerLines) {
+      parts.push(Buffer.from(`${this.formatLine(line, width)}\n`, "utf8"));
     }
 
+    // Customer QR Code (only on first copy)
     if (payload.qrCode) {
       parts.push(this.renderQr(payload.qrCode));
     }
 
+    // 2. Cut Here Separator
+    const separatorLine = this.renderCutSeparator(width);
+    parts.push(Buffer.from(`\n${this.formatLine(separatorLine, width)}\n\n`, "utf8"));
+
+    // 3. Staff Copy (Compact Slip)
+    const staffLines = this.renderStaffLines(payload, width);
+    for (const line of staffLines) {
+      parts.push(Buffer.from(`${this.formatLine(line, width)}\n`, "utf8"));
+    }
+
+    // Finalize
     parts.push(Buffer.from([ESC, 0x45, 0x00, ESC, 0x64, 0x03, LF]));
     if (options.autoCut) {
       parts.push(Buffer.from([GS, 0x56, 0x42, 0x00]));
@@ -32,32 +45,128 @@ export class TicketRenderer {
     return Buffer.concat(parts);
   }
 
-  private renderLines(payload: TicketPrintPayload, width: number): string[] {
-    const price = payload.price ?? payload.totalAmount ?? 0;
-    const formattedPrice = new Intl.NumberFormat("id-ID", {
+  private renderCustomerLines(payload: TicketPrintPayload, width: number): string[] {
+    const formattedPrice = this.formatPrice(payload.price, payload.totalAmount);
+    const movieTitle = (payload.movie || "PLANET CINEMA").toUpperCase();
+    const movieLines = this.wrapText(movieTitle, width);
+
+    const lines: string[] = [
+      "=".repeat(width),
+      this.centerText("Planet Cinema", width),
+      this.centerText("Bone", width),
+      "=".repeat(width),
+      "",
+      ...movieLines,
+      "",
+      `SHOW DATE : ${payload.showDate || "-"}`,
+      `SHOW TIME : ${payload.showTime || "-"}`,
+      `Price     : ${formattedPrice}`,
+      "",
+      `Studio: ${payload.studio || "-"}   Seat: ${payload.seat || "-"}`,
+      `Ticket: ${payload.ticketNumber || "-"}`,
+    ];
+
+    if (payload.orderNumber) {
+      lines.push(`Order : ${payload.orderNumber}`);
+    }
+
+    lines.push(
+      "",
+      "Please keep this ticket for entry.",
+      "=".repeat(width)
+    );
+
+    return lines;
+  }
+
+  private renderStaffLines(payload: TicketPrintPayload, width: number): string[] {
+    const formattedPrice = this.formatPrice(payload.price, payload.totalAmount);
+    const movieTitle = (payload.movie || "PLANET CINEMA").toUpperCase();
+    const movieLines = this.wrapText(movieTitle, width);
+
+    const lines: string[] = [
+      "Planet Cinema - Bone",
+      ...movieLines,
+      `${payload.showDate || "-"}  ${payload.showTime || "-"}`,
+    ];
+
+    const studioSeatPrice = `Studio: ${payload.studio || "-"}  Seat: ${payload.seat || "-"}  Price: ${formattedPrice}`;
+    if (studioSeatPrice.length <= width) {
+      lines.push(studioSeatPrice);
+    } else {
+      lines.push(`Studio: ${payload.studio || "-"}  Seat: ${payload.seat || "-"}`);
+      lines.push(`Price: ${formattedPrice}`);
+    }
+
+    lines.push(`Ticket: ${payload.ticketNumber || "-"}`);
+    lines.push("-".repeat(width));
+
+    return lines;
+  }
+
+  private renderCutSeparator(width: number): string {
+    const label = " CUT HERE ";
+    const dashes = Math.max(0, width - label.length);
+    const left = Math.floor(dashes / 2);
+    const right = dashes - left;
+    return `${"-".repeat(left)}${label}${"-".repeat(right)}`;
+  }
+
+  private formatLine(line: string, width: number): string {
+    return line.slice(0, width).padEnd(width, " ");
+  }
+
+  private formatPrice(price?: number, totalAmount?: number): string {
+    const amount = price ?? totalAmount ?? 0;
+    return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       maximumFractionDigits: 0,
-    }).format(price);
+    }).format(amount);
+  }
 
-    return [
-      "=".repeat(width),
-      "PLANET CINEMA".padStart(Math.floor((width + 14) / 2)).padEnd(width),
-      "=".repeat(width),
-      "",
-      (payload.movie || "PLANET CINEMA").slice(0, width),
-      "",
-      `Studio: ${payload.studio || "-"}`,
-      `${payload.showDate || "-"} ${payload.showTime || "-"}`,
-      "",
-      `Seat: ${payload.seat || "-"}`,
-      `Ticket: ${payload.ticketNumber || "-"}`,
-      `Order: ${payload.orderNumber || "-"}`,
-      `Price: ${formattedPrice}`,
-      "",
-      "Please keep this ticket for entry validation.",
-      "=".repeat(width),
-    ];
+  private centerText(text: string, width: number): string {
+    const trimmed = text.trim();
+    if (trimmed.length >= width) return trimmed.slice(0, width);
+    const totalPadding = width - trimmed.length;
+    const leftPadding = Math.floor(totalPadding / 2);
+    return " ".repeat(leftPadding) + trimmed;
+  }
+
+  private wrapText(text: string, maxWidth: number): string[] {
+    if (!text) return [];
+    const words = text.split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = "";
+
+    for (const word of words) {
+      if (!word) continue;
+      if (word.length > maxWidth) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = "";
+        }
+        let remaining = word;
+        while (remaining.length > maxWidth) {
+          lines.push(remaining.slice(0, maxWidth));
+          remaining = remaining.slice(maxWidth);
+        }
+        currentLine = remaining;
+      } else if (!currentLine) {
+        currentLine = word;
+      } else if (currentLine.length + 1 + word.length <= maxWidth) {
+        currentLine += ` ${word}`;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
   }
 
   private renderQr(data: string): Buffer {
@@ -75,3 +184,4 @@ export class TicketRenderer {
     return Buffer.concat([store, content, size, errorCorrection, print]);
   }
 }
+

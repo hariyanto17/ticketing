@@ -2,11 +2,34 @@ import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { CreateScheduleParsed, UpdateScheduleParsed } from "./validation";
 
-export const getAllSchedules = async (query: { movieId?: string; studioId?: string; status?: string }) => {
+export const getAllSchedules = async (query: {
+  movieId?: string;
+  studioId?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  minDate?: string;
+}) => {
   const where: any = {};
   if (query.movieId) where.movieId = query.movieId;
   if (query.studioId) where.studioId = query.studioId;
   if (query.status) where.status = query.status;
+
+  const min = query.startDate || query.minDate;
+  if (min) {
+    const minD = new Date(min);
+    minD.setHours(0, 0, 0, 0);
+    where.businessDate = { gte: minD };
+  }
+
+  if (query.endDate) {
+    const maxD = new Date(query.endDate);
+    maxD.setHours(23, 59, 59, 999);
+    where.businessDate = {
+      ...(where.businessDate || {}),
+      lte: maxD,
+    };
+  }
 
   return prisma.showtime.findMany({
     where,

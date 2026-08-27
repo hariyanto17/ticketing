@@ -9,7 +9,19 @@ import { useTranslation } from "@/lib/i18n";
 
 export default function PublicHome() {
   const [tab, setTab] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
-  const { data: response, isLoading } = useGetPublicMoviesQuery({ status: tab });
+  const todayStr = React.useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const { data: response, isLoading } = useGetPublicMoviesQuery({
+    status: tab,
+    hasSchedule: tab === "NOW_SHOWING" ? true : undefined,
+    startDate: todayStr,
+  });
   const { t } = useTranslation();
 
   return (

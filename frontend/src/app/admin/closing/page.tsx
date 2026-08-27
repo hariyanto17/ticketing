@@ -8,6 +8,7 @@ import {
 } from "@/services/opsApi";
 import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Calendar, DollarSign, Ticket, ShieldAlert, Sparkles, UserCheck } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 
@@ -54,11 +55,11 @@ export default function DailyClosingPage() {
               <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-indigo-600" /> {t("closing.summary")}
               </h2>
-              <input
-                type="date"
+              <DateTimePicker
+                mode="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3.5 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold focus:outline-none"
+                onChange={(val) => val && setSelectedDate(val)}
+                className="w-48"
               />
             </div>
 

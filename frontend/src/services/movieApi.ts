@@ -73,7 +73,10 @@ export interface MovieImportSummary {
 export const movieApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // Movies
-    getMovies: builder.query<ApiResponse<Movie[]>, { page?: number; limit?: number; search?: string; status?: string; genreId?: string; hasSchedule?: boolean }>({
+    getMovies: builder.query<
+      ApiResponse<Movie[]>,
+      { page?: number; limit?: number; search?: string; status?: string; genreId?: string; hasSchedule?: boolean; startDate?: string; scheduleStartDate?: string }
+    >({
       query: (params) => ({
         url: "/movies",
         params,

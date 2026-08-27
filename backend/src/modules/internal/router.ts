@@ -3,6 +3,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import { AppError } from "../../utils/errorHandler";
 import crypto from "crypto";
 import * as controller from "./controller";
+import reportsRouter from "./reports/router";
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.get("/summary", catchAsync(controller.getOperationalSummaryHandler));
 router.get("/analytics", catchAsync(controller.getAnalyticsDataHandler));
 router.get("/activity", catchAsync(controller.getActivityListHandler));
 router.get("/transactions", catchAsync(controller.getTransactionsListHandler));
+router.use("/reports", reportsRouter);
 
 export default router;

@@ -25,7 +25,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     // Platform Session Revalidation
     if (user.platformUserId) {
       try {
-        const platformApiUrl = process.env.PLATFORM_API_URL || "http://localhost:5000";
+        const platformApiUrl = process.env.PLATFORM_API_URL || process.env.PLATFORM_URL || "http://localhost:4000";
         const apiKey = process.env.PLATFORM_INTERNAL_API_KEY || "platform-internal-secret-key-123";
 
         const platformRes = await fetch(

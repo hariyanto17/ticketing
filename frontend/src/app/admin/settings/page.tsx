@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useGetSettingsQuery, useUpdateSettingsMutation } from "@/services/opsApi";
 import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Settings, Film, Receipt, ShieldCheck, HelpCircle } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 
@@ -198,12 +199,11 @@ export default function SettingsPage() {
         {activeTab === "business" && (
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t("settings.operationalBusinessDate")}</label>
-              <input
-                type="date"
+              <DateTimePicker
+                mode="date"
+                label={t("settings.operationalBusinessDate")}
                 value={formData.businessDate || ""}
-                onChange={(e) => handleChange("businessDate", e.target.value)}
-                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+                onChange={(val) => handleChange("businessDate", val || "")}
                 required
               />
             </div>

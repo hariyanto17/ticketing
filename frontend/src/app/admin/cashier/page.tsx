@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useGetMoviesQuery, Movie } from "@/services/movieApi";
 import { useGetSchedulesQuery, useGetScheduleSeatsQuery, useHoldSeatsMutation, useReleaseSeatsMutation, Schedule, ShowtimeSeat } from "@/services/studioApi";
 import { useCheckoutOrderMutation } from "@/services/orderApi";
@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { Button, SearchableSelect } from "@/components/ui/form-controls";
 import { Spinner } from "@/components/ui/spinner";
 import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
-import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X } from "lucide-react";
+import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { io } from "socket.io-client";
 import Link from "next/link";
@@ -28,18 +28,36 @@ export default function CashierWorkspace() {
   const { t, formatDate, formatCurrency } = useTranslation();
 
   // Cash drawer hooks & local state
-  const { data: activeDrawer, isLoading: drawerLoading } = useGetActiveDrawerQuery();
+  const { data: activeDrawer, isLoading: drawerLoading, refetch: refetchActiveDrawer } = useGetActiveDrawerQuery();
   const [openDrawer, { isLoading: isOpeningDrawer }] = useOpenDrawerMutation();
   const [closeDrawer, { isLoading: isClosingDrawer }] = useCloseDrawerMutation();
   const [drawerOpeningBalance, setDrawerOpeningBalance] = useState<number>(0);
   const [drawerActualBalance, setDrawerActualBalance] = useState<number>(0);
+  const [isOpenDrawerModalOpen, setIsOpenDrawerModalOpen] = useState(false);
   const [isCloseDrawerModalOpen, setIsCloseDrawerModalOpen] = useState(false);
   const [drawerSummary, setDrawerSummary] = useState<any | null>(null);
+  const hasPromptedDrawerRef = React.useRef(false);
+
+  // Auto-prompt to open cash drawer once if there is no active session
+  useEffect(() => {
+    if (!drawerLoading && activeDrawer === null && !hasPromptedDrawerRef.current) {
+      hasPromptedDrawerRef.current = true;
+      setIsOpenDrawerModalOpen(true);
+    }
+  }, [drawerLoading, activeDrawer]);
+
+  // Ensure modal closes when activeDrawer session is detected
+  useEffect(() => {
+    if (activeDrawer) {
+      setIsOpenDrawerModalOpen(false);
+    }
+  }, [activeDrawer]);
 
   // Selected state
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<ShowtimeSeat[]>([]);
+  const [showTomorrow, setShowTomorrow] = useState<boolean>(false);
 
   // Checkout states
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
@@ -47,16 +65,70 @@ export default function CashierWorkspace() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState<any | null>(null);
 
-  // Queries
+  // Today's date string in YYYY-MM-DD
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  // Queries (only fetch movies with active schedules from today onwards)
   const { data: moviesResponse, isLoading: moviesLoading, error: moviesError } = useGetMoviesQuery({
     status: "NOW_SHOWING",
     hasSchedule: true,
+    startDate: todayStr,
     limit: 100,
   });
+
   const { data: schedulesResponse, isLoading: schedulesLoading } = useGetSchedulesQuery(
-    { movieId: selectedMovie?.id || undefined, status: "PUBLISHED" },
+    { movieId: selectedMovie?.id || undefined, status: "PUBLISHED", startDate: todayStr },
     { skip: !selectedMovie }
   );
+
+  // Filter schedules to only include Today and Tomorrow (exclude yesterday / past days)
+  const { todaySchedules, tomorrowSchedules } = useMemo(() => {
+    if (!schedulesResponse?.data) {
+      return { todaySchedules: [], tomorrowSchedules: [] };
+    }
+
+    const now = new Date();
+    const formatYMD = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const todayStr = formatYMD(now);
+    const tomorrowObj = new Date(now);
+    tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+    const tomorrowStr = formatYMD(tomorrowObj);
+
+    const getScheduleYMD = (sched: Schedule) => {
+      const d = new Date(sched.businessDate || sched.startTime);
+      return formatYMD(d);
+    };
+
+    const todayList: Schedule[] = [];
+    const tomorrowList: Schedule[] = [];
+
+    for (const s of schedulesResponse.data) {
+      const sYMD = getScheduleYMD(s);
+      if (sYMD === todayStr) {
+        todayList.push(s);
+      } else if (sYMD === tomorrowStr) {
+        tomorrowList.push(s);
+      }
+    }
+
+    // Sort by startTime ascending
+    todayList.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    tomorrowList.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    return { todaySchedules: todayList, tomorrowSchedules: tomorrowList };
+  }, [schedulesResponse?.data]);
 
   const { data: seatsResponse, isLoading: seatsLoading, refetch: refetchSeats } = useGetScheduleSeatsQuery(
     selectedSchedule?.id || "",
@@ -68,12 +140,40 @@ export default function CashierWorkspace() {
   const [releaseSeats] = useReleaseSeatsMutation();
   const [checkoutOrder, { isLoading: isCheckingOut }] = useCheckoutOrderMutation();
 
+  // Refs to track active selections for reliable unmount/navigation cleanup
+  const selectedScheduleRef = React.useRef<Schedule | null>(null);
+  const selectedSeatsRef = React.useRef<ShowtimeSeat[]>([]);
+
+  useEffect(() => {
+    selectedScheduleRef.current = selectedSchedule;
+  }, [selectedSchedule]);
+
+  useEffect(() => {
+    selectedSeatsRef.current = selectedSeats;
+  }, [selectedSeats]);
+
+  // Safely release held seats on backend
+  const releaseHeldSeatsSafely = async (scheduleId?: string, seatsToRelease?: ShowtimeSeat[]) => {
+    const targetScheduleId = scheduleId || selectedScheduleRef.current?.id;
+    const targetSeats = seatsToRelease || selectedSeatsRef.current;
+    if (!targetScheduleId || !targetSeats || targetSeats.length === 0) return;
+
+    try {
+      await releaseSeats({
+        scheduleId: targetScheduleId,
+        seatIds: targetSeats.map((s) => s.seatId),
+      }).unwrap();
+    } catch (err) {
+      console.warn("Failed to release held seats:", err);
+    }
+  };
+
   // Socket.IO synchronization
   useEffect(() => {
     if (!selectedSchedule) return;
 
-    // Connect to backend Socket.IO server
-    const socket = io("http://localhost:3000");
+    // Connect to backend Socket.IO server on port 5011
+    const socket = io("http://localhost:5011");
 
     socket.on("seats_held", (data: any) => {
       if (data.showtimeId === selectedSchedule.id) {
@@ -98,21 +198,60 @@ export default function CashierWorkspace() {
     };
   }, [selectedSchedule, refetchSeats]);
 
+  // Clean up and release held seats when navigating away from the cashier page
+  useEffect(() => {
+    return () => {
+      const targetScheduleId = selectedScheduleRef.current?.id;
+      const targetSeats = selectedSeatsRef.current;
+      if (targetScheduleId && targetSeats && targetSeats.length > 0) {
+        releaseSeats({
+          scheduleId: targetScheduleId,
+          seatIds: targetSeats.map((s) => s.seatId),
+        });
+      }
+    };
+  }, [releaseSeats]);
+
+  // Clean up and release held seats on window close or refresh
+  useEffect(() => {
+    const handlePageUnload = () => {
+      const targetScheduleId = selectedScheduleRef.current?.id;
+      const targetSeats = selectedSeatsRef.current;
+      if (targetScheduleId && targetSeats && targetSeats.length > 0) {
+        const payload = JSON.stringify({ seatIds: targetSeats.map((s) => s.seatId) });
+        navigator.sendBeacon(`http://localhost:5011/api/schedules/${targetScheduleId}/release`, new Blob([payload], { type: "application/json" }));
+      }
+    };
+
+    window.addEventListener("beforeunload", handlePageUnload);
+    window.addEventListener("pagehide", handlePageUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handlePageUnload);
+      window.removeEventListener("pagehide", handlePageUnload);
+    };
+  }, []);
+
   useEffect(() => {
     if (moviesError) {
       toastError(t("cashier.loadFailed"));
     }
   }, [moviesError, toastError]);
 
-  // When movie changes, reset downstream selections
-  const handleMovieSelect = (movie: Movie | null) => {
+  // When movie changes, release previously held seats and reset downstream selections
+  const handleMovieSelect = async (movie: Movie | null) => {
+    if (selectedSchedule && selectedSeats.length > 0) {
+      await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
+    }
     setSelectedMovie(movie);
     setSelectedSchedule(null);
     setSelectedSeats([]);
   };
 
-  // When schedule changes, reset seat selections
-  const handleScheduleSelect = (sched: Schedule) => {
+  // When schedule changes, release previously held seats and reset seat selections
+  const handleScheduleSelect = async (sched: Schedule) => {
+    if (selectedSchedule && selectedSeats.length > 0 && selectedSchedule.id !== sched.id) {
+      await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
+    }
     setSelectedSchedule(sched);
     setSelectedSeats([]);
   };
@@ -138,15 +277,20 @@ export default function CashierWorkspace() {
     }
   };
 
-  // Clear all selections
+  // Clear all selections and release held seats on backend
   const handleClearSelection = async () => {
+    if (selectedSchedule && selectedSeats.length > 0) {
+      await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
+    }
     setSelectedSeats([]);
   };
 
   const handleOpenDrawerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await openDrawer({ openingBalance: drawerOpeningBalance }).unwrap();
+      await openDrawer({ openingBalance: Number(drawerOpeningBalance) || 0 }).unwrap();
+      setIsOpenDrawerModalOpen(false);
+      await refetchActiveDrawer();
       toastSuccess(t("cashier.drawerOpened"));
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.drawerFailed"));
@@ -181,6 +325,12 @@ export default function CashierWorkspace() {
       }
     }
 
+    if (!activeDrawer) {
+      toastError("Sesi laci kas belum dibuka. Silakan buka laci kas terlebih dahulu.");
+      setIsOpenDrawerModalOpen(true);
+      return;
+    }
+
     try {
       const response = await checkoutOrder({
         scheduleId: selectedSchedule.id,
@@ -203,6 +353,60 @@ export default function CashierWorkspace() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-sans items-start">
+      {/* TOP BANNER: CASH DRAWER SESSION STATUS */}
+      <div className="lg:col-span-12">
+        {drawerLoading ? null : activeDrawer ? (
+          <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between flex-wrap gap-4 shadow-sm">
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-3.5 w-3.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                  Sesi Laci Kas Aktif (Cash Drawer Open)
+                </h3>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                  Modal Awal: <span className="font-bold">{formatCurrency(activeDrawer.openingBalance)}</span> • Dibuka: {new Date(activeDrawer.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDrawerActualBalance(0);
+                setIsCloseDrawerModalOpen(true);
+              }}
+              className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-zinc-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-bold transition-all cursor-pointer shadow-sm"
+            >
+              Tutup Sesi Laci Kas
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-center justify-between flex-wrap gap-4 shadow-sm">
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-3.5 w-3.5 rounded-full bg-amber-500"></span>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                  Sesi Laci Kas Belum Dibuka
+                </h3>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Kasir wajib membuka sesi laci kas dengan modal awal sebelum dapat memproses transaksi tiket.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsOpenDrawerModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+            >
+              Buka Laci Kas Sekarang
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* LEFT PANEL: SELECTORS & SEAT MAP */}
       <div className="lg:col-span-8 space-y-6">
@@ -246,34 +450,132 @@ export default function CashierWorkspace() {
 
         {/* Schedule Selector */}
         {selectedMovie && (
-          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-4">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-emerald-600" /> {t("cashier.schedule")}
-            </h2>
+          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-emerald-600" /> {t("cashier.schedule")}
+              </h2>
+
+              {tomorrowSchedules.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowTomorrow(!showTomorrow)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                >
+                  {showTomorrow ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>Sembunyikan Jadwal Besok</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Tampilkan Jadwal Besok ({tomorrowSchedules.length})</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
             {schedulesLoading ? (
               <div className="flex justify-center py-6"><Spinner className="w-8 h-8" /></div>
-            ) : schedulesResponse?.data?.length === 0 ? (
-              <p className="text-zinc-400 text-sm">{t("cashier.noSchedules")}</p>
+            ) : todaySchedules.length === 0 && tomorrowSchedules.length === 0 ? (
+              <p className="text-zinc-400 text-sm italic">{t("cashier.noSchedules")}</p>
             ) : (
-              <div className="flex flex-wrap gap-2.5">
-                {schedulesResponse?.data?.map((sched) => {
-                  const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                  const date = new Date(sched.businessDate).toLocaleDateString([], { month: "short", day: "numeric" });
-                  return (
-                    <button
-                      key={sched.id}
-                      onClick={() => handleScheduleSelect(sched)}
-                      className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2 ${selectedSchedule?.id === sched.id
-                          ? "border-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400"
-                          : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300"
-                        }`}
-                    >
-                      <Clock className="w-4 h-4" />
-                      <span>{start}</span>
-                      <span className="text-xs opacity-60">({date})</span>
-                    </button>
-                  );
-                })}
+              <div className="space-y-5">
+                {/* Today's Section */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      Hari Ini
+                    </span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                      {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+
+                  {todaySchedules.length === 0 ? (
+                    <p className="text-xs text-zinc-400 italic pl-1">Tidak ada jadwal tayang untuk hari ini.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2.5">
+                      {todaySchedules.map((sched) => {
+                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        const studioName = sched.studio?.name || "Studio";
+                        const isSelected = selectedSchedule?.id === sched.id;
+
+                        return (
+                          <button
+                            key={sched.id}
+                            type="button"
+                            onClick={() => handleScheduleSelect(sched)}
+                            className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
+                              isSelected
+                                ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-2 ring-emerald-500/20 shadow-sm"
+                                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-800 dark:text-zinc-200"
+                            }`}
+                          >
+                            <Clock className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <span className="font-bold">{start}</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
+                              {studioName}
+                            </span>
+                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(sched.ticketPrice)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tomorrow's Section (Only shown when showTomorrow is true) */}
+                {showTomorrow && tomorrowSchedules.length > 0 && (
+                  <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                        Besok
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                        {(() => {
+                          const tmr = new Date();
+                          tmr.setDate(tmr.getDate() + 1);
+                          return tmr.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+                        })()}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2.5">
+                      {tomorrowSchedules.map((sched) => {
+                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        const studioName = sched.studio?.name || "Studio";
+                        const isSelected = selectedSchedule?.id === sched.id;
+
+                        return (
+                          <button
+                            key={sched.id}
+                            type="button"
+                            onClick={() => handleScheduleSelect(sched)}
+                            className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
+                              isSelected
+                                ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-500/20 shadow-sm"
+                                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-800 dark:text-zinc-200"
+                            }`}
+                          >
+                            <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span className="font-bold">{start}</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
+                              {studioName}
+                            </span>
+                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                              {formatCurrency(sched.ticketPrice)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -528,6 +830,50 @@ export default function CashierWorkspace() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Open Cash Drawer Modal */}
+      <Modal isOpen={isOpenDrawerModalOpen} onClose={() => setIsOpenDrawerModalOpen(false)} title="Buka Sesi Laci Kas (Open Cash Drawer)">
+        <form onSubmit={handleOpenDrawerSubmit} className="space-y-6 py-4">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-2xl">
+            <p className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold leading-relaxed">
+              Silakan masukkan nominal modal awal uang tunai yang ada di dalam laci kas sebelum memulai transaksi kasir tiket.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+              Saldo Awal Kas Tunai (IDR)
+            </label>
+            <input
+              type="number"
+              value={drawerOpeningBalance || ""}
+              onChange={(e) => setDrawerOpeningBalance(Number(e.target.value))}
+              placeholder="0"
+              className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-50 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-lg"
+              min="0"
+              step="1000"
+              required
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setIsOpenDrawerModalOpen(false)}
+              className="px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Nanti Saja
+            </button>
+            <button
+              type="submit"
+              disabled={isOpeningDrawer}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-350 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-2 shadow-sm"
+            >
+              {isOpeningDrawer ? <Spinner className="w-4 h-4" /> : "Buka Laci Kas & Mulai Transaksi"}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* Close Cash Drawer Modal */}

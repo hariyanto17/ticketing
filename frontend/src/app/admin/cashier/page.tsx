@@ -660,7 +660,7 @@ export default function CashierWorkspace() {
                           {cols.map((col) => {
                             const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
                             if (!seat) {
-                              return <div key={`gap-${row}-${col}`} className="w-9 h-9" />;
+                              return <div key={`gap-${row}-${col}`} className="w-8 h-8 sm:w-10 sm:h-10 xl:w-11 xl:h-11" />;
                             }
 
                             const isSelected = selectedSeats.some((s) => s.id === seat.id);
@@ -678,7 +678,7 @@ export default function CashierWorkspace() {
                                 key={seat.id}
                                 onClick={() => handleSeatClick(seat)}
                                 disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
-                                className={`w-9 h-9 rounded-xl text-[10px] font-bold border transition-all flex items-center justify-center ${seatColor}`}
+                                className={`w-8 h-8 sm:w-10 sm:h-10 xl:w-11 xl:h-11 rounded-xl text-[10px] sm:text-xs font-bold border transition-all flex items-center justify-center ${seatColor}`}
                               >
                                 {seat.seat.seatLabel}
                               </button>

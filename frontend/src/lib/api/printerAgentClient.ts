@@ -1,5 +1,6 @@
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 18765;
+const DEVICE_ID_STORAGE_KEY = "printerAgentDeviceId";
 
 export interface PrinterAgentPrinter {
   id: string;
@@ -31,17 +32,17 @@ export interface PrinterAgentHealth {
 
 export class PrinterAgentClient {
   private readonly baseUrl: string;
-  private readonly token: string;
+  private readonly deviceId: string;
 
-  constructor(token?: string, baseUrl?: string) {
-    this.token = token || (typeof window !== "undefined" ? localStorage.getItem("printerAgentToken") || "" : "");
+  constructor(deviceId?: string, baseUrl?: string) {
+    this.deviceId = deviceId || (typeof window !== "undefined" ? localStorage.getItem(DEVICE_ID_STORAGE_KEY) || "" : "");
     this.baseUrl = baseUrl || `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
   }
 
   private getHeaders(): HeadersInit {
     return {
       "Content-Type": "application/json",
-      "X-Printer-Agent-Token": this.token,
+      "X-Printer-Agent-Device-Id": this.deviceId,
     };
   }
 
@@ -104,6 +105,18 @@ export class PrinterAgentClient {
 }
 
 export const createPrinterAgentClient = () => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("printerAgentToken") || "" : "";
-  return new PrinterAgentClient(token);
+  const deviceId = typeof window !== "undefined" ? localStorage.getItem(DEVICE_ID_STORAGE_KEY) || "" : "";
+  return new PrinterAgentClient(deviceId);
 };
+
+export function getPrinterAgentDeviceId(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const deviceId = params.get("printer-agent-device-id");
+  if (deviceId) {
+    localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    return deviceId;
+  }
+  return localStorage.getItem(DEVICE_ID_STORAGE_KEY) || "";
+}

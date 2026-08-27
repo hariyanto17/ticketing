@@ -14,29 +14,22 @@ export class PrinterAgentServer {
 
   constructor(configService: ConfigService) {
     this.configService = configService;
-    this.authService = new AuthService(configService.getToken());
+    this.authService = new AuthService(configService.getDeviceId());
 
     this.printerService = createPrinterService(configService.getConfig());
 
     this.app.use(express.json({ limit: "1mb" }));
     this.app.use(cors({
-      origin: (origin, callback) => {
-        const allowed = this.configService.getSettings().corsOrigins;
-        if (!origin || allowed.includes(origin)) {
-          callback(null, true);
-          return;
-        }
-        callback(new Error("Origin not allowed"));
-      },
+      origin: (_origin, callback) => callback(null, true),
       credentials: true,
       methods: ["GET", "POST", "PUT", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "X-Printer-Agent-Token"],
+      allowedHeaders: ["Content-Type", "X-Printer-Agent-Device-Id"],
     }));
 
     this.app.use((req, res, next) => {
-      const token = req.headers["x-printer-agent-token"]?.toString();
-      if (!this.authService.validate(token)) {
-        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or missing printer token." } });
+      const deviceId = req.headers["x-printer-agent-device-id"]?.toString();
+      if (!this.authService.validateDeviceId(deviceId)) {
+        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or missing printer agent device ID." } });
       }
       next();
     });
@@ -128,7 +121,14 @@ export class PrinterAgentServer {
     if (payload.mode !== undefined && payload.mode !== "print" && payload.mode !== "reprint") {
       return { ok: false, code: "INVALID_PAYLOAD", message: "mode must be print or reprint." };
     }
-    const stringFields = ["jobId", "ticketNumber", "orderNumber", "movie", "studio", "showDate", "showTime", "seat", "qrCode"];
+    const requiredStringFields = ["movie", "studio", "showDate", "showTime", "seat", "row"];
+    for (const field of requiredStringFields) {
+      if (typeof payload[field] !== "string" || !payload[field].trim()) {
+        return { ok: false, code: "INVALID_PAYLOAD", message: `${field} is required.` };
+      }
+    }
+
+    const stringFields = ["jobId", "ticketNumber", "orderNumber", "movie", "studio", "showDate", "showTime", "seat", "row", "qrCode"];
     for (const field of stringFields) {
       if (payload[field] !== undefined && typeof payload[field] !== "string") {
         return { ok: false, code: "INVALID_PAYLOAD", message: `${field} must be a string when provided.` };
@@ -137,8 +137,11 @@ export class PrinterAgentServer {
     if (!payload.ticketNumber && !payload.orderNumber) {
       return { ok: false, code: "INVALID_PAYLOAD", message: "ticketNumber or orderNumber is required." };
     }
-    if (payload.price !== undefined && (typeof payload.price !== "number" || !Number.isFinite(payload.price) || payload.price < 0)) {
-      return { ok: false, code: "INVALID_PAYLOAD", message: "price must be a non-negative number when provided." };
+    if (typeof payload.seatNumber !== "number" || !Number.isInteger(payload.seatNumber) || payload.seatNumber < 1) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "seatNumber is required and must be a positive integer." };
+    }
+    if (typeof payload.price !== "number" || !Number.isFinite(payload.price) || payload.price < 0) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "price is required and must be a non-negative number." };
     }
     if (payload.totalAmount !== undefined && (typeof payload.totalAmount !== "number" || !Number.isFinite(payload.totalAmount) || payload.totalAmount < 0)) {
       return { ok: false, code: "INVALID_PAYLOAD", message: "totalAmount must be a non-negative number when provided." };

@@ -1,10 +1,11 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { clearCredentials } from "@/store/authSlice";
+import { clearCredentials } from "@/lib/store/authSlice";
 
-// For local development, requests should go to our backend PORT 5011
-const BASE_URL = typeof window !== "undefined" 
-  ? `http://${window.location.hostname}:5011/api` 
-  : "http://127.0.0.1:5011/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (
+  typeof window !== "undefined"
+    ? `http://${window.location.hostname}:5011/api`
+    : "http://127.0.0.1:5011/api"
+);
 
 export const api = createApi({
   reducerPath: "api",
@@ -39,7 +40,7 @@ export const api = createApi({
     "CashDrawer",
     "DailyClosing",
     "Setting",
-    "Report"
+    "Report",
   ],
   endpoints: () => ({}),
 });

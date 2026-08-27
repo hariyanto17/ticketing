@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Printer, RefreshCw, CheckCircle2, AlertTriangle, Settings as SettingsIcon } from "lucide-react";
-import { createPrinterAgentClient, type PrinterAgentConfig, type PrinterAgentPrinter } from "@/services/printerAgentClient";
+import { createPrinterAgentClient, getPrinterAgentDeviceId, type PrinterAgentConfig, type PrinterAgentPrinter } from "@/services/printerAgentClient";
 import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n";
@@ -16,8 +16,12 @@ export default function PrinterSetupPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [agentStatus, setAgentStatus] = useState<"connected" | "not-running" | "not-found" | "ready" | "error">("not-running");
-
   const refreshStatus = async () => {
+    if (!getPrinterAgentDeviceId()) {
+      setIsLoading(false);
+      return;
+    }
+
     const client = createPrinterAgentClient();
     try {
       const nextHealth = await client.getHealth();

@@ -97,7 +97,7 @@ export async function seedUat() {
   console.log("✓ Branches verified");
 
   // 3. UAT Users
-  const passwordHash = await bcrypt.hash("Uat12345!", 10);
+  const passwordHash = await bcrypt.hash("test1234", 10);
   const usersDef = [
     { username: "uat_admin", name: "UAT Platform Administrator", email: "uat.admin@planetcinema.local", roleId: rolesMap["ADMINISTRATOR"].id },
     { username: "uat_kasir", name: "UAT Kasir Counter", email: "uat.kasir@planetcinema.local", roleId: rolesMap["CASHIER"].id },

@@ -8,13 +8,20 @@ import { useToast } from "@/components/ui/toast";
 import { Button, SearchableSelect } from "@/components/ui/form-controls";
 import { Spinner } from "@/components/ui/spinner";
 import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
-import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar } from "lucide-react";
+import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { io } from "socket.io-client";
 import Link from "next/link";
 import { useGetActiveDrawerQuery, useOpenDrawerMutation, useCloseDrawerMutation } from "@/services/opsApi";
 import { createPrinterAgentClient, getPrinterAgentDeviceId } from "@/services/printerAgentClient";
 import { useTranslation } from "@/lib/i18n";
+import { useTheme } from "@/components/ThemeProvider";
+import {
+  openCustomerDisplayWindow,
+  CUSTOMER_DISPLAY_CHANNEL_NAME,
+  CustomerDisplayMessage,
+  CustomerDisplayStatePayload,
+} from "@/lib/customerDisplay";
 
 const getRowIndex = (row: string): number => {
   let index = 0;
@@ -26,7 +33,7 @@ const getRowIndex = (row: string): number => {
 
 export default function CashierWorkspace() {
   const { success: toastSuccess, error: toastError } = useToast();
-  const { t, formatDate, formatCurrency } = useTranslation();
+  const { t, formatDate, formatCurrency, locale } = useTranslation();
 
   // Cash drawer hooks & local state
   const { data: activeDrawer, isLoading: drawerLoading, refetch: refetchActiveDrawer } = useGetActiveDrawerQuery();
@@ -311,11 +318,122 @@ export default function CashierWorkspace() {
     }
   };
 
+  const { theme } = useTheme();
+  const customerWindowRef = React.useRef<Window | null>(null);
+  const [isCustomerDisplayConnected, setIsCustomerDisplayConnected] = useState(false);
+  const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
+
   // Calculations
   const ticketPrice = selectedSchedule?.ticketPrice || 0;
   const quantity = selectedSeats.length;
   const totalAmount = quantity * ticketPrice;
   const change = amountReceived !== "" && Number(amountReceived) >= totalAmount ? Number(amountReceived) - totalAmount : 0;
+
+  // Build clean customer-facing state payload
+  const getCustomerDisplayPayload = (): CustomerDisplayStatePayload => {
+    return {
+      movie: selectedMovie
+        ? {
+            id: selectedMovie.id,
+            title: selectedMovie.title,
+            poster: selectedMovie.poster,
+            censorshipRating: selectedMovie.censorshipRating,
+            durationMinutes: selectedMovie.durationMinutes,
+          }
+        : null,
+      schedule: selectedSchedule
+        ? {
+            id: selectedSchedule.id,
+            studioName: selectedSchedule.studio?.name || "Studio",
+            studioCode: selectedSchedule.studio?.code,
+            startTime: selectedSchedule.startTime,
+            businessDate: selectedSchedule.businessDate || selectedSchedule.startTime,
+            ticketPrice: selectedSchedule.ticketPrice || 0,
+          }
+        : null,
+      seats: seatsResponse?.data || [],
+      selectedSeats: selectedSeats,
+      quantity,
+      ticketPrice,
+      totalAmount,
+      theme: (theme as any) || "system",
+      locale: (locale as any) || "id",
+      lastUpdated: Date.now(),
+    };
+  };
+
+  // BroadcastChannel setup & message listener
+  useEffect(() => {
+    if (typeof window === "undefined" || !("BroadcastChannel" in window)) return;
+
+    const channel = new BroadcastChannel(CUSTOMER_DISPLAY_CHANNEL_NAME);
+    broadcastChannelRef.current = channel;
+
+    const handleMessage = (event: MessageEvent<CustomerDisplayMessage>) => {
+      const data = event.data;
+      if (!data || !data.type) return;
+
+      if (data.type === "CUSTOMER_DISPLAY_REQUEST_STATE") {
+        setIsCustomerDisplayConnected(true);
+        channel.postMessage({
+          type: "CUSTOMER_DISPLAY_STATE",
+          payload: getCustomerDisplayPayload(),
+        });
+      } else if (data.type === "CUSTOMER_DISPLAY_PING") {
+        setIsCustomerDisplayConnected(true);
+        channel.postMessage({ type: "CUSTOMER_DISPLAY_PONG" });
+      } else if (data.type === "CUSTOMER_DISPLAY_PONG") {
+        setIsCustomerDisplayConnected(true);
+      } else if (data.type === "CUSTOMER_DISPLAY_CLOSED") {
+        setIsCustomerDisplayConnected(false);
+        customerWindowRef.current = null;
+      }
+    };
+
+    channel.addEventListener("message", handleMessage);
+
+    return () => {
+      channel.removeEventListener("message", handleMessage);
+      channel.close();
+      broadcastChannelRef.current = null;
+    };
+  }, [selectedMovie, selectedSchedule, seatsResponse?.data, selectedSeats, ticketPrice, totalAmount, theme, locale]);
+
+  // Broadcast state updates immediately on any state change
+  useEffect(() => {
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: "CUSTOMER_DISPLAY_STATE",
+        payload: getCustomerDisplayPayload(),
+      });
+    }
+  }, [selectedMovie, selectedSchedule, seatsResponse?.data, selectedSeats, ticketPrice, totalAmount, theme, locale]);
+
+  // Open / Focus Customer Display Window
+  const handleOpenCustomerDisplay = async () => {
+    const result = await openCustomerDisplayWindow(customerWindowRef.current);
+    if (result.windowRef) {
+      customerWindowRef.current = result.windowRef;
+    }
+
+    if (result.status === "opened_secondary") {
+      toastSuccess(t("cashier.customerDisplayOpened"));
+      setIsCustomerDisplayConnected(true);
+    } else if (result.status === "opened_single_monitor" || result.status === "opened_fallback") {
+      toastSuccess(t("cashier.customerDisplayFallbackOpened"));
+      setIsCustomerDisplayConnected(true);
+    } else if (result.status === "already_open") {
+      setIsCustomerDisplayConnected(true);
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: "CUSTOMER_DISPLAY_STATE",
+          payload: getCustomerDisplayPayload(),
+        });
+      }
+    } else if (result.status === "blocked") {
+      toastError(t("cashier.popupBlocked"));
+    }
+  };
 
   const handleCheckoutSubmit = async () => {
     if (!selectedSchedule || selectedSeats.length === 0) return;
@@ -402,6 +520,44 @@ export default function CashierWorkspace() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-sans items-start">
+      {/* TOP BAR: ACTION BUTTONS & DUAL MONITOR CONTROL */}
+      <div className="lg:col-span-12 flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Monitor className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+              {t("cashier.seatLayout")} & Customer Screen
+            </h2>
+            <p className="text-xs text-zinc-400">
+              Sinkronisasi layar pelanggan realtime pada monitor kedua.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {isCustomerDisplayConnected && (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span>{t("cashier.customerDisplayActive")}</span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleOpenCustomerDisplay}
+            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-2"
+          >
+            <Cast className="w-4 h-4" />
+            <span>{t("cashier.displayOnSecondMonitor")}</span>
+          </button>
+        </div>
+      </div>
+
       {/* TOP BANNER: CASH DRAWER SESSION STATUS */}
       <div className="lg:col-span-12">
         {drawerLoading ? null : activeDrawer ? (

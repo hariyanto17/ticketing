@@ -62,8 +62,29 @@ export const ssoService = async (code: string) => {
     include: { role: true },
   });
 
-  const roleName = platformUser.application.role === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier";
-  let role = (await prisma.role.findFirst({ where: { name: roleName } })) || (await prisma.role.findFirst());
+  if (!user && platformUser.email) {
+    user = await prisma.user.findUnique({
+      where: { email: platformUser.email },
+      include: { role: true },
+    });
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          platformUserId: platformUser.id,
+        },
+        include: { role: true },
+      });
+    }
+  }
+
+  const roleName = platformUser.application.role === "TICKETING_ADMINISTRATOR" ? "ADMINISTRATOR" : "CASHIER";
+  let role = (await prisma.role.findFirst({
+    where: {
+      name: { in: [roleName, roleName === "ADMINISTRATOR" ? "Admin" : "Cashier", roleName.toLowerCase()] },
+    },
+  })) || (await prisma.role.findFirst());
+
   if (!role) {
     throw new AppError("INTERNAL_SERVER_ERROR", "No roles configured in Ticketing system");
   }
@@ -114,6 +135,8 @@ export const ssoService = async (code: string) => {
       data: {
         name: platformUser.name,
         roleId: role.id,
+        isActive: true,
+        status: "ACTIVE",
       },
       include: { role: true },
     });
@@ -148,8 +171,10 @@ export const ssoSyncService = async (platformUserId: string, status?: string, ro
     const isActive = status === "ACTIVE" && role !== null;
     const data: any = { isActive };
     if (role) {
-      const roleName = role === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier";
-      const dbRole = await prisma.role.findFirst({ where: { name: roleName } });
+      const roleName = role === "TICKETING_ADMINISTRATOR" ? "ADMINISTRATOR" : "CASHIER";
+      const dbRole = await prisma.role.findFirst({
+        where: { name: { in: [roleName, role === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier"] } },
+      });
       if (dbRole) {
         data.roleId = dbRole.id;
       }

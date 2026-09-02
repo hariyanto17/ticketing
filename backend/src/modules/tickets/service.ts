@@ -35,7 +35,15 @@ export const validateTicket = async (ticketNumber: string) => {
     return { status: "USED", ticket };
   }
 
-  // If ACTIVE, mark as USED
+  if (ticket.status === "PENDING") {
+    return { status: "PENDING_PAYMENT", ticket };
+  }
+
+  if (ticket.status !== "ACTIVE") {
+    return { status: "INVALID", ticket };
+  }
+
+  // Only if ACTIVE, mark as USED
   const updatedTicket = await prisma.ticket.update({
     where: { id: ticket.id },
     data: { status: "USED" },

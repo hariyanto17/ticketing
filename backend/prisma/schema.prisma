@@ -351,13 +351,21 @@ model Ticket {
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  orderId       String
-  amount        Float
-  amountReceived Float?
-  change        Float?
-  paidAt        DateTime @default(now())
-  status        String   // PENDING, PAID, FAILED, REFUNDED
+  id                    String    @id @default(uuid())
+  orderId               String
+  amount                Float
+  amountReceived        Float?
+  change                Float?
+  paidAt                DateTime?
+  status                String    // PENDING, PAID, FAILED, REFUNDED
+  provider              String    @default("MANUAL") // MANUAL, MIDTRANS
+  paymentType           String?   // CASH, QRIS, gopay, bank_transfer, etc.
+  providerTransactionId String?   @unique
+  providerOrderId       String?
+  snapToken             String?
+  redirectUrl           String?
+  expiredAt             DateTime?
+  rawResponse           Json?
 
   order Order @relation(fields: [orderId], references: [id])
 }

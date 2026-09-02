@@ -199,7 +199,21 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
       },
     });
     const serial = String(count + 1).padStart(5, "0");
-    const orderNumber = `ORD-${dateStr}-${serial}`;
+    const entropy = Math.random().toString(36).substring(2, 7).toUpperCase();
+    let orderNumber = `ORD-${dateStr}-${serial}-${entropy}`;
+
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 10) {
+      const existing = await tx.order.findUnique({ where: { orderNumber } });
+      if (existing) {
+        const nextEntropy = Math.random().toString(36).substring(2, 7).toUpperCase();
+        orderNumber = `ORD-${dateStr}-${serial}-${nextEntropy}`;
+        attempts++;
+      } else {
+        isUnique = true;
+      }
+    }
 
     // Create Order
     const order = await tx.order.create({
@@ -223,15 +237,32 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
         amountReceived,
         change,
         status: "PAID",
+        paidAt: now,
+        provider: "MANUAL",
+        paymentType: input.paymentMethod,
       },
     });
 
     // Create Tickets and update seats
     const tickets: any[] = [];
+    const orderSuffix = orderNumber.replace(`ORD-${dateStr}-`, "");
     for (let idx = 0; idx < showtimeSeats.length; idx++) {
       const sSeat = showtimeSeats[idx];
       const ticketSerial = String(idx + 1).padStart(3, "0");
-      const ticketNumber = `PCM-${dateStr}-${serial}-${ticketSerial}`;
+      let ticketNumber = `PCM-${dateStr}-${orderSuffix}-${ticketSerial}`;
+
+      let ticketUnique = false;
+      let ticketAttempts = 0;
+      while (!ticketUnique && ticketAttempts < 5) {
+        const existingTicket = await tx.ticket.findUnique({ where: { ticketNumber } });
+        if (existingTicket) {
+          const ticketEntropy = Math.random().toString(36).substring(2, 6).toUpperCase();
+          ticketNumber = `PCM-${dateStr}-${orderSuffix}-${ticketSerial}-${ticketEntropy}`;
+          ticketAttempts++;
+        } else {
+          ticketUnique = true;
+        }
+      }
 
       const ticket = await tx.ticket.create({
         data: {

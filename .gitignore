@@ -1,9 +1,12 @@
+# ==========================================
+# Planet Cinema — Kasir Ticket .gitignore
+# ==========================================
+
+# Dependencies
 node_modules/
+**/node_modules/
 
-backend/dist/
-frontend/.next/
-frontend/out/
-
+# Environment variables
 .env
 .env.*
 !.env.example
@@ -11,4 +14,66 @@ frontend/out/
 **/.env
 **/.env.*
 
+# OS & Editor files
 .DS_Store
+**/.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Backend Build & Databases
+backend/dist/
+backend/*.tsbuildinfo
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Frontend (Next.js)
+frontend/.next/
+frontend/out/
+frontend/*.tsbuildinfo
+.turbo/
+
+# ==========================================
+# React Native (customer-mobile)
+# ==========================================
+
+# Android build artifacts
+customer-mobile/android/.gradle/
+customer-mobile/android/build/
+customer-mobile/android/app/build/
+customer-mobile/android/.kotlin/
+customer-mobile/android/.cxx/
+customer-mobile/android/local.properties
+customer-mobile/android/*.iml
+customer-mobile/android/*.hprof
+**/build/
+**/.gradle/
+
+# Android Keystores (keep debug.keystore)
+*.keystore
+!debug.keystore
+
+# iOS build artifacts & CocoaPods
+customer-mobile/ios/Pods/
+customer-mobile/ios/build/
+customer-mobile/ios/DerivedData/
+customer-mobile/ios/*.xcworkspace/xcuserdata/
+customer-mobile/ios/*.xcodeproj/xcuserdata/
+customer-mobile/ios/*.xcuserstate
+customer-mobile/ios/**/.xcode.env.local
+**/Pods/
+
+# Bundle artifacts & Metro
+*.jsbundle
+.metro-health-check*
+
+# Logs & Testing
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+*.lcov

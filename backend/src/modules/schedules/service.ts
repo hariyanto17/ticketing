@@ -241,38 +241,78 @@ export const holdSeats = async (scheduleId: string, seatIds: string[], minutes =
   const now = new Date();
   const reservedUntil = new Date(now.getTime() + minutes * 60 * 1000); // custom minutes
 
-  // Verify none are sold or actively held
-  const activeConflicts = await prisma.showtimeSeat.findMany({
+  // Ensure seats exist for this schedule
+  const studioSeats = await prisma.seat.findMany({
+    where: { id: { in: seatIds } },
+  });
+
+  if (studioSeats.length !== seatIds.length) {
+    throw new AppError("BAD_REQUEST", "One or more requested seat IDs do not exist");
+  }
+
+  // Ensure ShowtimeSeats records exist for this schedule
+  const existingShowtimeSeats = await prisma.showtimeSeat.findMany({
+    where: {
+      showtimeId: scheduleId,
+      seatId: { in: seatIds },
+    },
+  });
+
+  if (existingShowtimeSeats.length < seatIds.length) {
+    const existingIds = new Set(existingShowtimeSeats.map((s) => s.seatId));
+    const missing = studioSeats.filter((s) => !existingIds.has(s.id));
+    if (missing.length > 0) {
+      await prisma.showtimeSeat.createMany({
+        data: missing.map((s) => ({
+          showtimeId: scheduleId,
+          seatId: s.id,
+          status: s.status === "DISABLED" ? "DISABLED" : "AVAILABLE",
+        })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  // Atomic conditional update: only update seats that are AVAILABLE or expired HOLD
+  const updateResult = await prisma.showtimeSeat.updateMany({
     where: {
       showtimeId: scheduleId,
       seatId: { in: seatIds },
       OR: [
-        { status: "SOLD" },
+        { status: "AVAILABLE" },
         {
           status: "HOLD",
-          reservedUntil: { gte: now },
+          reservedUntil: { lt: now },
         },
       ],
-    },
-    include: { seat: true },
-  });
-
-  if (activeConflicts.length > 0) {
-    const labels = activeConflicts.map((c) => c.seat.seatLabel).join(", ");
-    throw new AppError("CONFLICT", `Seats already held or sold: ${labels}`);
-  }
-
-  // Set status to HOLD
-  await prisma.showtimeSeat.updateMany({
-    where: {
-      showtimeId: scheduleId,
-      seatId: { in: seatIds },
     },
     data: {
       status: "HOLD",
       reservedUntil,
     },
   });
+
+  // Verify all requested seats were successfully acquired
+  if (updateResult.count !== seatIds.length) {
+    // Rollback any seats partially acquired in this batch
+    await prisma.showtimeSeat.updateMany({
+      where: {
+        showtimeId: scheduleId,
+        seatId: { in: seatIds },
+        status: "HOLD",
+        reservedUntil,
+      },
+      data: {
+        status: "AVAILABLE",
+        reservedUntil: null,
+      },
+    });
+
+    throw new AppError(
+      "CONFLICT",
+      "One or more selected seats are no longer available or already held by another session"
+    );
+  }
 
   const { emitSeatUpdate } = require("../../utils/socket");
   emitSeatUpdate("seats_held", { showtimeId: scheduleId, seatIds });

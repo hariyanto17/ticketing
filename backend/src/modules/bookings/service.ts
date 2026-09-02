@@ -38,7 +38,13 @@ export const cleanupExpiredBookings = async () => {
         },
       });
 
-      // 3. Cancel order
+      // 3. Mark payment as FAILED
+      await tx.payment.updateMany({
+        where: { orderId: order.id, status: "PENDING" },
+        data: { status: "FAILED" },
+      });
+
+      // 4. Cancel order
       await tx.order.update({
         where: { id: order.id },
         data: {
@@ -93,14 +99,45 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
     );
   }
 
-  // Fetch showtime seats
-  const showtimeSeats = await prisma.showtimeSeat.findMany({
+  // Fetch showtime seats and lazy-create if not yet initialized
+  let showtimeSeats = await prisma.showtimeSeat.findMany({
     where: {
       showtimeId: input.scheduleId,
       seatId: { in: input.seatIds },
     },
     include: { seat: true },
   });
+
+  if (showtimeSeats.length < input.seatIds.length) {
+    const existingSeatIds = new Set(showtimeSeats.map((s) => s.seatId));
+    const missingSeatIds = input.seatIds.filter((id) => !existingSeatIds.has(id));
+
+    const validStudioSeats = await prisma.seat.findMany({
+      where: {
+        id: { in: missingSeatIds },
+        studioId: schedule.studioId,
+      },
+    });
+
+    if (validStudioSeats.length === missingSeatIds.length) {
+      await prisma.showtimeSeat.createMany({
+        data: validStudioSeats.map((s) => ({
+          showtimeId: input.scheduleId,
+          seatId: s.id,
+          status: s.status === "DISABLED" ? "DISABLED" : "AVAILABLE",
+        })),
+        skipDuplicates: true,
+      });
+
+      showtimeSeats = await prisma.showtimeSeat.findMany({
+        where: {
+          showtimeId: input.scheduleId,
+          seatId: { in: input.seatIds },
+        },
+        include: { seat: true },
+      });
+    }
+  }
 
   if (showtimeSeats.length !== input.seatIds.length) {
     throw new AppError("BAD_REQUEST", "Some selected seats are invalid for this schedule");
@@ -112,7 +149,7 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
       throw new AppError("BAD_REQUEST", `Seat ${sSeat.seat.seatLabel} is already sold`);
     }
     if (sSeat.status === "HOLD" && sSeat.reservedUntil && sSeat.reservedUntil > now) {
-      throw new AppError("CONFLICT", `Seat ${sSeat.seat.seatLabel} is currently held by another session`);
+      // If currently held, allow continuation for this checkout
     }
   }
 
@@ -131,10 +168,29 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
     });
 
     const serial = String(count + 1).padStart(5, "0");
-    const orderNumber = `ORD-${dateStr}-${serial}`;
-    const bookingNumber = `BOOK-${dateStr}-${serial}`;
+    const entropy = Math.random().toString(36).substring(2, 7).toUpperCase();
+    let orderNumber = `ORD-${dateStr}-${serial}-${entropy}`;
+    let bookingNumber = `BOOK-${dateStr}-${serial}-${entropy}`;
 
-    // Create Order
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 10) {
+      const existing = await tx.order.findFirst({
+        where: {
+          OR: [{ orderNumber }, { bookingNumber }],
+        },
+      });
+      if (existing) {
+        const nextEntropy = Math.random().toString(36).substring(2, 7).toUpperCase();
+        orderNumber = `ORD-${dateStr}-${serial}-${nextEntropy}`;
+        bookingNumber = `BOOK-${dateStr}-${serial}-${nextEntropy}`;
+        attempts++;
+      } else {
+        isUnique = true;
+      }
+    }
+
+    // 1. Create Order in PENDING status
     const order = await tx.order.create({
       data: {
         orderNumber,
@@ -151,12 +207,46 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
       },
     });
 
-    // Create Tickets and hold seats
+    // 2. Create Payment record in PENDING status (paidAt is null)
+    const payment = await tx.payment.create({
+      data: {
+        orderId: order.id,
+        amount: totalAmount,
+        status: "PENDING",
+        paidAt: null,
+        provider: "MANUAL",
+        paymentType: "QRIS",
+        expiredAt: reservedUntil,
+      },
+    });
+
     const tickets: any[] = [];
+    const orderSuffix = orderNumber.replace(`ORD-${dateStr}-`, "");
     for (let idx = 0; idx < showtimeSeats.length; idx++) {
       const sSeat = showtimeSeats[idx];
       const ticketSerial = String(idx + 1).padStart(3, "0");
-      const ticketNumber = `PCM-${dateStr}-${serial}-${ticketSerial}`;
+      let ticketNumber = `PCM-${dateStr}-${orderSuffix}-${ticketSerial}`;
+
+      let ticketUnique = false;
+      let ticketAttempts = 0;
+      while (!ticketUnique && ticketAttempts < 5) {
+        const existingTicket = await tx.ticket.findUnique({ where: { ticketNumber } });
+        if (existingTicket) {
+          const ticketEntropy = Math.random().toString(36).substring(2, 6).toUpperCase();
+          ticketNumber = `PCM-${dateStr}-${orderSuffix}-${ticketSerial}-${ticketEntropy}`;
+          ticketAttempts++;
+        } else {
+          ticketUnique = true;
+        }
+      }
+
+      // Clean up previous cancelled ticket on this seat if re-booked
+      await tx.ticket.deleteMany({
+        where: {
+          showtimeSeatId: sSeat.id,
+          status: "CANCELLED",
+        },
+      });
 
       const ticket = await tx.ticket.create({
         data: {
@@ -164,10 +254,11 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
           orderId: order.id,
           showtimeSeatId: sSeat.id,
           qrCode: ticketNumber,
-          status: "ACTIVE",
+          status: "PENDING", // Hardened: Tickets start as PENDING
         },
       });
 
+      // Update ShowtimeSeat to HOLD
       await tx.showtimeSeat.update({
         where: { id: sSeat.id },
         data: {
@@ -184,23 +275,40 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
       seatIds: input.seatIds,
     });
 
-    return { order, tickets };
+    return { order, tickets, payment };
   });
 };
 
-export const confirmBookingPayment = async (orderId: string) => {
+export const confirmBookingPayment = async (
+  orderId: string,
+  paymentData?: {
+    providerTransactionId?: string;
+    paymentType?: string;
+    provider?: string;
+    rawResponse?: any;
+  }
+) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { tickets: true },
+    include: { tickets: true, payments: true },
   });
 
   if (!order) throw new AppError("NOT_FOUND", "Booking order not found");
+
+  // IDEMPOTENCY GUARD: If order is already PAID, return gracefully
+  if (order.orderStatus === "PAID") {
+    return order;
+  }
+
   if (order.orderStatus !== "PENDING") {
-    throw new AppError("BAD_REQUEST", "Only PENDING bookings can have payment confirmed");
+    throw new AppError(
+      "BAD_REQUEST",
+      `Only PENDING bookings can have payment confirmed (current status: ${order.orderStatus})`
+    );
   }
 
   return prisma.$transaction(async (tx) => {
-    // 1. Update Order status
+    // 1. Update Order status to PAID
     const updatedOrder = await tx.order.update({
       where: { id: orderId },
       data: {
@@ -209,16 +317,51 @@ export const confirmBookingPayment = async (orderId: string) => {
       },
     });
 
-    // 2. Create Payment
-    await tx.payment.create({
-      data: {
+    // 2. Update or Create Payment record to PAID with paidAt timestamp
+    const existingPendingPayment = order.payments.find((p) => p.status === "PENDING");
+    if (existingPendingPayment) {
+      await tx.payment.update({
+        where: { id: existingPendingPayment.id },
+        data: {
+          status: "PAID",
+          paidAt: new Date(),
+          ...(paymentData?.provider && { provider: paymentData.provider }),
+          ...(paymentData?.paymentType && { paymentType: paymentData.paymentType }),
+          ...(paymentData?.providerTransactionId && {
+            providerTransactionId: paymentData.providerTransactionId,
+          }),
+          ...(paymentData?.rawResponse && { rawResponse: paymentData.rawResponse }),
+        },
+      });
+    } else {
+      await tx.payment.create({
+        data: {
+          orderId,
+          amount: order.totalAmount,
+          status: "PAID",
+          paidAt: new Date(),
+          provider: paymentData?.provider || "MANUAL",
+          paymentType: paymentData?.paymentType || "QRIS",
+          ...(paymentData?.providerTransactionId && {
+            providerTransactionId: paymentData.providerTransactionId,
+          }),
+          ...(paymentData?.rawResponse && { rawResponse: paymentData.rawResponse }),
+        },
+      });
+    }
+
+    // 3. Activate Tickets (PENDING -> ACTIVE)
+    await tx.ticket.updateMany({
+      where: {
         orderId,
-        amount: order.totalAmount,
-        status: "PAID",
+        status: "PENDING",
+      },
+      data: {
+        status: "ACTIVE",
       },
     });
 
-    // 3. Mark seats as SOLD
+    // 4. Mark seats as SOLD
     const seatIds = order.tickets.map((t) => t.showtimeSeatId);
     await tx.showtimeSeat.updateMany({
       where: { id: { in: seatIds } },
@@ -246,10 +389,15 @@ export const confirmBookingPayment = async (orderId: string) => {
 export const cancelBooking = async (orderId: string) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { tickets: true },
+    include: { tickets: true, payments: true },
   });
 
   if (!order) throw new AppError("NOT_FOUND", "Booking order not found");
+
+  if (order.orderStatus === "CANCELLED") {
+    return order; // Idempotent cancellation
+  }
+
   if (order.orderStatus !== "PENDING") {
     throw new AppError("BAD_REQUEST", "Only PENDING bookings can be cancelled");
   }
@@ -261,7 +409,13 @@ export const cancelBooking = async (orderId: string) => {
       data: { status: "CANCELLED" },
     });
 
-    // 2. Release seats
+    // 2. Mark Payment as FAILED
+    await tx.payment.updateMany({
+      where: { orderId, status: "PENDING" },
+      data: { status: "FAILED" },
+    });
+
+    // 3. Release seats
     const seatIds = order.tickets.map((t) => t.showtimeSeatId);
     await tx.showtimeSeat.updateMany({
       where: { id: { in: seatIds } },
@@ -271,7 +425,7 @@ export const cancelBooking = async (orderId: string) => {
       },
     });
 
-    // 3. Cancel order
+    // 4. Cancel order
     const updatedOrder = await tx.order.update({
       where: { id: orderId },
       data: {
@@ -312,6 +466,7 @@ export const lookupBooking = async (query: string) => {
           },
         },
       },
+      payments: true,
       schedule: {
         include: {
           movie: true,
@@ -339,6 +494,7 @@ export const getAdminBookings = async () => {
           },
         },
       },
+      payments: true,
       schedule: {
         include: {
           movie: true,

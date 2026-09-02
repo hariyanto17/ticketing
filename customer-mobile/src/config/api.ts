@@ -5,18 +5,21 @@ export type Environment = "development" | "staging" | "production";
 export const APP_ENV: Environment = (process.env.APP_ENV as Environment) || "development";
 
 const getHostUrl = () => {
+  if (process.env.API_HOST_URL) {
+    return process.env.API_HOST_URL;
+  }
   if (APP_ENV === "production") {
     return "https://cinema.planetcinema.id";
   }
   if (APP_ENV === "staging") {
     return "https://staging-cinema.planetcinema.id";
   }
-  // Development local environment resolution
-  return Platform.OS === "android" ? "http://10.0.2.2:5011" : "http://localhost:5011";
+  // Development server online
+  return "https://api-ticket.168billiard.online";
 };
 
-export const API_BASE_URL = `${getHostUrl()}/api`;
-export const SOCKET_URL = getHostUrl();
+export const API_BASE_URL = process.env.API_BASE_URL || `${getHostUrl()}/api`;
+export const SOCKET_URL = process.env.SOCKET_URL || getHostUrl();
 
 // Public Midtrans Client Key (Safe for client-side embedding)
 // NOTE: MIDTRANS_SERVER_KEY is strictly maintained on the backend and NEVER exposed to mobile.

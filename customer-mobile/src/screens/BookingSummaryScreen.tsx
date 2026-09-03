@@ -13,7 +13,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { Film, User, Phone, Mail, CreditCard, ShieldCheck } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
 import { useCreateBookingMutation } from "../lib/api/bookingApi";
-import { useCreateSnapTokenMutation } from "../lib/api/paymentApi";
+import { useCreateQrisPaymentMutation } from "../lib/api/paymentApi";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -39,9 +39,9 @@ export const BookingSummaryScreen: React.FC = () => {
   const { t, formatCurrency } = useLanguage();
 
   const [createBookingMutation, { isLoading: creatingBooking }] = useCreateBookingMutation();
-  const [createSnapTokenMutation, { isLoading: creatingSnapToken }] = useCreateSnapTokenMutation();
+  const [createQrisPaymentMutation, { isLoading: creatingQrisPayment }] = useCreateQrisPaymentMutation();
 
-  const submitting = creatingBooking || creatingSnapToken;
+  const submitting = creatingBooking || creatingQrisPayment;
 
   if (!selectedSchedule || selectedSeats.length === 0) {
     return (
@@ -87,18 +87,21 @@ export const BookingSummaryScreen: React.FC = () => {
 
       const orderId = bookingRes.order.id;
 
-      // 2. Request Midtrans Snap Transaction Token via RTK Query mutation
-      const snapRes = await createSnapTokenMutation(orderId).unwrap();
+      // 2. Charge Direct Midtrans Core API QRIS via RTK Query mutation
+      const qrisRes = await createQrisPaymentMutation(orderId).unwrap();
 
-      // 3. Navigate to Midtrans Payment Screen
+      // 3. Navigate to Native Custom QRIS Payment Screen
       navigation.navigate("Payment", {
         orderId,
-        snapUrl: snapRes.redirect_url,
+        qrUrl: qrisRes.qrUrl,
+        qrString: qrisRes.qrString,
+        amount: qrisRes.amount,
+        expiredAt: qrisRes.expiredAt,
       });
     } catch (err: any) {
       Alert.alert(
         t("common.error"),
-        err?.data?.message || err?.message || "Gagal memproses pemesanan online. Silakan periksa kembali data Anda."
+        err?.data?.message || err?.message || "Gagal memproses pembayaran QRIS. Silakan periksa kembali data Anda."
       );
     }
   };

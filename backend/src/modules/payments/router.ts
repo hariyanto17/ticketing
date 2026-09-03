@@ -10,13 +10,19 @@ router.post(
   catchAsync(controller.midtransNotificationController)
 );
 
-// 2. Midtrans Snap Token Generation for an Order
+// 2. Direct Midtrans Core API QRIS Payment Generation
+router.post(
+  "/qris/:orderId",
+  catchAsync(controller.createQrisPaymentController)
+);
+
+// 3. Midtrans Snap Token Generation for an Order (Legacy/Admin)
 router.post(
   "/midtrans/snap/:orderId",
   catchAsync(controller.createSnapTransactionController)
 );
 
-// 3. Payment Status Check
+// 4. Payment Status Check
 router.get(
   "/status/:orderId",
   catchAsync(controller.getPaymentStatusController)

@@ -8,7 +8,14 @@ export type RootStackParamList = {
   Showtime: { movie: Movie; selectedDate?: string };
   SeatSelection: { schedule: Showtime };
   BookingSummary: undefined;
-  Payment: { orderId: string; snapUrl: string };
+  Payment: {
+    orderId: string;
+    qrUrl?: string;
+    qrString?: string;
+    amount?: number;
+    expiredAt?: string;
+    snapUrl?: string;
+  };
   BookingSuccess: { orderId: string; bookingNumber: string };
   MyTickets: { autoQuery?: string };
 };

@@ -18,6 +18,16 @@ export const midtransNotificationController = async (req: Request, res: Response
   return responseHandler.ok(res, output, output.message);
 };
 
+export const createQrisPaymentController = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  if (!orderId) {
+    throw new AppError("BAD_REQUEST", "orderId is required");
+  }
+
+  const result = await midtransService.createQrisCharge(orderId);
+  return responseHandler.ok(res, result, "Midtrans QRIS payment created successfully");
+};
+
 export const createSnapTransactionController = async (req: Request, res: Response) => {
   const { orderId } = req.params;
   if (!orderId) {
@@ -40,6 +50,17 @@ export const getPaymentStatusController = async (req: Request, res: Response) =>
 
   if (!order) throw new AppError("NOT_FOUND", "Order not found");
 
+  const latestPayment = order.payments[order.payments.length - 1];
+  let qrUrl = "";
+  let qrString = "";
+  let expiredAt = latestPayment?.expiredAt ? latestPayment.expiredAt.toISOString() : undefined;
+
+  if (latestPayment?.rawResponse) {
+    const raw = latestPayment.rawResponse as any;
+    qrUrl = raw.actions?.find((a: any) => a.name === "generate-qr-code")?.url || latestPayment.redirectUrl || "";
+    qrString = raw.qr_string || "";
+  }
+
   return responseHandler.ok(
     res,
     {
@@ -49,6 +70,9 @@ export const getPaymentStatusController = async (req: Request, res: Response) =>
       paymentStatus: order.paymentStatus,
       payments: order.payments,
       tickets: order.tickets,
+      qrUrl,
+      qrString,
+      expiredAt,
     },
     "Payment status retrieved"
   );

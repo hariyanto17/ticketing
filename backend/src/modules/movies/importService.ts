@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { ImportMoviesParsed } from "./validation";
@@ -48,7 +47,7 @@ type MovieSnapshot = {
   externalDistributorId: string | null;
 };
 
-type ImportedMovieStatus = "COMING_SOON" | "NOW_SHOWING";
+type ImportedMovieStatus = "COMING_SOON" | "DRAFT";
 
 export interface ImportSummary {
   total: number;
@@ -123,11 +122,7 @@ const toSnapshot = (movie: ExternalMovie, genreNames: string[], releaseDate: Dat
   externalDistributorId: movie.distributor || null,
 });
 
-const isSnapshot = (value: unknown): value is MovieSnapshot => Boolean(value && typeof value === "object" && "title" in value);
-
 const makeSlug = (title: string) => `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-const hasChanged = (current: unknown, previous: unknown) => current !== previous;
 
 const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
   const parsed = externalMovieSchema.safeParse(rawMovie);
@@ -138,77 +133,54 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
 
   const releaseDate = parseDate(movie.date_show || movie.published_date);
   const productionHouseName = movie.producer?.trim() || IMPORT_PRODUCTION_HOUSE;
-  const productionHouse = await ensureProductionHouse(productionHouseName);
-  const distributor = await ensureDistributor(movie.distributor || null);
   const snapshot = toSnapshot(movie, genreNames, releaseDate, productionHouseName);
-  const previous = await prisma.movie.findUnique({
-    where: { externalMovieId: movie.parent_movie_id },
-    include: {
-      genres: { include: { genre: true } },
-      productionHouse: true,
-      distributor: true,
+
+  const previous = await prisma.movie.findFirst({
+    where: {
+      OR: [
+        { externalMovieId: movie.parent_movie_id },
+        { title: { equals: snapshot.title, mode: "insensitive" } },
+      ],
     },
   });
 
-  if (!previous) {
-    const genres = await Promise.all(genreNames.map(async (name) => {
-      const existing = await prisma.genre.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
-      return existing || prisma.genre.create({ data: { name } });
-    }));
-    const created = await prisma.movie.create({
-      data: {
-        title: snapshot.title,
-        synopsis: snapshot.synopsis,
-        durationMinutes: snapshot.durationMinutes,
-        releaseDate,
-        censorshipRating: snapshot.censorshipRating,
-        poster: snapshot.poster,
-        trailerUrl: snapshot.trailerUrl,
-        status,
-        slug: makeSlug(snapshot.title),
-        productionHouseId: productionHouse.id,
-        distributorId: distributor?.id || null,
-        source: SOURCE,
-        externalMovieId: movie.parent_movie_id,
-        externalDistributorId: snapshot.externalDistributorId,
-        externalSnapshot: snapshot,
-        genres: { create: genres.map((genre) => ({ genreId: genre.id })) },
-      },
-    });
-    return { action: "created" as const, movie: created };
+  // Jika data sudah ada di database, tidak perlu di-update (skip)
+  if (previous) {
+    return { action: "skipped" as const, movie: previous };
   }
 
-  const previousSnapshot = isSnapshot(previous.externalSnapshot) ? previous.externalSnapshot : null;
-  const shouldUpdateProductionHouse = !previousSnapshot || normalizeName(previous.productionHouse.name) === normalizeName(previousSnapshot.productionHouseName || IMPORT_PRODUCTION_HOUSE);
-  const shouldUpdateDistributor = !previousSnapshot || !previous.distributor || previous.distributor.externalDistributorId === previousSnapshot.externalDistributorId;
-  const data: Prisma.MovieUpdateInput = {
-    ...(previousSnapshot && hasChanged(previous.title, previousSnapshot.title) ? {} : { title: snapshot.title }),
-    ...(previousSnapshot && hasChanged(previous.synopsis, previousSnapshot.synopsis) ? {} : { synopsis: snapshot.synopsis }),
-    ...(previousSnapshot && hasChanged(previous.durationMinutes, previousSnapshot.durationMinutes) ? {} : { durationMinutes: snapshot.durationMinutes }),
-    ...(previousSnapshot && hasChanged(previous.releaseDate?.toISOString() || null, previousSnapshot.releaseDate) ? {} : { releaseDate }),
-    ...(previousSnapshot && hasChanged(previous.censorshipRating, previousSnapshot.censorshipRating) ? {} : { censorshipRating: snapshot.censorshipRating }),
-    ...(previousSnapshot && hasChanged(previous.poster, previousSnapshot.poster) ? {} : { poster: snapshot.poster }),
-    ...(previousSnapshot && hasChanged(previous.trailerUrl, previousSnapshot.trailerUrl) ? {} : { trailerUrl: snapshot.trailerUrl }),
-    externalDistributorId: snapshot.externalDistributorId,
-    status,
-    source: SOURCE,
-    externalSnapshot: snapshot,
-    ...(shouldUpdateProductionHouse ? { productionHouse: { connect: { id: productionHouse.id } } } : {}),
-    ...(shouldUpdateDistributor ? { distributor: distributor ? { connect: { id: distributor.id } } : { disconnect: true } } : {}),
-  };
+  const productionHouse = await ensureProductionHouse(productionHouseName);
+  const distributor = await ensureDistributor(movie.distributor || null);
 
-  const shouldUpdateGenres = !previousSnapshot || JSON.stringify(previous.genres.map((item) => normalizeName(item.genre.name)).sort()) === JSON.stringify(previousSnapshot.genreNames.map(normalizeName).sort());
-  if (shouldUpdateGenres) {
-    const genres = await Promise.all(genreNames.map(async (name) => {
+  const genres = await Promise.all(
+    genreNames.map(async (name) => {
       const existing = await prisma.genre.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
       return existing || prisma.genre.create({ data: { name } });
-    }));
-    await prisma.movieGenre.deleteMany({ where: { movieId: previous.id } });
-    data.genres = { create: genres.map((genre) => ({ genreId: genre.id })) };
-  }
+    })
+  );
 
-  const updated = await prisma.movie.update({ where: { id: previous.id }, data });
-  return { action: "updated" as const, movie: updated };
+  const created = await prisma.movie.create({
+    data: {
+      title: snapshot.title,
+      synopsis: snapshot.synopsis,
+      durationMinutes: snapshot.durationMinutes,
+      releaseDate,
+      censorshipRating: snapshot.censorshipRating,
+      poster: snapshot.poster,
+      trailerUrl: snapshot.trailerUrl,
+      status, // "DRAFT" untuk NOW_PLAYING, "COMING_SOON" untuk UPCOMING
+      slug: makeSlug(snapshot.title),
+      productionHouseId: productionHouse.id,
+      distributorId: distributor?.id || null,
+      source: SOURCE,
+      externalMovieId: movie.parent_movie_id,
+      externalDistributorId: snapshot.externalDistributorId,
+      externalSnapshot: snapshot,
+      genres: { create: genres.map((genre) => ({ genreId: genre.id })) },
+    },
+  });
+
+  return { action: "created" as const, movie: created };
 };
 
 export const importMovies = async (input: ImportMoviesParsed): Promise<ImportSummary> => {
@@ -226,7 +198,7 @@ export const importMovies = async (input: ImportMoviesParsed): Promise<ImportSum
     summary.total += records.length;
     for (const record of records) {
       try {
-        const result = await importOne(record, type === "NOW_PLAYING" ? "NOW_SHOWING" : "COMING_SOON");
+        const result = await importOne(record, type === "NOW_PLAYING" ? "DRAFT" : "COMING_SOON");
         summary[result.action] += 1;
       } catch (error) {
         const raw = record as { parent_movie_id?: string; title?: string };

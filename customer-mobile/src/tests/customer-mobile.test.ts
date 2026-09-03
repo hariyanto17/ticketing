@@ -48,23 +48,23 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     assert.ok(rowMap[8], "Seat A7 must exist at col 8 after the aisle gap");
   });
 
-  await t.test("3. 10-Minute Hold Reservation Timer Computation", () => {
+  await t.test("3. 2-Minute Hold Reservation Timer Computation", () => {
     const now = Date.now();
-    const futureHold = new Date(now + 10 * 60 * 1000); // 10 minutes in future
+    const futureHold = new Date(now + 2 * 60 * 1000); // 2 minutes in future
     const remainingSeconds = Math.floor((futureHold.getTime() - now) / 1000);
 
-    assert.ok(remainingSeconds >= 599 && remainingSeconds <= 600, "Hold duration should be ~600 seconds");
+    assert.ok(remainingSeconds >= 119 && remainingSeconds <= 120, "Hold duration should be ~120 seconds");
 
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
     const formatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
-    assert.strictEqual(formatted, "10:00");
+    assert.strictEqual(formatted, "02:00");
 
     // Expired check
     const pastHold = new Date(now - 1000);
-    const isExpired = pastHold.getTime() <= now;
-    assert.strictEqual(isExpired, true, "Past timestamp must trigger expiration");
+    const expiredSeconds = Math.floor((pastHold.getTime() - now) / 1000);
+    assert.ok(expiredSeconds <= 0, "Past hold should immediately evaluate to <= 0 seconds");
   });
 
   await t.test("4. Price Calculation and Currency Formatting", () => {

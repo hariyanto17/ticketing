@@ -237,9 +237,9 @@ export const getScheduleSeats = async (scheduleId: string) => {
   });
 };
 
-export const holdSeats = async (scheduleId: string, seatIds: string[], minutes = 5) => {
+export const holdSeats = async (scheduleId: string, seatIds: string[], minutes = 2) => {
   const now = new Date();
-  const reservedUntil = new Date(now.getTime() + minutes * 60 * 1000); // custom minutes
+  const reservedUntil = new Date(now.getTime() + minutes * 60 * 1000); // 2 minutes
 
   // Ensure seats exist for this schedule
   const studioSeats = await prisma.seat.findMany({

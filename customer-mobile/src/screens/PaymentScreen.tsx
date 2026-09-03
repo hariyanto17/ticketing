@@ -62,7 +62,7 @@ export const PaymentScreen: React.FC = () => {
     if (rawExpiredAt) {
       return new Date(rawExpiredAt);
     }
-    return new Date(Date.now() + 10 * 60 * 1000);
+    return new Date(Date.now() + 2 * 60 * 1000);
   }, [rawExpiredAt]);
 
   // Expiration countdown timer
@@ -309,7 +309,7 @@ export const PaymentScreen: React.FC = () => {
             Waktu Pembayaran Telah Habis
           </Text>
           <Text style={[styles.statusSub, { color: colors.textMuted }]}>
-            Batas waktu 10 menit untuk reservasi kursi telah kedaluwarsa. Kursi telah dilepas ke publik.
+            Batas waktu 2 menit untuk reservasi kursi telah kedaluwarsa. Kursi telah dilepas ke publik.
           </Text>
           <View style={styles.buttonCol}>
             <Button

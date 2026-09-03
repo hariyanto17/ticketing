@@ -69,10 +69,10 @@ export const createQrisCharge = async (orderId: string) => {
     );
   }
 
-  // Check if booking has expired (10 minutes from creation)
+  // Check if booking has expired (2 minutes from creation)
   const now = new Date();
-  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-  if (order.createdAt < tenMinutesAgo) {
+  const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+  if (order.createdAt < twoMinutesAgo) {
     throw new AppError("BAD_REQUEST", "Booking time has expired. Please re-select your seats.");
   }
 
@@ -93,7 +93,7 @@ export const createQrisCharge = async (orderId: string) => {
     const expiredAt =
       existingQrisPayment.expiredAt && new Date(existingQrisPayment.expiredAt) > now
         ? new Date(existingQrisPayment.expiredAt)
-        : new Date(order.createdAt.getTime() + 10 * 60 * 1000);
+        : new Date(order.createdAt.getTime() + 2 * 60 * 1000);
 
     return {
       orderId: order.id,
@@ -131,7 +131,7 @@ export const createQrisCharge = async (orderId: string) => {
       ...(order.customerEmail && { email: order.customerEmail }),
     },
     custom_expiry: {
-      expiry_duration: 10,
+      expiry_duration: 2,
       unit: "minute",
     },
   };
@@ -142,7 +142,7 @@ export const createQrisCharge = async (orderId: string) => {
   let qrUrl = "";
   let qrString = "";
   let rawMidtransResponse: any = null;
-  let expiredAt = new Date(Date.now() + 10 * 60 * 1000);
+  let expiredAt = new Date(Date.now() + 2 * 60 * 1000);
 
   try {
     const response = await fetch(`${MIDTRANS_API_BASE_URL}/charge`, {
@@ -303,7 +303,7 @@ export const createSnapTransaction = async (orderId: string) => {
     },
     expiry: {
       unit: "minutes",
-      duration: 10,
+      duration: 2,
     },
   };
 
@@ -365,7 +365,7 @@ export const createSnapTransaction = async (orderId: string) => {
         redirectUrl,
         paymentType: "MIDTRANS_SNAP",
         providerOrderId: order.orderNumber,
-        expiredAt: new Date(Date.now() + 10 * 60 * 1000),
+        expiredAt: new Date(Date.now() + 2 * 60 * 1000),
       },
     });
   }

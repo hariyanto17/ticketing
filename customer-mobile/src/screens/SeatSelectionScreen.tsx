@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
 import { ShowtimeSeat } from "../types/schedule";
@@ -63,10 +63,15 @@ export const SeatSelectionScreen: React.FC = () => {
     }
   }, [serverSeats]);
 
-  useEffect(() => {
-    clearSelectedSeats();
-    setReservedUntil(null);
+  useFocusEffect(
+    useCallback(() => {
+      clearSelectedSeats();
+      setReservedUntil(null);
+      loadSeats();
+    }, [schedule.id])
+  );
 
+  useEffect(() => {
     // Initialize Socket.IO Real-time Synchronization
     const socket = initSocket();
 

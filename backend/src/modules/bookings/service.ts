@@ -5,14 +5,43 @@ import { emitSeatUpdate } from "../../utils/socket";
 
 export const cleanupExpiredBookings = async () => {
   const now = new Date();
-  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+  const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
 
-  // Find expired pending bookings
+  // 1. Auto-release any expired HOLD seats whose reservedUntil has passed
+  const expiredHeldSeats = await prisma.showtimeSeat.findMany({
+    where: {
+      status: "HOLD",
+      reservedUntil: { lt: now },
+    },
+    select: { id: true, seatId: true, showtimeId: true },
+  });
+
+  if (expiredHeldSeats.length > 0) {
+    await prisma.showtimeSeat.updateMany({
+      where: { id: { in: expiredHeldSeats.map((s) => s.id) } },
+      data: {
+        status: "AVAILABLE",
+        reservedUntil: null,
+      },
+    });
+
+    const grouped = expiredHeldSeats.reduce((acc, s) => {
+      if (!acc[s.showtimeId]) acc[s.showtimeId] = [];
+      acc[s.showtimeId].push(s.seatId);
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    for (const [showtimeId, seatIds] of Object.entries(grouped)) {
+      emitSeatUpdate("seats_released", { showtimeId, seatIds });
+    }
+  }
+
+  // 2. Find expired pending bookings older than 2 minutes
   const expiredOrders = await prisma.order.findMany({
     where: {
       orderStatus: "PENDING",
       createdAt: {
-        lt: tenMinutesAgo,
+        lt: twoMinutesAgo,
       },
     },
     include: {
@@ -154,7 +183,7 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
   }
 
   const totalAmount = showtimeSeats.length * schedule.ticketPrice;
-  const reservedUntil = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes hold for online booking
+  const reservedUntil = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes hold for online booking
 
   return prisma.$transaction(async (tx) => {
     // Generate Serial Order Number

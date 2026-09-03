@@ -7,6 +7,7 @@ interface GetMoviesQuery {
   limit?: number;
   search?: string;
   status?: string;
+  statusNot?: string | string[];
   genreId?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
@@ -22,9 +23,12 @@ export const getAllMovies = async (query: GetMoviesQuery) => {
 
   const where: any = {};
 
-  // Don't show archived movies unless requested
+  // Status filtering (handling positive match or negative exclusion)
   if (query.status) {
     where.status = query.status;
+  } else if (query.statusNot) {
+    const excluded = Array.isArray(query.statusNot) ? query.statusNot : [query.statusNot];
+    where.status = { notIn: excluded };
   } else {
     where.status = { not: "ARCHIVED" };
   }
@@ -50,13 +54,16 @@ export const getAllMovies = async (query: GetMoviesQuery) => {
 
     const showtimeWhere: any = {
       status: "PUBLISHED",
-      businessDate: { gte: minDate },
+      OR: [
+        { businessDate: { gte: minDate } },
+        { startTime: { gte: minDate } },
+      ],
     };
 
     if (query.scheduleEndDate) {
       const maxDate = new Date(query.scheduleEndDate);
       maxDate.setHours(23, 59, 59, 999);
-      showtimeWhere.businessDate.lte = maxDate;
+      showtimeWhere.businessDate = { lte: maxDate, gte: minDate };
     }
 
     where.showtimes = {

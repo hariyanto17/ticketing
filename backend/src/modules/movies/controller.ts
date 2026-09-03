@@ -32,10 +32,12 @@ export const getNowShowingMoviesController = async (req: Request, res: Response)
     page: page ? Number(page) : undefined,
     limit: limit ? Number(limit) : undefined,
     search: search as string,
-    status: "NOW_SHOWING",
+    statusNot: ["COMING_SOON", "ARCHIVED", "DRAFT"],
     genreId: genreId as string,
     sortBy: sortBy as string,
     sortOrder: sortOrder as any,
+    hasSchedule: true,
+    scheduleStartDate: new Date().toISOString(),
   });
 
   return responseHandler.ok(res, result.movies, "Now showing movies retrieved", result.meta);

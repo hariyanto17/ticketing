@@ -13,7 +13,7 @@ import QRCode from "react-native-qrcode-svg";
 import { Search, Ticket, Calendar, Clock, Armchair, ShieldCheck, History } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
 import { Order, Ticket as TicketType } from "../types/booking";
-import { bookingService } from "../services/bookingService";
+import { useLazyLookupBookingsQuery } from "../lib/api/bookingApi";
 import { storageService, StoredBookingRef } from "../services/storageService";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -30,10 +30,11 @@ export const MyTicketsScreen: React.FC = () => {
   const { t } = useLanguage();
 
   const [query, setQuery] = useState<string>(route.params?.autoQuery || "");
-  const [loading, setLoading] = useState<boolean>(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [recentBookings, setRecentBookings] = useState<StoredBookingRef[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+
+  const [triggerLookup, { isFetching: loading }] = useLazyLookupBookingsQuery();
 
   useEffect(() => {
     storageService.getRecentBookings().then(setRecentBookings);
@@ -44,16 +45,13 @@ export const MyTicketsScreen: React.FC = () => {
 
   const handleSearch = async (searchTerm = query) => {
     if (!searchTerm.trim()) return;
-    setLoading(true);
     setHasSearched(true);
     try {
-      const data = await bookingService.lookupBookings(searchTerm.trim());
+      const data = await triggerLookup(searchTerm.trim(), false).unwrap();
       setOrders(data);
     } catch (e) {
       console.error("Failed to lookup tickets", e);
       setOrders([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -103,164 +101,156 @@ export const MyTicketsScreen: React.FC = () => {
             <View style={styles.recentHeader}>
               <History size={16} color={colors.primary} />
               <Text style={[styles.recentTitle, { color: colors.text }]}>
-                {t("myTickets.recentBookings")}
+                {t("myTickets.recentOrders")}
               </Text>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentScroll}>
+            <View style={styles.recentChipsRow}>
               {recentBookings.map((b) => (
                 <TouchableOpacity
                   key={b.orderId}
                   style={[styles.recentChip, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                   onPress={() => {
-                    const code = b.bookingNumber || b.orderNumber;
-                    setQuery(code);
-                    handleSearch(code);
+                    setQuery(b.orderNumber);
+                    handleSearch(b.orderNumber);
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.recentMovie, { color: colors.text }]} numberOfLines={1}>
+                  <Text style={[styles.chipOrderNum, { color: colors.primary }]}>{b.orderNumber}</Text>
+                  <Text style={[styles.chipMovie, { color: colors.textMuted }]} numberOfLines={1}>
                     {b.movieTitle}
-                  </Text>
-                  <Text style={[styles.recentCode, { color: colors.primary }]}>
-                    {b.bookingNumber || b.orderNumber}
-                  </Text>
-                  <Text style={[styles.recentSeats, { color: colors.textMuted }]}>
-                    {b.seatLabels.join(", ")}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
         )}
 
-        {/* Loading Spinner */}
+        {/* Results */}
         {loading ? (
-          <View style={styles.loadingContainer}>
+          <View style={styles.centerBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textMuted }]}>
+            <Text style={[styles.centerText, { color: colors.textMuted }]}>
               {t("common.loading")}
             </Text>
           </View>
         ) : orders.length > 0 ? (
-          <View style={styles.ticketList}>
-            {orders.map((order) => {
-              const schedule = order.schedule;
-              const tickets = order.tickets || [];
-              const startTime = schedule?.startTime
-                ? new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "—";
-              const dateFormatted = schedule?.startTime
-                ? new Date(schedule.startTime).toLocaleDateString("id-ID", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })
-                : "—";
-
-              return (
-                <View key={order.id} style={styles.orderContainer}>
-                  {/* Order Header Summary */}
-                  <View style={styles.orderMetaRow}>
-                    <Text style={[styles.bookingCodeText, { color: colors.primary }]}>
-                      {order.bookingNumber || order.orderNumber}
+          <View style={styles.ordersList}>
+            {orders.map((order) => (
+              <Card key={order.id} style={styles.orderCard}>
+                {/* Header info */}
+                <View style={styles.orderHeader}>
+                  <View>
+                    <Text style={[styles.orderNumber, { color: colors.text }]}>
+                      {order.orderNumber}
                     </Text>
-                    <Text style={[styles.customerPhoneText, { color: colors.textMuted }]}>
-                      {order.customerName || "Tamu"} • {order.customerPhone}
+                    <Text style={[styles.movieTitle, { color: colors.primary }]}>
+                      {order.schedule?.movie?.title || "Film Planet Cinema"}
+                    </Text>
+                  </View>
+                  <Badge
+                    label={order.orderStatus}
+                    variant={order.orderStatus === "PAID" ? "success" : "warning"}
+                  />
+                </View>
+
+                {/* Schedule info row */}
+                <View style={[styles.infoRow, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                  <View style={styles.infoCol}>
+                    <Calendar size={14} color={colors.textMuted} />
+                    <Text style={[styles.infoColText, { color: colors.text }]}>
+                      {order.schedule?.businessDate
+                        ? new Date(order.schedule.businessDate).toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "short",
+                          })
+                        : "-"}
                     </Text>
                   </View>
 
-                  {/* Individual Physical Tickets with Turnstile QR Codes */}
-                  {tickets.map((tkt) => (
-                    <Card key={tkt.id} style={styles.ticketCard}>
-                      {/* Ticket Header & Status */}
-                      <View style={styles.ticketCardHeader}>
-                        <Text style={[styles.cinemaBrand, { color: colors.primary }]}>
-                          PLANET CINEMA
-                        </Text>
-                        {getTicketStatusBadge(tkt.status)}
+                  <View style={styles.infoCol}>
+                    <Clock size={14} color={colors.textMuted} />
+                    <Text style={[styles.infoColText, { color: colors.text }]}>
+                      {order.schedule?.startTime
+                        ? new Date(order.schedule.startTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "-"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoCol}>
+                    <Armchair size={14} color={colors.textMuted} />
+                    <Text style={[styles.infoColText, { color: colors.text }]}>
+                      {order.schedule?.studio?.name || "Studio"}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Individual Seat Tickets & QR Codes */}
+                <View style={styles.ticketsContainer}>
+                  <Text style={[styles.ticketsTitle, { color: colors.textMuted }]}>
+                    E-Tiket ({order.tickets?.length || 0} Tiket)
+                  </Text>
+
+                  {order.tickets?.map((ticket) => (
+                    <View
+                      key={ticket.id}
+                      style={[styles.ticketItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+                    >
+                      {/* Left: QR Code */}
+                      <View style={styles.qrBox}>
+                        <QRCode
+                          value={ticket.qrCode || ticket.ticketNumber}
+                          size={70}
+                          color="#000000"
+                          backgroundColor="#ffffff"
+                        />
                       </View>
 
-                      {/* Movie Title */}
-                      <Text style={[styles.movieTitle, { color: colors.text }]}>
-                        {schedule?.movie?.title || "Film Bioskop"}
-                      </Text>
-
-                      {/* Studio, Date, Showtime & Seat Coordinates */}
-                      <View style={[styles.detailsGrid, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-                        <View style={styles.gridItem}>
-                          <Text style={[styles.gridLabel, { color: colors.textMuted }]}>
-                            {t("myTickets.studio")}
+                      {/* Right: Seat & Ticket info */}
+                      <View style={styles.ticketDetails}>
+                        <View style={styles.ticketTopRow}>
+                          <Text style={[styles.seatLabel, { color: colors.primary }]}>
+                            Kursi: {ticket.showtimeSeat?.seat?.seatLabel || "-"}
                           </Text>
-                          <Text style={[styles.gridValue, { color: colors.text }]}>
-                            {schedule?.studio?.name || "Studio 1"}
-                          </Text>
+                          {getTicketStatusBadge(ticket.status)}
                         </View>
-
-                        <View style={styles.gridItem}>
-                          <Text style={[styles.gridLabel, { color: colors.textMuted }]}>
-                            {t("myTickets.seat")}
-                          </Text>
-                          <Text style={[styles.gridValueHighlight, { color: colors.primary }]}>
-                            {tkt.showtimeSeat?.seat.seatLabel || "—"}
-                          </Text>
-                        </View>
-
-                        <View style={styles.gridItem}>
-                          <Text style={[styles.gridLabel, { color: colors.textMuted }]}>
-                            {t("myTickets.date")}
-                          </Text>
-                          <Text style={[styles.gridValue, { color: colors.text }]}>
-                            {dateFormatted}
-                          </Text>
-                        </View>
-
-                        <View style={styles.gridItem}>
-                          <Text style={[styles.gridLabel, { color: colors.textMuted }]}>
-                            {t("myTickets.time")}
-                          </Text>
-                          <Text style={[styles.gridValue, { color: colors.text }]}>
-                            {startTime}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Turnstile QR Code */}
-                      <View style={styles.qrSection}>
-                        <View style={styles.qrWrapper}>
-                          <QRCode
-                            value={tkt.qrCode || tkt.ticketNumber}
-                            size={140}
-                            backgroundColor="#ffffff"
-                            color="#000000"
-                          />
-                        </View>
-
-                        <Text style={[styles.ticketCodeText, { color: colors.text }]}>
-                          {tkt.ticketNumber}
+                        <Text style={[styles.ticketCode, { color: colors.textMuted }]}>
+                          No: {ticket.ticketNumber}
                         </Text>
-
                         <Text style={[styles.scanHint, { color: colors.textMuted }]}>
-                          {t("myTickets.scanAtGate")}
+                          Scan di Turnstile Gate
                         </Text>
                       </View>
-                    </Card>
+                    </View>
                   ))}
                 </View>
-              );
-            })}
+              </Card>
+            ))}
           </View>
         ) : hasSearched ? (
-          <View style={styles.emptyContainer}>
+          <View style={styles.centerBox}>
             <Ticket size={48} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {t("myTickets.noTickets")}
+            <Text style={[styles.centerTitle, { color: colors.text }]}>
+              {t("myTickets.noTicketsFound")}
             </Text>
-            <Text style={[styles.emptySub, { color: colors.textMuted }]}>
-              {t("myTickets.noTicketsSub")}
+            <Text style={[styles.centerText, { color: colors.textMuted }]}>
+              {t("myTickets.searchHint")}
             </Text>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.centerBox}>
+            <Search size={48} color={colors.textMuted} />
+            <Text style={[styles.centerTitle, { color: colors.text }]}>
+              {t("myTickets.searchPlaceholder")}
+            </Text>
+            <Text style={[styles.centerText, { color: colors.textMuted }]}>
+              {t("myTickets.searchHint")}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -270,165 +260,155 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
   searchSection: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingVertical: 12,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 14,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingLeft: 12,
+    paddingRight: 6,
     height: 48,
     gap: 8,
   },
   input: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     height: "100%",
   },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    gap: 16,
+  },
   recentSection: {
-    paddingTop: 16,
+    gap: 10,
   },
   recentHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 16,
-    marginBottom: 10,
   },
   recentTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
-  recentScroll: {
-    paddingHorizontal: 16,
-    gap: 10,
+  recentChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   recentChip: {
-    padding: 12,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
-    minWidth: 140,
+    maxWidth: "48%",
   },
-  recentMovie: {
-    fontSize: 13,
+  chipOrderNum: {
+    fontSize: 12,
     fontWeight: "700",
   },
-  recentCode: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  recentSeats: {
+  chipMovie: {
     fontSize: 11,
   },
-  loadingContainer: {
-    paddingTop: 48,
-    alignItems: "center",
-    gap: 12,
+  ordersList: {
+    gap: 16,
   },
-  loadingText: {
-    fontSize: 13,
-  },
-  ticketList: {
+  orderCard: {
     padding: 16,
-    gap: 20,
+    gap: 14,
   },
-  orderContainer: {
-    gap: 12,
-  },
-  orderMetaRow: {
+  orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 4,
+    alignItems: "flex-start",
   },
-  bookingCodeText: {
+  orderNumber: {
     fontSize: 14,
     fontWeight: "800",
   },
-  customerPhoneText: {
+  movieTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  infoCol: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  infoColText: {
     fontSize: 12,
+    fontWeight: "700",
   },
-  ticketCard: {
-    padding: 16,
+  ticketsContainer: {
+    gap: 10,
+  },
+  ticketsTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  ticketItem: {
+    flexDirection: "row",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
     gap: 12,
+    alignItems: "center",
   },
-  ticketCardHeader: {
+  qrBox: {
+    padding: 6,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+  },
+  ticketDetails: {
+    flex: 1,
+    gap: 4,
+  },
+  ticketTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  cinemaBrand: {
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-  },
-  movieTitle: {
-    fontSize: 17,
+  seatLabel: {
+    fontSize: 15,
     fontWeight: "800",
   },
-  detailsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 10,
-  },
-  gridItem: {
-    width: "50%",
-    paddingVertical: 6,
-    gap: 2,
-  },
-  gridLabel: {
+  ticketCode: {
     fontSize: 11,
-  },
-  gridValue: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  gridValueHighlight: {
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  qrSection: {
-    alignItems: "center",
-    paddingTop: 8,
-    gap: 8,
-  },
-  qrWrapper: {
-    padding: 10,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-  },
-  ticketCodeText: {
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 1,
+    fontWeight: "600",
   },
   scanHint: {
-    fontSize: 11,
+    fontSize: 10,
   },
-  emptyContainer: {
-    paddingTop: 60,
+  centerBox: {
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 12,
   },
-  emptyTitle: {
+  centerTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
   },
-  emptySub: {
+  centerText: {
     fontSize: 13,
-    maxWidth: 240,
     textAlign: "center",
+    maxWidth: 260,
   },
 });

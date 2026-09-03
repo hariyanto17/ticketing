@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -12,8 +12,8 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Film, User, Phone, Mail, CreditCard, ShieldCheck } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
-import { bookingService } from "../services/bookingService";
-import { paymentService } from "../services/paymentService";
+import { useCreateBookingMutation } from "../lib/api/bookingApi";
+import { useCreateSnapTokenMutation } from "../lib/api/paymentApi";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -38,7 +38,10 @@ export const BookingSummaryScreen: React.FC = () => {
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
 
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [createBookingMutation, { isLoading: creatingBooking }] = useCreateBookingMutation();
+  const [createSnapTokenMutation, { isLoading: creatingSnapToken }] = useCreateSnapTokenMutation();
+
+  const submitting = creatingBooking || creatingSnapToken;
 
   if (!selectedSchedule || selectedSeats.length === 0) {
     return (
@@ -72,21 +75,20 @@ export const BookingSummaryScreen: React.FC = () => {
       return;
     }
 
-    setSubmitting(true);
     try {
-      // 1. Create PENDING Online Booking on authoritative backend
-      const bookingRes = await bookingService.createBooking({
+      // 1. Create PENDING Online Booking on authoritative backend via RTK Query mutation
+      const bookingRes = await createBookingMutation({
         scheduleId: selectedSchedule.id,
         seatIds: selectedSeats.map((s) => s.seat.id),
         customerName: customerInfo.name.trim(),
         customerPhone: customerInfo.phone.trim(),
         customerEmail: customerInfo.email.trim() || undefined,
-      });
+      }).unwrap();
 
       const orderId = bookingRes.order.id;
 
-      // 2. Request Midtrans Snap Transaction Token
-      const snapRes = await paymentService.createSnapToken(orderId);
+      // 2. Request Midtrans Snap Transaction Token via RTK Query mutation
+      const snapRes = await createSnapTokenMutation(orderId).unwrap();
 
       // 3. Navigate to Midtrans Payment Screen
       navigation.navigate("Payment", {
@@ -96,195 +98,205 @@ export const BookingSummaryScreen: React.FC = () => {
     } catch (err: any) {
       Alert.alert(
         t("common.error"),
-        err.message || "Gagal memproses pemesanan online. Silakan periksa kembali data Anda."
+        err?.data?.message || err?.message || "Gagal memproses pemesanan online. Silakan periksa kembali data Anda."
       );
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  const startTimeStr = new Date(selectedSchedule.startTime).toLocaleString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const formatScheduleDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatScheduleTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title={t("summary.title")} showBack onBack={() => navigation.goBack()} />
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Hold Countdown Timer */}
+        {/* Reservation Hold Countdown */}
         {reservedUntil && (
-          <View style={styles.timerPadding}>
-            <HoldTimer reservedUntil={reservedUntil} onExpired={handleHoldExpired} />
-          </View>
+          <HoldTimer reservedUntil={reservedUntil} onExpired={handleHoldExpired} />
         )}
 
-        {/* Movie and Schedule Details */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("summary.movieInfo")}
-          </Text>
-          <Card>
-            <View style={styles.movieHeaderRow}>
+        <View style={styles.content}>
+          {/* Order Item Details Card */}
+          <Card style={styles.sectionCard}>
+            <View style={styles.cardHeaderRow}>
               <Film size={20} color={colors.primary} />
-              <Text style={[styles.movieTitle, { color: colors.text }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
+                {t("summary.orderDetail")}
+              </Text>
+            </View>
+
+            <View style={styles.metaRow}>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.movie")}</Text>
+              <Text style={[styles.metaValue, { color: colors.text }]} numberOfLines={1}>
                 {selectedSchedule.movie?.title}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
-                {selectedSchedule.studio?.name || "Studio 1"}
-              </Text>
-              <Text style={[styles.detailValue, { color: colors.text }]}>
-                {startTimeStr}
+            <View style={styles.metaRow}>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.studio")}</Text>
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {selectedSchedule.studio?.name}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
-                {t("seat.selectedSeats")}
-              </Text>
-              <Text style={[styles.seatsValue, { color: colors.primary }]}>
-                {selectedSeats.map((s) => s.seat.seatLabel).join(", ")}
-              </Text>
-            </View>
-          </Card>
-        </View>
-
-        {/* Customer Information Form */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("summary.customerInfo")}
-          </Text>
-          <Card style={styles.formCard}>
-            {/* Full Name */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <User size={14} color={colors.primary} />
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  {t("summary.fullName")} *
-                </Text>
-              </View>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text },
-                ]}
-                placeholder={t("summary.fullNamePlaceholder")}
-                placeholderTextColor={colors.textMuted}
-                value={customerInfo.name}
-                onChangeText={(name) => setCustomerInfo((prev) => ({ ...prev, name }))}
-              />
-            </View>
-
-            {/* Phone Number */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Phone size={14} color={colors.primary} />
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  {t("summary.phoneNumber")} *
-                </Text>
-              </View>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text },
-                ]}
-                placeholder={t("summary.phonePlaceholder")}
-                placeholderTextColor={colors.textMuted}
-                keyboardType="phone-pad"
-                value={customerInfo.phone}
-                onChangeText={(phone) => setCustomerInfo((prev) => ({ ...prev, phone }))}
-              />
-              <Text style={[styles.helperText, { color: colors.textMuted }]}>
-                {t("summary.phoneHelper")}
+            <View style={styles.metaRow}>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.date")}</Text>
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {formatScheduleDate(selectedSchedule.businessDate || selectedSchedule.startTime)}
               </Text>
             </View>
 
-            {/* Email */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Mail size={14} color={colors.primary} />
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  {t("summary.email")}
-                </Text>
-              </View>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text },
-                ]}
-                placeholder={t("summary.emailPlaceholder")}
-                placeholderTextColor={colors.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={customerInfo.email}
-                onChangeText={(email) => setCustomerInfo((prev) => ({ ...prev, email }))}
-              />
+            <View style={styles.metaRow}>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.time")}</Text>
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {formatScheduleTime(selectedSchedule.startTime)} WIB
+              </Text>
+            </View>
+
+            <View style={styles.metaRow}>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.seats")}</Text>
+              <Text style={[styles.metaValue, { color: colors.primary }]}>
+                {selectedSeats.map((s) => s.seat.seatLabel).join(", ")} ({selectedSeats.length} Kursi)
+              </Text>
             </View>
           </Card>
-        </View>
 
-        {/* Price Breakdown */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("summary.priceDetails")}
-          </Text>
-          <Card>
-            <View style={styles.priceRow}>
-              <Text style={[styles.priceLabel, { color: colors.textMuted }]}>
-                {t("summary.ticketPrice")}
+          {/* Customer Input Card */}
+          <Card style={styles.sectionCard}>
+            <View style={styles.cardHeaderRow}>
+              <User size={20} color={colors.primary} />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
+                {t("summary.contactInfo")}
               </Text>
-              <Text style={[styles.priceValue, { color: colors.text }]}>
-                {formatCurrency(selectedSchedule.ticketPrice)}
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {t("summary.customerName")} <Text style={{ color: colors.danger }}>*</Text>
+              </Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <User size={16} color={colors.textMuted} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder={t("summary.namePlaceholder")}
+                  placeholderTextColor={colors.textMuted}
+                  value={customerInfo.name}
+                  onChangeText={(val) => setCustomerInfo((prev) => ({ ...prev, name: val }))}
+                />
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {t("summary.customerPhone")} <Text style={{ color: colors.danger }}>*</Text>
+              </Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <Phone size={16} color={colors.textMuted} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder={t("summary.phonePlaceholder")}
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="phone-pad"
+                  value={customerInfo.phone}
+                  onChangeText={(val) => setCustomerInfo((prev) => ({ ...prev, phone: val }))}
+                />
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {t("summary.customerEmail")}
+              </Text>
+              <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <Mail size={16} color={colors.textMuted} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder={t("summary.emailPlaceholder")}
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={customerInfo.email}
+                  onChangeText={(val) => setCustomerInfo((prev) => ({ ...prev, email: val }))}
+                />
+              </View>
+            </View>
+          </Card>
+
+          {/* Pricing Calculation Card */}
+          <Card style={styles.sectionCard}>
+            <View style={styles.cardHeaderRow}>
+              <CreditCard size={20} color={colors.primary} />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
+                {t("summary.priceDetail")}
               </Text>
             </View>
 
             <View style={styles.priceRow}>
-              <Text style={[styles.priceLabel, { color: colors.textMuted }]}>
-                {t("summary.quantity")}
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
+                Tiket ({selectedSeats.length}x @ {formatCurrency(selectedSchedule.ticketPrice)})
               </Text>
-              <Text style={[styles.priceValue, { color: colors.text }]}>
-                {selectedSeats.length} tiket
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {formatCurrency(estimatedTotal)}
               </Text>
             </View>
 
-            <View style={[styles.priceDivider, { backgroundColor: colors.cardBorder }]} />
+            <View style={styles.priceRow}>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Biaya Layanan</Text>
+              <Text style={[styles.metaValue, { color: colors.success }]}>GRATIS</Text>
+            </View>
+
+            <View style={[styles.totalDivider, { backgroundColor: colors.cardBorder }]} />
 
             <View style={styles.priceRow}>
-              <Text style={[styles.totalLabel, { color: colors.text }]}>
-                {t("summary.totalPayment")}
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.primary }]}>
+              <Text style={[styles.totalLabel, { color: colors.text }]}>{t("summary.totalPay")}</Text>
+              <Text style={[styles.totalPrice, { color: colors.primary }]}>
                 {formatCurrency(estimatedTotal)}
               </Text>
             </View>
           </Card>
-        </View>
 
-        {/* Midtrans Trust Badge */}
-        <View style={styles.trustBadgeRow}>
-          <ShieldCheck size={16} color={colors.success} />
-          <Text style={[styles.trustText, { color: colors.textMuted }]}>
-            Pembayaran diamankan secara resmi melalui Midtrans Payment Gateway.
-          </Text>
+          {/* Guarantee Badge */}
+          <View style={[styles.securityCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <ShieldCheck size={20} color={colors.success} />
+            <Text style={[styles.securityText, { color: colors.textMuted }]}>
+              {t("summary.securePaymentNotice")}
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
-      {/* Pay CTA */}
+      {/* Action Footer */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>
-        <Button
-          title={t("summary.payWithMidtrans")}
-          onPress={handleProceedToPayment}
-          loading={submitting}
-          icon={<CreditCard size={18} color="#ffffff" />}
-          size="large"
-        />
+        <View style={styles.footerRow}>
+          <View>
+            <Text style={[styles.footerTotalLabel, { color: colors.textMuted }]}>
+              {t("summary.totalPay")}
+            </Text>
+            <Text style={[styles.footerTotalPrice, { color: colors.primary }]}>
+              {formatCurrency(estimatedTotal)}
+            </Text>
+          </View>
+
+          <Button
+            title={t("summary.payNow")}
+            onPress={handleProceedToPayment}
+            loading={submitting}
+            size="large"
+          />
+        </View>
       </View>
     </View>
   );
@@ -297,6 +309,11 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
+  content: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 24,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
@@ -307,113 +324,101 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  timerPadding: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+  sectionCard: {
+    gap: 12,
   },
-  section: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
+    marginBottom: 4,
   },
-  sectionTitle: {
+  cardTitle: {
     fontSize: 15,
     fontWeight: "800",
   },
-  movieHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  movieTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    flex: 1,
-  },
-  detailRow: {
+  metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
   },
-  detailLabel: {
+  metaLabel: {
     fontSize: 13,
   },
-  detailValue: {
+  metaValue: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
+    maxWidth: "60%",
+    textAlign: "right",
   },
-  seatsValue: {
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  formCard: {
-    gap: 14,
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  labelRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  formGroup: {
     gap: 6,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: "700",
   },
-  input: {
-    height: 46,
+  inputBox: {
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 14,
+    paddingHorizontal: 12,
+    height: 46,
+    gap: 8,
   },
-  helperText: {
-    fontSize: 11,
+  input: {
+    flex: 1,
+    fontSize: 14,
+    height: "100%",
   },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
   },
-  priceLabel: {
-    fontSize: 13,
-  },
-  priceValue: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  priceDivider: {
+  totalDivider: {
     height: 1,
-    marginVertical: 8,
+    marginVertical: 4,
   },
   totalLabel: {
     fontSize: 15,
     fontWeight: "800",
   },
-  totalValue: {
-    fontSize: 17,
-    fontWeight: "800",
+  totalPrice: {
+    fontSize: 18,
+    fontWeight: "900",
   },
-  trustBadgeRow: {
+  securityCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
   },
-  trustText: {
-    fontSize: 11,
+  securityText: {
     flex: 1,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 18,
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  footerTotalLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  footerTotalPrice: {
+    fontSize: 18,
+    fontWeight: "900",
   },
 });

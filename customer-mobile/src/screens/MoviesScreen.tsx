@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Search, X } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
-import { Movie } from "../types/movie";
-import { movieService } from "../services/movieService";
+import { useGetMoviesQuery } from "../lib/api/movieApi";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
@@ -28,36 +28,19 @@ export const MoviesScreen: React.FC = () => {
   const { colors } = useTheme();
   const { t } = useLanguage();
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [movies, setMovies] = useState<Movie[]>([]);
   const [search, setSearch] = useState<string>("");
   const [filter, setFilter] = useState<"ALL" | "NOW_SHOWING" | "COMING_SOON">(
     route.params?.initialFilter || "ALL"
   );
 
-  const loadMovies = async () => {
-    try {
-      const data = await movieService.getMovies();
-      setMovies(data);
-    } catch (e) {
-      console.error("Failed to load movies", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadMovies();
-  }, []);
-
-  const filteredMovies = movies.filter((m) => {
-    const matchFilter =
-      filter === "ALL" ? true : m.status === filter;
-    const matchSearch =
-      search.trim() === ""
-        ? true
-        : m.title.toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
+  const {
+    data: movies = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useGetMoviesQuery({
+    status: filter !== "ALL" ? filter : undefined,
+    search: search.trim() ? search.trim() : undefined,
   });
 
   return (
@@ -115,13 +98,13 @@ export const MoviesScreen: React.FC = () => {
       </View>
 
       {/* Movie List */}
-      {loading ? (
+      {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
-          data={filteredMovies}
+          data={movies}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <MovieCard
@@ -132,6 +115,13 @@ export const MoviesScreen: React.FC = () => {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && !isLoading}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>

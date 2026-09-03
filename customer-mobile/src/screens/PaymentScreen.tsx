@@ -5,14 +5,13 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
-  TouchableOpacity,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { WebView } from "react-native-webview";
 import { CheckCircle2, XCircle, RefreshCw } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
-import { paymentService } from "../services/paymentService";
+import { useLazyGetPaymentStatusQuery } from "../lib/api/paymentApi";
 import { storageService } from "../services/storageService";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
@@ -32,7 +31,8 @@ export const PaymentScreen: React.FC = () => {
 
   const { orderId, snapUrl } = route.params;
 
-  const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
+  const [triggerGetPaymentStatus, { isFetching: checkingStatus }] = useLazyGetPaymentStatusQuery();
+
   const [paymentState, setPaymentState] = useState<"WEBVIEW" | "VERIFYING" | "SUCCESS" | "FAILED">("WEBVIEW");
   const [bookingNumber, setBookingNumber] = useState<string>("");
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,17 +46,16 @@ export const PaymentScreen: React.FC = () => {
   }, []);
 
   const verifyPaymentWithBackend = async (attempt = 1) => {
-    setCheckingStatus(true);
     setPaymentState("VERIFYING");
 
     try {
-      const res = await paymentService.getPaymentStatus(orderId);
+      const res = await triggerGetPaymentStatus(orderId, false).unwrap();
 
       if (res.orderStatus === "PAID" || res.paymentStatus === "PAID") {
         setPaymentState("SUCCESS");
         setBookingNumber(res.orderNumber);
 
-        // Save reference in local storage for easy customer access
+        // Save reference in local storage for fast customer ticket retrieval
         await storageService.saveBookingRef({
           orderId: res.orderId,
           orderNumber: res.orderNumber,
@@ -99,14 +98,11 @@ export const PaymentScreen: React.FC = () => {
       } else {
         setPaymentState("FAILED");
       }
-    } finally {
-      setCheckingStatus(false);
     }
   };
 
   const handleNavigationStateChange = (navState: any) => {
     const url = navState.url || "";
-    // Check if Midtrans redirected to finish, settlement, or status callbacks
     if (
       url.includes("/finish") ||
       url.includes("/status") ||

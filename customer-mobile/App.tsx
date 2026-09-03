@@ -1,6 +1,9 @@
 import React from "react";
 import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/integration/react";
+import { store, persistor } from "./src/lib/store/store";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { LanguageProvider } from "./src/context/LanguageContext";
 import { BookingProvider } from "./src/context/BookingContext";
@@ -22,12 +25,16 @@ const MainApp: React.FC = () => {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <BookingProvider>
-          <MainApp />
-        </BookingProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <BookingProvider>
+              <MainApp />
+            </BookingProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      </PersistGate>
+    </Provider>
   );
 }

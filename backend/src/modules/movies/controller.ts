@@ -25,6 +25,38 @@ export const getMoviesController = async (req: Request, res: Response) => {
   return responseHandler.ok(res, result.movies, "Movies retrieved", result.meta);
 };
 
+export const getNowShowingMoviesController = async (req: Request, res: Response) => {
+  const { page, limit, search, genreId, sortBy, sortOrder } = req.query;
+
+  const result = await movieService.getAllMovies({
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+    search: search as string,
+    status: "NOW_SHOWING",
+    genreId: genreId as string,
+    sortBy: sortBy as string,
+    sortOrder: sortOrder as any,
+  });
+
+  return responseHandler.ok(res, result.movies, "Now showing movies retrieved", result.meta);
+};
+
+export const getComingSoonMoviesController = async (req: Request, res: Response) => {
+  const { page, limit, search, genreId, sortBy, sortOrder } = req.query;
+
+  const result = await movieService.getAllMovies({
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+    search: search as string,
+    status: "COMING_SOON",
+    genreId: genreId as string,
+    sortBy: sortBy as string,
+    sortOrder: sortOrder as any,
+  });
+
+  return responseHandler.ok(res, result.movies, "Coming soon movies retrieved", result.meta);
+};
+
 export const getMovieByIdController = async (req: Request, res: Response) => {
   const movie = await movieService.getMovieById(req.params.id);
   return responseHandler.ok(res, movie, "Movie retrieved");

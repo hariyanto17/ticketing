@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { Calendar, Armchair } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
 import { Showtime } from "../types/schedule";
-import { scheduleService } from "../services/scheduleService";
+import { useGetSchedulesQuery } from "../lib/api/scheduleApi";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -38,29 +38,18 @@ export const ShowtimeScreen: React.FC = () => {
   });
 
   const [selectedDate, setSelectedDate] = useState<Date>(dates[0]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [schedules, setSchedules] = useState<Showtime[]>([]);
+  const dateStr = selectedDate.toISOString().split("T")[0];
 
-  const loadSchedules = async () => {
-    setLoading(true);
-    try {
-      const dateStr = selectedDate.toISOString().split("T")[0];
-      const data = await scheduleService.getSchedules({
-        movieId: movie.id,
-        startDate: dateStr,
-      });
-      // Filter only PUBLISHED schedules
-      setSchedules(data.filter((s) => s.status === "PUBLISHED"));
-    } catch (e) {
-      console.error("Failed to load schedules", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: allSchedules = [],
+    isLoading: loading,
+  } = useGetSchedulesQuery({
+    movieId: movie.id,
+    startDate: dateStr,
+  });
 
-  useEffect(() => {
-    loadSchedules();
-  }, [selectedDate]);
+  // Filter only PUBLISHED schedules
+  const schedules = allSchedules.filter((s) => s.status === "PUBLISHED");
 
   // Group schedules by Studio
   const groupedByStudio = schedules.reduce((acc, schedule) => {

@@ -4,8 +4,12 @@ import { catchAsync } from "../../utils/catchAsync";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { authorize } from "../../middleware/authorize";
 
-// Import existing public-friendly catalog controllers
-import { getMoviesController, getMovieByIdController } from "../movies/controller";
+import {
+  getMoviesController,
+  getNowShowingMoviesController,
+  getComingSoonMoviesController,
+  getMovieByIdController,
+} from "../movies/controller";
 import { getSchedulesController, getScheduleSeatsController } from "../schedules/controller";
 import * as scheduleService from "../schedules/service";
 import { responseHandler } from "../../utils/responseHandler";
@@ -17,8 +21,10 @@ const router = Router();
 // PUBLIC GUEST ROUTES
 // ====================
 
-// 1. Movie Listings
+// 1. Movie Listings (Dedicated endpoints for Now Showing & Coming Soon)
 router.get("/movies", catchAsync(getMoviesController));
+router.get("/movies/now-showing", catchAsync(getNowShowingMoviesController));
+router.get("/movies/coming-soon", catchAsync(getComingSoonMoviesController));
 router.get("/movies/:id", catchAsync(getMovieByIdController));
 
 // 2. Schedules & Seats Map

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,9 +12,9 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
 import { ShowtimeSeat } from "../types/schedule";
-import { scheduleService } from "../services/scheduleService";
-import { bookingService } from "../services/bookingService";
-import { initSocket, disconnectSocket } from "../services/socketService";
+import { useGetScheduleSeatsQuery } from "../lib/api/scheduleApi";
+import { useHoldSeatsMutation } from "../lib/api/bookingApi";
+import { initSocket } from "../services/socketService";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -46,23 +46,24 @@ export const SeatSelectionScreen: React.FC = () => {
 
   const schedule = route.params.schedule;
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [holding, setHolding] = useState<boolean>(false);
+  // RTK Query: Seat matrix & Hold mutation
+  const {
+    data: serverSeats = [],
+    isLoading: loading,
+    refetch: loadSeats,
+  } = useGetScheduleSeatsQuery(schedule.id);
+
+  const [holdSeatsMutation, { isLoading: holding }] = useHoldSeatsMutation();
+
   const [seats, setSeats] = useState<ShowtimeSeat[]>([]);
 
-  const loadSeats = useCallback(async () => {
-    try {
-      const data = await scheduleService.getScheduleSeats(schedule.id);
-      setSeats(data);
-    } catch (e) {
-      console.error("Failed to load seats", e);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (serverSeats.length > 0) {
+      setSeats(serverSeats);
     }
-  }, [schedule.id]);
+  }, [serverSeats]);
 
   useEffect(() => {
-    loadSeats();
     clearSelectedSeats();
 
     // Initialize Socket.IO Real-time Synchronization
@@ -107,7 +108,7 @@ export const SeatSelectionScreen: React.FC = () => {
       socket.off("seats_released", handleSeatsReleased);
       socket.off("seats_sold", handleSeatsSold);
     };
-  }, [schedule.id, loadSeats]);
+  }, [schedule.id]);
 
   // Handle Hold Expiry
   const handleHoldExpired = () => {
@@ -137,10 +138,7 @@ export const SeatSelectionScreen: React.FC = () => {
       if (col > maxCol) maxCol = col;
     }
 
-    // Sort rows alphabetically (A, B, C, ...)
     const sortedRows = Object.keys(rowsMap).sort();
-
-    // Calculate dynamic seat size to fit screen width
     const padding = 60;
     const computedSize = Math.max(22, Math.min(32, Math.floor((width - padding) / (maxCol + 1))));
 
@@ -170,20 +168,17 @@ export const SeatSelectionScreen: React.FC = () => {
       return;
     }
 
-    setHolding(true);
     try {
       const seatIds = selectedSeats.map((s) => s.seat.id);
-      const res = await bookingService.holdSeats(schedule.id, seatIds);
+      const res = await holdSeatsMutation({ scheduleId: schedule.id, seatIds }).unwrap();
       setReservedUntil(new Date(res.reservedUntil));
       navigation.navigate("BookingSummary");
     } catch (err: any) {
       Alert.alert(
         t("common.error"),
-        err.message || "Kursi yang Anda pilih baru saja dipesan oleh pengguna lain. Silakan pilih kursi lain.",
+        err?.data?.message || err?.message || "Kursi yang Anda pilih baru saja dipesan oleh pengguna lain. Silakan pilih kursi lain.",
         [{ text: "OK", onPress: () => loadSeats() }]
       );
-    } finally {
-      setHolding(false);
     }
   };
 
@@ -209,100 +204,87 @@ export const SeatSelectionScreen: React.FC = () => {
             <HoldTimer reservedUntil={reservedUntil} onExpired={handleHoldExpired} />
           )}
 
-          {/* Cinema Screen (Placed in FRONT of Row A) */}
+          {/* Screen Curve representation */}
           <CinemaScreen />
 
-          {/* Seat Grid Matrix */}
+          {/* Seat Layout Grid */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.matrixContainer}
+            contentContainerStyle={styles.seatMatrixScroll}
           >
-            <View style={styles.gridTable}>
+            <View style={styles.seatGrid}>
               {rowList.map(({ rowName, cols }) => (
-                <View key={rowName} style={styles.rowWrapper}>
-                  {/* Row Letter on Left */}
-                  <View style={[styles.rowHeader, { width: seatSize * 0.8 }]}>
-                    <Text style={[styles.rowLetter, { color: colors.textMuted }]}>
-                      {rowName}
-                    </Text>
+                <View key={rowName} style={styles.seatRow}>
+                  {/* Row Label Left */}
+                  <View style={[styles.rowLabelBox, { width: 24 }]}>
+                    <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{rowName}</Text>
                   </View>
 
-                  {/* Columns 1 .. maxColumn with Preserved Aisle Gaps */}
-                  {Array.from({ length: maxColumn }, (_, i) => i + 1).map((colNum) => {
-                    const seat = cols[colNum];
-                    if (!seat) {
-                      // Aisle empty space
+                  {/* Seat columns spanning 1 -> maxColumn */}
+                  <View style={styles.columnsContainer}>
+                    {Array.from({ length: maxColumn }, (_, i) => i + 1).map((colNum) => {
+                      const seat = cols[colNum];
+                      if (!seat) {
+                        // Aisle Gap
+                        return (
+                          <View
+                            key={`aisle-${rowName}-${colNum}`}
+                            style={{ width: seatSize, height: seatSize, marginHorizontal: 2 }}
+                          />
+                        );
+                      }
+
+                      const isSelected = selectedSeats.some((s) => s.seatId === seat.seatId);
+
                       return (
-                        <View
-                          key={`empty-${rowName}-${colNum}`}
-                          style={{ width: seatSize + 5, height: seatSize + 5 }}
+                        <SeatItem
+                          key={seat.seatId}
+                          showtimeSeat={seat}
+                          isSelected={isSelected}
+                          size={seatSize}
+                          onPress={() => handleSeatPress(seat)}
                         />
                       );
-                    }
+                    })}
+                  </View>
 
-                    const isSelected = selectedSeats.some((s) => s.seatId === seat.seatId);
-
-                    return (
-                      <SeatItem
-                        key={seat.id}
-                        showtimeSeat={seat}
-                        isSelected={isSelected}
-                        size={seatSize}
-                        onPress={() => handleSeatPress(seat)}
-                      />
-                    );
-                  })}
-
-                  {/* Row Letter on Right */}
-                  <View style={[styles.rowHeader, { width: seatSize * 0.8 }]}>
-                    <Text style={[styles.rowLetter, { color: colors.textMuted }]}>
-                      {rowName}
-                    </Text>
+                  {/* Row Label Right */}
+                  <View style={[styles.rowLabelBox, { width: 24 }]}>
+                    <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{rowName}</Text>
                   </View>
                 </View>
               ))}
             </View>
           </ScrollView>
 
-          {/* Seat Status Legend */}
-          <View style={styles.legendWrapper}>
-            <SeatLegend />
-          </View>
+          {/* Legend */}
+          <SeatLegend />
         </ScrollView>
       )}
 
-      {/* Checkout Footer Bar */}
+      {/* Selected Seats summary footer */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>
         <View style={styles.summaryRow}>
           <View>
             <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>
-              {t("seat.selectedSeats")} ({selectedSeats.length})
-            </Text>
-            <Text style={[styles.seatListText, { color: colors.text }]} numberOfLines={1}>
               {selectedSeats.length > 0
-                ? selectedSeats.map((s) => s.seat.seatLabel).join(", ")
-                : "—"}
+                ? `${selectedSeats.length} ${t("seat.selectedSeats")}: ${selectedSeats.map((s) => s.seat.seatLabel).join(", ")}`
+                : t("seat.noSeatsSelected")}
             </Text>
-          </View>
-
-          <View style={styles.priceColumn}>
-            <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>
-              {t("seat.estimatedTotal")}
-            </Text>
-            <Text style={[styles.totalAmountText, { color: colors.primary }]}>
+            <Text style={[styles.summaryPrice, { color: colors.primary }]}>
               {formatCurrency(estimatedTotal)}
             </Text>
           </View>
-        </View>
 
-        <Button
-          title={t("seat.continueToCheckout")}
-          onPress={handleHoldAndProceed}
-          disabled={selectedSeats.length === 0}
-          loading={holding}
-          size="large"
-        />
+          <Button
+            title={t("seat.proceed")}
+            onPress={handleHoldAndProceed}
+            loading={holding}
+            disabled={selectedSeats.length === 0}
+            size="medium"
+          />
+        </View>
       </View>
     </View>
   );
@@ -312,9 +294,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scroll: {
-    flex: 1,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -322,38 +301,39 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    fontSize: 13,
+    fontSize: 14,
   },
-  matrixContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+  scroll: {
+    flex: 1,
+  },
+  seatMatrixScroll: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  gridTable: {
+    paddingVertical: 20,
     alignItems: "center",
-    gap: 2,
   },
-  rowWrapper: {
+  seatGrid: {
+    gap: 8,
+    alignItems: "center",
+  },
+  seatRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-  rowHeader: {
+  rowLabelBox: {
     alignItems: "center",
     justifyContent: "center",
   },
-  rowLetter: {
+  rowLabel: {
     fontSize: 12,
     fontWeight: "700",
   },
-  legendWrapper: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+  columnsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    gap: 12,
   },
   summaryRow: {
     flexDirection: "row",
@@ -361,21 +341,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
+    marginBottom: 2,
+    maxWidth: 200,
   },
-  seatListText: {
-    fontSize: 14,
+  summaryPrice: {
+    fontSize: 18,
     fontWeight: "800",
-    marginTop: 2,
-    maxWidth: width * 0.45,
-  },
-  priceColumn: {
-    alignItems: "flex-end",
-  },
-  totalAmountText: {
-    fontSize: 16,
-    fontWeight: "800",
-    marginTop: 2,
   },
 });

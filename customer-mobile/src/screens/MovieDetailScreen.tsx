@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   View,
   Text,
   ScrollView,
   Image,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Dimensions,
@@ -13,8 +12,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Clock, Calendar, ShieldCheck, Ticket } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
-import { Movie } from "../types/movie";
-import { movieService } from "../services/movieService";
+import { useGetMovieByIdQuery } from "../lib/api/movieApi";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
@@ -32,20 +30,10 @@ export const MovieDetailScreen: React.FC = () => {
   const { colors } = useTheme();
   const { t } = useLanguage();
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [movie, setMovie] = useState<Movie | null>(null);
-
   const movieId = route.params.movieId;
+  const { data: movie, isLoading, error } = useGetMovieByIdQuery(movieId);
 
-  useEffect(() => {
-    movieService
-      .getMovieById(movieId)
-      .then(setMovie)
-      .catch((e) => console.error("Failed to load movie detail", e))
-      .finally(() => setLoading(false));
-  }, [movieId]);
-
-  if (loading || !movie) {
+  if (isLoading || !movie) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />

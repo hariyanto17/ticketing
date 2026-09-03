@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   ScrollView,
-  FlatList,
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
@@ -13,8 +12,10 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Film, Ticket, Compass } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
-import { Movie } from "../types/movie";
-import { movieService } from "../services/movieService";
+import {
+  useGetNowShowingMoviesQuery,
+  useGetComingSoonMoviesQuery,
+} from "../lib/api/movieApi";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
@@ -28,35 +29,32 @@ export const HomeScreen: React.FC = () => {
   const { colors } = useTheme();
   const { t } = useLanguage();
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [movies, setMovies] = useState<Movie[]>([]);
   const [activeTab, setActiveTab] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
 
-  const loadData = async () => {
-    try {
-      const data = await movieService.getMovies();
-      setMovies(data);
-    } catch (e) {
-      console.error("Failed to load movies for home", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  // RTK Query: Dedicated endpoints for Now Showing and Coming Soon movies
+  const {
+    data: nowShowingMovies = [],
+    isLoading: loadingNowShowing,
+    isFetching: fetchingNowShowing,
+    refetch: refetchNowShowing,
+  } = useGetNowShowingMoviesQuery();
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const {
+    data: comingSoonMovies = [],
+    isLoading: loadingComingSoon,
+    isFetching: fetchingComingSoon,
+    refetch: refetchComingSoon,
+  } = useGetComingSoonMoviesQuery();
+
+  const loading = loadingNowShowing && loadingComingSoon;
+  const refreshing = fetchingNowShowing || fetchingComingSoon;
 
   const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
+    refetchNowShowing();
+    refetchComingSoon();
   };
 
-  const featuredMovie = movies.find((m) => m.status === "NOW_SHOWING") || movies[0];
-  const nowShowingMovies = movies.filter((m) => m.status === "NOW_SHOWING");
-  const comingSoonMovies = movies.filter((m) => m.status === "COMING_SOON");
+  const featuredMovie = nowShowingMovies[0] || comingSoonMovies[0];
   const displayedMovies = activeTab === "NOW_SHOWING" ? nowShowingMovies : comingSoonMovies;
 
   return (

@@ -9,6 +9,8 @@ const router = Router();
 router.use(catchAsync(authMiddleware));
 
 router.get("/", catchAsync(controller.getMoviesController));
+router.get("/now-showing", catchAsync(controller.getNowShowingMoviesController));
+router.get("/coming-soon", catchAsync(controller.getComingSoonMoviesController));
 router.post("/import", authorize("Admin"), catchAsync(controller.importMoviesController));
 router.get("/:id", catchAsync(controller.getMovieByIdController));
 

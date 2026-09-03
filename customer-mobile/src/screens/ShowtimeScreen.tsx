@@ -24,7 +24,7 @@ type ShowtimeScreenNavProp = StackNavigationProp<RootStackParamList>;
 export const ShowtimeScreen: React.FC = () => {
   const navigation = useNavigation<ShowtimeScreenNavProp>();
   const route = useRoute<ShowtimeScreenRouteProp>();
-  const { setSelectedSchedule } = useBooking();
+  const { setSelectedSchedule, resetBooking } = useBooking();
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
 
@@ -67,6 +67,7 @@ export const ShowtimeScreen: React.FC = () => {
   };
 
   const handleSelectSchedule = (schedule: Showtime) => {
+    resetBooking();
     setSelectedSchedule(schedule);
     navigation.navigate("SeatSelection", { schedule });
   };

@@ -65,6 +65,7 @@ export const SeatSelectionScreen: React.FC = () => {
 
   useEffect(() => {
     clearSelectedSeats();
+    setReservedUntil(null);
 
     // Initialize Socket.IO Real-time Synchronization
     const socket = initSocket();

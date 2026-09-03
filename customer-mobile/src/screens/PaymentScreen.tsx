@@ -167,7 +167,11 @@ export const PaymentScreen: React.FC = () => {
           text: "Batalkan",
           style: "destructive",
           onPress: () => {
-            navigation.goBack();
+            resetBooking();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "MainTabs" }],
+            });
           },
         },
       ]
@@ -310,7 +314,13 @@ export const PaymentScreen: React.FC = () => {
           <View style={styles.buttonCol}>
             <Button
               title="Pilih Jadwal Ulang"
-              onPress={() => navigation.popToTop()}
+              onPress={() => {
+                resetBooking();
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "MainTabs" }],
+                });
+              }}
             />
           </View>
         </View>

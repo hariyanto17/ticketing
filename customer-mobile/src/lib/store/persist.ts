@@ -19,5 +19,5 @@ try {
 export const persistConfig = {
   key: "planet-cinema-customer-mobile",
   storage,
-  whitelist: ["booking"],
+  whitelist: [], // Ephemeral booking hold state must not be persisted across cold app restarts
 };

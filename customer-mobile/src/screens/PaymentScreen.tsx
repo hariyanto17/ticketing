@@ -31,6 +31,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
+import { useAppDispatch, addRecentBooking } from "../lib/store";
 
 type PaymentScreenRouteProp = RouteProp<RootStackParamList, "Payment">;
 type PaymentScreenNavProp = StackNavigationProp<RootStackParamList>;
@@ -38,6 +39,7 @@ type PaymentScreenNavProp = StackNavigationProp<RootStackParamList>;
 export const PaymentScreen: React.FC = () => {
   const navigation = useNavigation<PaymentScreenNavProp>();
   const route = useRoute<PaymentScreenRouteProp>();
+  const dispatch = useAppDispatch();
   const { resetBooking, selectedSchedule, selectedSeats, customerInfo, estimatedTotal } = useBooking();
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
@@ -106,8 +108,7 @@ export const PaymentScreen: React.FC = () => {
         setPaymentState("SUCCESS");
         setBookingNumber(res.orderNumber);
 
-        // Save reference in local storage for customer lookup
-        await storageService.saveBookingRef({
+        const bookingRef = {
           orderId: res.orderId,
           orderNumber: res.orderNumber,
           customerPhone: customerInfo.phone,
@@ -116,7 +117,11 @@ export const PaymentScreen: React.FC = () => {
           startTime: selectedSchedule?.startTime || new Date().toISOString(),
           seatLabels: selectedSeats.map((s) => s.seat.seatLabel),
           createdAt: new Date().toISOString(),
-        });
+        };
+
+        // Persist in Redux store (persisted to storage via redux-persist)
+        dispatch(addRecentBooking(bookingRef));
+        await storageService.saveBookingRef(bookingRef);
 
         // Reset wizard state
         resetBooking();

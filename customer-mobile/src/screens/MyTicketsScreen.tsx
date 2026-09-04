@@ -21,6 +21,7 @@ import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Badge } from "../components/common/Badge";
 import { Button } from "../components/common/Button";
+import { useAppSelector } from "../lib/store";
 
 type MyTicketsRouteProp = RouteProp<RootStackParamList, "MyTickets">;
 
@@ -29,19 +30,28 @@ export const MyTicketsScreen: React.FC = () => {
   const { colors } = useTheme();
   const { t } = useLanguage();
 
+  const persistedTickets = useAppSelector((state) => state.tickets);
+  const recentBookings = persistedTickets.recentBookings;
+  const lastCustomerPhone = persistedTickets.lastCustomerPhone;
+
   const [query, setQuery] = useState<string>(route.params?.autoQuery || "");
   const [orders, setOrders] = useState<Order[]>([]);
-  const [recentBookings, setRecentBookings] = useState<StoredBookingRef[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   const [triggerLookup, { isFetching: loading }] = useLazyLookupBookingsQuery();
 
   useEffect(() => {
-    storageService.getRecentBookings().then(setRecentBookings);
     if (route.params?.autoQuery) {
+      setQuery(route.params.autoQuery);
       handleSearch(route.params.autoQuery);
+    } else if (lastCustomerPhone) {
+      setQuery(lastCustomerPhone);
+      handleSearch(lastCustomerPhone);
+    } else if (recentBookings.length > 0 && recentBookings[0].orderNumber) {
+      setQuery(recentBookings[0].orderNumber);
+      handleSearch(recentBookings[0].orderNumber);
     }
-  }, [route.params?.autoQuery]);
+  }, [route.params?.autoQuery, lastCustomerPhone, recentBookings.length]);
 
   const handleSearch = async (searchTerm = query) => {
     if (!searchTerm.trim()) return;

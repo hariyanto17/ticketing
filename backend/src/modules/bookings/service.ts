@@ -483,6 +483,8 @@ export const lookupBooking = async (query: string) => {
   return prisma.order.findMany({
     where: {
       OR: [
+        { id: query },
+        { orderNumber: query },
         { bookingNumber: query },
         { customerPhone: query },
       ],

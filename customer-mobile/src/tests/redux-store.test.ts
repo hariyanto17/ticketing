@@ -98,4 +98,29 @@ test("Redux Toolkit & RTK Query Architecture for customer-mobile", async (t) => 
     assert.ok(paymentApi.endpoints.createSnapToken, "createSnapToken mutation defined");
     assert.ok(paymentApi.endpoints.getPaymentStatus, "getPaymentStatus query defined");
   });
+
+  await t.test("4. Persisted Tickets slice mutations", () => {
+    const { addRecentBooking, setLastCustomerInfo, clearRecentBookings } = require("../lib/store/features/tickets/slice");
+    store.dispatch(clearRecentBookings());
+
+    const testRef = {
+      orderId: "ord-1",
+      orderNumber: "ORD-20260904-0001",
+      customerPhone: "085912345678",
+      movieTitle: "Film Test",
+      studioName: "Studio 1",
+      startTime: "2026-09-04T10:00:00Z",
+      seatLabels: ["A1", "A2"],
+      createdAt: "2026-09-04T09:00:00Z",
+    };
+
+    store.dispatch(addRecentBooking(testRef));
+    assert.strictEqual(store.getState().tickets.recentBookings.length, 1);
+    assert.strictEqual(store.getState().tickets.recentBookings[0].orderNumber, "ORD-20260904-0001");
+    assert.strictEqual(store.getState().tickets.lastCustomerPhone, "085912345678");
+
+    store.dispatch(setLastCustomerInfo({ phone: "08999999999", name: "Guest User" }));
+    assert.strictEqual(store.getState().tickets.lastCustomerPhone, "08999999999");
+    assert.strictEqual(store.getState().tickets.lastCustomerName, "Guest User");
+  });
 });

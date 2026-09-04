@@ -21,11 +21,15 @@ import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
 import { HoldTimer } from "../components/seat/HoldTimer";
+import { storageService } from "../services/storageService";
+import { useAppDispatch, useAppSelector, addRecentBooking, setLastCustomerInfo } from "../lib/store";
 
 type BookingSummaryNavProp = StackNavigationProp<RootStackParamList>;
 
 export const BookingSummaryScreen: React.FC = () => {
   const navigation = useNavigation<BookingSummaryNavProp>();
+  const dispatch = useAppDispatch();
+  const savedCustomer = useAppSelector((state) => state.tickets);
   const {
     selectedSchedule,
     selectedSeats,
@@ -86,6 +90,29 @@ export const BookingSummaryScreen: React.FC = () => {
       }).unwrap();
 
       const orderId = bookingRes.order.id;
+
+      const bookingRef = {
+        orderId: bookingRes.order.id,
+        orderNumber: bookingRes.order.orderNumber,
+        bookingNumber: bookingRes.order.bookingNumber,
+        customerPhone: customerInfo.phone.trim(),
+        movieTitle: selectedSchedule.movie?.title || "Film Planet Cinema",
+        studioName: selectedSchedule.studio?.name || "Studio",
+        startTime: selectedSchedule.startTime || new Date().toISOString(),
+        seatLabels: selectedSeats.map((s) => s.seat.seatLabel),
+        createdAt: new Date().toISOString(),
+      };
+
+      // Persist in Redux store (persisted to storage via redux-persist)
+      dispatch(addRecentBooking(bookingRef));
+      dispatch(
+        setLastCustomerInfo({
+          phone: customerInfo.phone.trim(),
+          name: customerInfo.name.trim(),
+          email: customerInfo.email.trim(),
+        })
+      );
+      await storageService.saveBookingRef(bookingRef);
 
       // 2. Charge Direct Midtrans Core API QRIS via RTK Query mutation
       const qrisRes = await createQrisPaymentMutation(orderId).unwrap();

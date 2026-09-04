@@ -272,21 +272,6 @@ export const PaymentScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* Sandbox Testing Tool Box */}
-          {activeQrUrl ? (
-            <View style={[styles.sandboxCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-              <Text style={[styles.sandboxTitle, { color: colors.textMuted }]}>
-                Sandbox Testing (Midtrans Simulator)
-              </Text>
-              <Text style={[styles.sandboxUrlText, { color: colors.primary }]} selectable numberOfLines={2}>
-                {activeQrUrl}
-              </Text>
-              <Text style={[styles.sandboxHint, { color: colors.textMuted }]}>
-                Salin URL di atas ke kolom "QR Code Image Url" pada Midtrans QRIS Simulator.
-              </Text>
-            </View>
-          ) : null}
-
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <Button
@@ -495,26 +480,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     flex: 1,
-  },
-  sandboxCard: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-  },
-  sandboxTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  sandboxUrlText: {
-    fontSize: 11,
-    paddingVertical: 2,
-    fontWeight: "600",
-  },
-  sandboxHint: {
-    fontSize: 10,
-    lineHeight: 14,
   },
   actionButtons: {
     gap: 10,

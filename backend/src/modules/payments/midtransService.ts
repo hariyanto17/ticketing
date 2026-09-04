@@ -167,9 +167,6 @@ export const createQrisCharge = async (orderId: string) => {
     transactionId = data.transaction_id;
     qrUrl = data.actions?.find((a: any) => a.name === "generate-qr-code")?.url || "";
     qrString = data.qr_string || "";
-    if (data.expiry_time) {
-      expiredAt = new Date(data.expiry_time);
-    }
   } catch (err: any) {
     // If external Midtrans API fails in test/mock environment or server key not active, provide deterministic mock
     if (process.env.NODE_ENV === "test" || !process.env.MIDTRANS_SERVER_KEY) {

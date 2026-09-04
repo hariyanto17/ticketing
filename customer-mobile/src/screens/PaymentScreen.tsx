@@ -60,7 +60,10 @@ export const PaymentScreen: React.FC = () => {
   // Compute expiration target date
   const targetExpiry = useMemo(() => {
     if (rawExpiredAt) {
-      return new Date(rawExpiredAt);
+      const parsed = new Date(rawExpiredAt).getTime();
+      if (!isNaN(parsed) && parsed > Date.now()) {
+        return new Date(parsed);
+      }
     }
     return new Date(Date.now() + 2 * 60 * 1000);
   }, [rawExpiredAt]);

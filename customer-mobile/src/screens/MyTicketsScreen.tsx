@@ -55,6 +55,7 @@ export const MyTicketsScreen: React.FC = () => {
   const [query, setQuery] = useState<string>(route.params?.autoQuery || "");
   const [orders, setOrders] = useState<Order[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [selectedFilter, setSelectedFilter] = useState<"ALL" | "PAID" | "CANCELLED">("ALL");
 
   // Selected ticket for full-screen barcode / QR modal
   const [selectedTicketForModal, setSelectedTicketForModal] = useState<{
@@ -103,6 +104,17 @@ export const MyTicketsScreen: React.FC = () => {
     }
   };
 
+  // Filter calculations
+  const paidOrdersCount = orders.filter((o) => o.orderStatus === "PAID" || o.paymentStatus === "PAID").length;
+  const cancelledOrdersCount = orders.filter((o) => o.orderStatus === "CANCELLED" || o.paymentStatus === "FAILED").length;
+  const allOrdersCount = orders.length;
+
+  const filteredOrders = orders.filter((order) => {
+    if (selectedFilter === "PAID") return order.orderStatus === "PAID" || order.paymentStatus === "PAID";
+    if (selectedFilter === "CANCELLED") return order.orderStatus === "CANCELLED" || order.paymentStatus === "FAILED";
+    return true;
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title={t("myTickets.title")} />
@@ -127,6 +139,76 @@ export const MyTicketsScreen: React.FC = () => {
           />
         </View>
       </View>
+
+      {/* Status Filter Tabs (Semua / Lunas / Dibatalkan) */}
+      {orders.length > 0 && (
+        <View style={styles.filterSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                {
+                  backgroundColor: selectedFilter === "ALL" ? colors.primary : colors.card,
+                  borderColor: selectedFilter === "ALL" ? colors.primary : colors.cardBorder,
+                },
+              ]}
+              onPress={() => setSelectedFilter("ALL")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  { color: selectedFilter === "ALL" ? "#ffffff" : colors.text },
+                ]}
+              >
+                {t("myTickets.filterAll")} ({allOrdersCount})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                {
+                  backgroundColor: selectedFilter === "PAID" ? colors.success : colors.card,
+                  borderColor: selectedFilter === "PAID" ? colors.success : colors.cardBorder,
+                },
+              ]}
+              onPress={() => setSelectedFilter("PAID")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  { color: selectedFilter === "PAID" ? "#ffffff" : colors.text },
+                ]}
+              >
+                {t("myTickets.filterPaid")} ({paidOrdersCount})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
+                {
+                  backgroundColor: selectedFilter === "CANCELLED" ? colors.danger : colors.card,
+                  borderColor: selectedFilter === "CANCELLED" ? colors.danger : colors.cardBorder,
+                },
+              ]}
+              onPress={() => setSelectedFilter("CANCELLED")}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  { color: selectedFilter === "CANCELLED" ? "#ffffff" : colors.text },
+                ]}
+              >
+                {t("myTickets.filterCancelled")} ({cancelledOrdersCount})
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Recent Bookings Fast Chips */}
@@ -168,9 +250,9 @@ export const MyTicketsScreen: React.FC = () => {
               {t("common.loading")}
             </Text>
           </View>
-        ) : orders.length > 0 ? (
+        ) : filteredOrders.length > 0 ? (
           <View style={styles.ordersList}>
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <Card key={order.id} style={styles.orderCard}>
                 {/* Header info */}
                 <View style={styles.orderHeader}>
@@ -184,7 +266,7 @@ export const MyTicketsScreen: React.FC = () => {
                   </View>
                   <Badge
                     label={order.orderStatus}
-                    variant={order.orderStatus === "PAID" ? "success" : "warning"}
+                    variant={order.orderStatus === "PAID" ? "success" : "danger"}
                   />
                 </View>
 
@@ -262,7 +344,7 @@ export const MyTicketsScreen: React.FC = () => {
                         <View style={styles.tapToExpandRow}>
                           <Scan size={12} color={colors.primary} />
                           <Text style={[styles.scanHint, { color: colors.primary }]}>
-                            Ketuk untuk Barcode Layar Penuh
+                            {t("myTickets.tapToExpand")}
                           </Text>
                         </View>
                       </View>
@@ -271,6 +353,16 @@ export const MyTicketsScreen: React.FC = () => {
                 </View>
               </Card>
             ))}
+          </View>
+        ) : orders.length > 0 && filteredOrders.length === 0 ? (
+          <View style={styles.centerBox}>
+            <Ticket size={48} color={colors.textMuted} />
+            <Text style={[styles.centerTitle, { color: colors.text }]}>
+              {t("myTickets.noFilteredTickets")}
+            </Text>
+            <Text style={[styles.centerText, { color: colors.textMuted }]}>
+              {t("myTickets.searchHint")}
+            </Text>
           </View>
         ) : hasSearched ? (
           <View style={styles.centerBox}>
@@ -385,14 +477,14 @@ export const MyTicketsScreen: React.FC = () => {
                 <View style={[styles.modalInstructionCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                   <Scan size={20} color={colors.primary} />
                   <Text style={[styles.modalInstructionText, { color: colors.textMuted }]}>
-                    Arahkan kode QR ini tepat di depan scanner turnstile gate untuk masuk ke area studio bioskop.
+                    {t("myTickets.gateInstruction")}
                   </Text>
                 </View>
 
                 {/* Close Button */}
                 <View style={styles.modalButtonContainer}>
                   <Button
-                    title="Tutup Tiket"
+                    title={t("myTickets.closeTicket")}
                     variant="outline"
                     onPress={() => setSelectedTicketForModal(null)}
                     size="large"
@@ -413,7 +505,8 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   searchBar: {
     flexDirection: "row",
@@ -424,6 +517,23 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     height: 48,
     gap: 8,
+  },
+  filterSection: {
+    paddingBottom: 12,
+  },
+  filterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterTab: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   input: {
     flex: 1,

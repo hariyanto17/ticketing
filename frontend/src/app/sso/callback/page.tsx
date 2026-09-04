@@ -42,7 +42,15 @@ function SsoCallbackInner() {
           roleUpper.includes("KIOSK") ||
           usernameLower.includes("gate") ||
           usernameLower.includes("kiosk");
-        const targetPath = isKiosk ? "/kiosk-print" : "/admin/dashboard";
+        const isCashier =
+          roleUpper.includes("CASHIER") ||
+          usernameLower.includes("kasir") ||
+          usernameLower.includes("cashier");
+        const targetPath = isKiosk
+          ? "/kiosk-print"
+          : isCashier
+          ? "/cashier/dashboard"
+          : "/admin/dashboard";
 
         if (typeof window !== "undefined") {
           window.history.replaceState({}, document.title, window.location.pathname);

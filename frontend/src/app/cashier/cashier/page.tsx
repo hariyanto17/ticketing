@@ -3,6 +3,6 @@
 import React from "react";
 import CashierWorkspace from "@/components/views/CashierWorkspace";
 
-export default function AdminCashierPage() {
+export default function CashierAliasPage() {
   return <CashierWorkspace />;
 }

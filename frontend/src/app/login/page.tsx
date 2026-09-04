@@ -57,9 +57,15 @@ export default function LoginPage() {
         roleUpper.includes("KIOSK") ||
         usernameLower.includes("gate") ||
         usernameLower.includes("kiosk");
+      const isCashier =
+        roleUpper.includes("CASHIER") ||
+        usernameLower.includes("kasir") ||
+        usernameLower.includes("cashier");
 
       if (isKiosk) {
         router.push("/kiosk-print");
+      } else if (isCashier) {
+        router.push("/cashier/dashboard");
       } else {
         router.push("/admin/dashboard");
       }

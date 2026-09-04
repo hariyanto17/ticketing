@@ -3,6 +3,6 @@
 import React from "react";
 import TicketValidationView from "@/components/views/TicketValidationView";
 
-export default function AdminTicketValidationPage() {
+export default function CashierTicketValidatePage() {
   return <TicketValidationView />;
 }

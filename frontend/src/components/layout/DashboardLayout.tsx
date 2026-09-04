@@ -72,11 +72,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     (user?.username || "").toLowerCase().includes("kiosk")
   );
 
+  const isCashierUser = Boolean(
+    (user?.role || "").toUpperCase().includes("CASHIER") ||
+    (user?.username || "").toLowerCase().includes("kasir") ||
+    (user?.username || "").toLowerCase().includes("cashier")
+  );
+
   useEffect(() => {
     if (user && isGateUser && pathname !== "/kiosk-print") {
       router.replace("/kiosk-print");
+    } else if (user && isCashierUser && !isGateUser && pathname.startsWith("/admin")) {
+      if (pathname === "/admin/cashier") router.replace("/cashier/pos");
+      else if (pathname === "/admin/transactions") router.replace("/cashier/transactions");
+      else if (pathname === "/admin/closing") router.replace("/cashier/closing");
+      else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
+      else router.replace("/cashier/dashboard");
     }
-  }, [user, isGateUser, pathname, router]);
+  }, [user, isGateUser, isCashierUser, pathname, router]);
 
   const handleLogout = async () => {
     try {
@@ -89,34 +101,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
-  const allMenuItems = [
-    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
-    { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.ticketSales"), href: "/admin/cashier", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
-    { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
-    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "Gate Validator", "ADMINISTRATOR", "CASHIER", "GATE_VALIDATOR"] },
-    { name: t("nav.gateValidator"), href: "/admin/tickets/validate", icon: <ShieldCheck className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
-    { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
-    { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+  const cashierMenuItems = [
+    { name: t("nav.dashboard"), href: "/cashier/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.ticketSales"), href: "/cashier/pos", icon: <Ticket className="w-5 h-5" /> },
+    { name: t("nav.transactions"), href: "/cashier/transactions", icon: <Receipt className="w-5 h-5" /> },
+    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" /> },
+    { name: t("nav.gateValidator"), href: "/cashier/tickets/validate", icon: <ShieldCheck className="w-5 h-5" /> },
+    { name: t("nav.dailyClosing"), href: "/cashier/closing", icon: <Calendar className="w-5 h-5" /> },
   ];
 
-  const menuItems = allMenuItems.filter((item) => {
-    if (!user?.role) return false;
-    const userRole = user.role.toUpperCase();
-    return item.allowedRoles.some(
-      (r) =>
-        r.toUpperCase() === userRole ||
-        (r === "Admin" && userRole === "ADMINISTRATOR") ||
-        (r === "Cashier" && userRole === "CASHIER") ||
-        (r === "Gate Validator" && userRole === "GATE_VALIDATOR")
-    );
-  });
+  const adminMenuItems = [
+    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" /> },
+    { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" /> },
+    { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" /> },
+    { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" /> },
+    { name: t("nav.ticketSales"), href: "/admin/cashier", icon: <Ticket className="w-5 h-5" /> },
+    { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" /> },
+    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" /> },
+    { name: t("nav.gateValidator"), href: "/admin/tickets/validate", icon: <ShieldCheck className="w-5 h-5" /> },
+    { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" /> },
+    { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
+    { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" /> },
+    { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
+  ];
+
+  const menuItems = isCashierUser ? cashierMenuItems : adminMenuItems;
 
   if (authStatus === "initializing" || isSessionLoading) {
     return (
@@ -165,7 +176,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Sidebar Menu */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || (item.href === "/cashier/pos" && pathname === "/cashier/cashier");
             return (
               <Link
                 key={item.name}
@@ -207,7 +218,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
             <nav className="flex-1 px-4 py-6 space-y-1">
               {menuItems.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = pathname === item.href || (item.href === "/cashier/pos" && pathname === "/cashier/cashier");
                 return (
                   <Link
                     key={item.name}

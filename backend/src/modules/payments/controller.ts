@@ -61,19 +61,51 @@ export const getPaymentStatusController = async (req: Request, res: Response) =>
     qrString = raw.qr_string || "";
   }
 
-  return responseHandler.ok(
-    res,
-    {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      orderStatus: order.orderStatus,
-      paymentStatus: order.paymentStatus,
-      payments: order.payments,
-      tickets: order.tickets,
-      qrUrl,
-      qrString,
-      expiredAt,
-    },
-    "Payment status retrieved"
-  );
-};
+    return responseHandler.ok(
+      res,
+      {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+        payments: order.payments,
+        tickets: order.tickets,
+        qrUrl,
+        qrString,
+        expiredAt,
+      },
+      "Payment status retrieved"
+    );
+  };
+  
+  export const simulateQrisPaymentSuccessController = async (req: Request, res: Response) => {
+    const { orderId } = req.params;
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payments: true },
+    });
+  
+    if (!order) throw new AppError("NOT_FOUND", "Order not found");
+  
+    const grossAmount = `${Math.round(order.totalAmount)}.00`;
+    const statusCode = "200";
+    const signatureKey = midtransService.generateMidtransSignature(
+      order.orderNumber,
+      statusCode,
+      grossAmount
+    );
+  
+    const payload = {
+      order_id: order.orderNumber,
+      status_code: statusCode,
+      gross_amount: grossAmount,
+      signature_key: signatureKey,
+      transaction_id: `sim-qris-${Date.now()}`,
+      transaction_status: "settlement",
+      payment_type: "qris",
+      fraud_status: "accept",
+    };
+  
+    const output = await midtransService.handleMidtransNotification(payload as any);
+    return responseHandler.ok(res, output, output.message);
+  };

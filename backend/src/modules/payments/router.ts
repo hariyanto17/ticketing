@@ -28,4 +28,10 @@ router.get(
   catchAsync(controller.getPaymentStatusController)
 );
 
+// 5. Simulated QRIS Payment Success (Sandbox/Development Only)
+router.post(
+  "/qris/simulate-success/:orderId",
+  catchAsync(controller.simulateQrisPaymentSuccessController)
+);
+
 export default router;

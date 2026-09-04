@@ -81,12 +81,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     if (user && isGateUser && pathname !== "/kiosk-print") {
       router.replace("/kiosk-print");
-    } else if (user && isCashierUser && !isGateUser && pathname.startsWith("/admin")) {
-      if (pathname === "/admin/cashier") router.replace("/cashier/pos");
-      else if (pathname === "/admin/transactions") router.replace("/cashier/transactions");
-      else if (pathname === "/admin/closing") router.replace("/cashier/closing");
-      else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
-      else router.replace("/cashier/dashboard");
+    } else if (user && isCashierUser && !isGateUser) {
+      if (pathname === "/kiosk-print") {
+        router.replace("/cashier/dashboard");
+      } else if (pathname.startsWith("/admin")) {
+        if (pathname === "/admin/cashier") router.replace("/cashier/pos");
+        else if (pathname === "/admin/transactions") router.replace("/cashier/transactions");
+        else if (pathname === "/admin/closing") router.replace("/cashier/closing");
+        else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
+        else router.replace("/cashier/dashboard");
+      }
     }
   }, [user, isGateUser, isCashierUser, pathname, router]);
 
@@ -105,7 +109,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.dashboard"), href: "/cashier/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.ticketSales"), href: "/cashier/pos", icon: <Ticket className="w-5 h-5" /> },
     { name: t("nav.transactions"), href: "/cashier/transactions", icon: <Receipt className="w-5 h-5" /> },
-    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" /> },
     { name: t("nav.gateValidator"), href: "/cashier/tickets/validate", icon: <ShieldCheck className="w-5 h-5" /> },
     { name: t("nav.dailyClosing"), href: "/cashier/closing", icon: <Calendar className="w-5 h-5" /> },
   ];

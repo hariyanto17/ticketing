@@ -100,15 +100,6 @@ export default function CashierDashboardView() {
       accentBorder: "hover:border-emerald-500/50",
     },
     {
-      title: "Kiosk Cetak Tiket",
-      description: "Layar cetak mandiri (self-service) bagi pelanggan dengan booking code / QRIS.",
-      href: "/kiosk-print",
-      icon: <Printer className="w-8 h-8 text-sky-500" />,
-      badge: "Self-Service",
-      badgeColor: "bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400",
-      accentBorder: "hover:border-sky-500/50",
-    },
-    {
       title: "Validasi Tiket Masuk",
       description: "Pemeriksaan dan scanning tiket penonton sebelum memasuki studio bioskop.",
       href: "/cashier/tickets/validate",

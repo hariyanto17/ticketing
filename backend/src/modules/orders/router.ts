@@ -11,7 +11,7 @@ router.use(catchAsync(authMiddleware));
 router.get("/", catchAsync(controller.getOrdersController));
 router.get("/:id", catchAsync(controller.getOrderByIdController));
 router.post("/checkout", catchAsync(controller.checkoutOrderController));
-router.post("/:id/void", authorize("Admin"), catchAsync(controller.voidOrderController));
+router.post("/:id/void", authorize("Admin", "Cashier"), catchAsync(controller.voidOrderController));
 router.post("/tickets/:ticketId/refund", catchAsync(controller.refundTicketController));
 
 export default router;

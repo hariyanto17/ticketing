@@ -9,7 +9,7 @@ const router = Router();
 router.use(catchAsync(authMiddleware));
 
 router.get("/summary", catchAsync(controller.getClosingSummaryController));
-router.post("/", authorize("Admin"), catchAsync(controller.createClosingController));
+router.post("/", authorize("Admin", "Cashier"), catchAsync(controller.createClosingController));
 router.get("/history", catchAsync(controller.getClosingsHistoryController));
 
 export default router;

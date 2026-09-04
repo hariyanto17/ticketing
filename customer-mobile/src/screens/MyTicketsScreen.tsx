@@ -7,10 +7,25 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Modal,
+  SafeAreaView,
+  Dimensions,
 } from "react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import QRCode from "react-native-qrcode-svg";
-import { Search, Ticket, Calendar, Clock, Armchair, ShieldCheck, History } from "lucide-react-native";
+import {
+  Search,
+  Ticket,
+  Calendar,
+  Clock,
+  Armchair,
+  ShieldCheck,
+  History,
+  Maximize2,
+  X,
+  Scan,
+  Film,
+} from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
 import { Order, Ticket as TicketType } from "../types/booking";
 import { useLazyLookupBookingsQuery } from "../lib/api/bookingApi";
@@ -25,6 +40,9 @@ import { useAppSelector } from "../lib/store";
 
 type MyTicketsRouteProp = RouteProp<RootStackParamList, "MyTickets">;
 
+const { width } = Dimensions.get("window");
+const QR_MODAL_SIZE = Math.min(width - 80, 280);
+
 export const MyTicketsScreen: React.FC = () => {
   const route = useRoute<MyTicketsRouteProp>();
   const { colors } = useTheme();
@@ -37,6 +55,12 @@ export const MyTicketsScreen: React.FC = () => {
   const [query, setQuery] = useState<string>(route.params?.autoQuery || "");
   const [orders, setOrders] = useState<Order[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+
+  // Selected ticket for full-screen barcode / QR modal
+  const [selectedTicketForModal, setSelectedTicketForModal] = useState<{
+    ticket: TicketType;
+    order: Order;
+  } | null>(null);
 
   const [triggerLookup, { isFetching: loading }] = useLazyLookupBookingsQuery();
 
@@ -201,15 +225,17 @@ export const MyTicketsScreen: React.FC = () => {
                 {/* Individual Seat Tickets & QR Codes */}
                 <View style={styles.ticketsContainer}>
                   <Text style={[styles.ticketsTitle, { color: colors.textMuted }]}>
-                    E-Tiket ({order.tickets?.length || 0} Tiket)
+                    E-Tiket ({order.tickets?.length || 0} Tiket) • Ketuk tiket untuk perbesar QR
                   </Text>
 
                   {order.tickets?.map((ticket) => (
-                    <View
+                    <TouchableOpacity
                       key={ticket.id}
                       style={[styles.ticketItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+                      onPress={() => setSelectedTicketForModal({ ticket, order })}
+                      activeOpacity={0.7}
                     >
-                      {/* Left: QR Code */}
+                      {/* Left: QR Code with expand badge */}
                       <View style={styles.qrBox}>
                         <QRCode
                           value={ticket.qrCode || ticket.ticketNumber}
@@ -217,6 +243,9 @@ export const MyTicketsScreen: React.FC = () => {
                           color="#000000"
                           backgroundColor="#ffffff"
                         />
+                        <View style={styles.expandIconBadge}>
+                          <Maximize2 size={10} color="#ffffff" />
+                        </View>
                       </View>
 
                       {/* Right: Seat & Ticket info */}
@@ -230,11 +259,14 @@ export const MyTicketsScreen: React.FC = () => {
                         <Text style={[styles.ticketCode, { color: colors.textMuted }]}>
                           No: {ticket.ticketNumber}
                         </Text>
-                        <Text style={[styles.scanHint, { color: colors.textMuted }]}>
-                          Scan di Turnstile Gate
-                        </Text>
+                        <View style={styles.tapToExpandRow}>
+                          <Scan size={12} color={colors.primary} />
+                          <Text style={[styles.scanHint, { color: colors.primary }]}>
+                            Ketuk untuk Barcode Layar Penuh
+                          </Text>
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </Card>
@@ -262,6 +294,115 @@ export const MyTicketsScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* FULL-SCREEN BARCODE / QR MODAL */}
+      <Modal
+        visible={!!selectedTicketForModal}
+        animationType="slide"
+        transparent={true}
+        statusBarTranslucent
+        onRequestClose={() => setSelectedTicketForModal(null)}
+      >
+        {selectedTicketForModal && (
+          <View style={styles.modalOverlay}>
+            <SafeAreaView style={[styles.modalContent, { backgroundColor: colors.background }]}>
+              {/* Modal Top Bar */}
+              <View style={[styles.modalTopBar, { borderBottomColor: colors.cardBorder }]}>
+                <View style={styles.modalHeaderTitleRow}>
+                  <Film size={18} color={colors.primary} />
+                  <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
+                    E-Tiket Masuk Bioskop
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
+                  onPress={() => setSelectedTicketForModal(null)}
+                  activeOpacity={0.7}
+                >
+                  <X size={20} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.modalScrollBody} showsVerticalScrollIndicator={false}>
+                {/* Movie & Studio Information */}
+                <View style={styles.modalMovieHeader}>
+                  <Text style={[styles.modalMovieTitle, { color: colors.primary }]}>
+                    {selectedTicketForModal.order.schedule?.movie?.title || "Film Planet Cinema"}
+                  </Text>
+                  <Text style={[styles.modalStudioText, { color: colors.textMuted }]}>
+                    {selectedTicketForModal.order.schedule?.studio?.name || "Studio"} •{" "}
+                    {selectedTicketForModal.order.schedule?.businessDate
+                      ? new Date(selectedTicketForModal.order.schedule.businessDate).toLocaleDateString("id-ID", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })
+                      : ""}{" "}
+                    {selectedTicketForModal.order.schedule?.startTime
+                      ? new Date(selectedTicketForModal.order.schedule.startTime).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }) + " WIB"
+                      : ""}
+                  </Text>
+                </View>
+
+                {/* Big Seat Number Display */}
+                <View style={[styles.modalSeatBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+                  <Armchair size={22} color={colors.primary} />
+                  <Text style={[styles.modalSeatLabel, { color: colors.text }]}>
+                    KURSI{" "}
+                    <Text style={[styles.modalSeatNumber, { color: colors.primary }]}>
+                      {selectedTicketForModal.ticket.showtimeSeat?.seat?.seatLabel || "-"}
+                    </Text>
+                  </Text>
+                </View>
+
+                {/* Full-Screen Crisp QR Code */}
+                <View style={styles.modalQrWrapper}>
+                  <View style={styles.modalQrWhiteCard}>
+                    <QRCode
+                      value={
+                        selectedTicketForModal.ticket.qrCode ||
+                        selectedTicketForModal.ticket.ticketNumber
+                      }
+                      size={QR_MODAL_SIZE}
+                      color="#000000"
+                      backgroundColor="#ffffff"
+                    />
+                  </View>
+                </View>
+
+                {/* Ticket Number & Status */}
+                <View style={styles.modalTicketMeta}>
+                  <Text style={[styles.modalTicketNo, { color: colors.text }]}>
+                    {selectedTicketForModal.ticket.ticketNumber}
+                  </Text>
+                  {getTicketStatusBadge(selectedTicketForModal.ticket.status)}
+                </View>
+
+                {/* Turnstile Gate Instruction Banner */}
+                <View style={[styles.modalInstructionCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                  <Scan size={20} color={colors.primary} />
+                  <Text style={[styles.modalInstructionText, { color: colors.textMuted }]}>
+                    Arahkan kode QR ini tepat di depan scanner turnstile gate untuk masuk ke area studio bioskop.
+                  </Text>
+                </View>
+
+                {/* Close Button */}
+                <View style={styles.modalButtonContainer}>
+                  <Button
+                    title="Tutup Tiket"
+                    variant="outline"
+                    onPress={() => setSelectedTicketForModal(null)}
+                    size="large"
+                  />
+                </View>
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        )}
+      </Modal>
     </View>
   );
 };
@@ -385,6 +526,15 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: "#ffffff",
     borderRadius: 8,
+    position: "relative",
+  },
+  expandIconBadge: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 4,
+    padding: 2,
   },
   ticketDetails: {
     flex: 1,
@@ -403,8 +553,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
+  tapToExpandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
   scanHint: {
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: "600",
   },
   centerBox: {
     alignItems: "center",
@@ -420,5 +577,117 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     maxWidth: 260,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalTopBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  modalHeaderTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalScrollBody: {
+    padding: 24,
+    alignItems: "center",
+    gap: 18,
+    paddingBottom: 40,
+  },
+  modalMovieHeader: {
+    alignItems: "center",
+    gap: 4,
+  },
+  modalMovieTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  modalStudioText: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  modalSeatBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1.5,
+  },
+  modalSeatLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  modalSeatNumber: {
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  modalQrWrapper: {
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalQrWhiteCard: {
+    padding: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalTicketMeta: {
+    alignItems: "center",
+    gap: 8,
+  },
+  modalTicketNo: {
+    fontSize: 14,
+    fontWeight: "800",
+    fontFamily: "monospace",
+    letterSpacing: 1,
+  },
+  modalInstructionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    width: "100%",
+  },
+  modalInstructionText: {
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
+  },
+  modalButtonContainer: {
+    width: "100%",
+    marginTop: 6,
   },
 });

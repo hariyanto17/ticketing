@@ -32,20 +32,50 @@ export const getDailyClosingSummary = async (businessDate: Date) => {
   });
 
   const paidOrders = orders.filter((o) => o.orderStatus === "PAID");
-  const totalTransactions = paidOrders.length;
-  
-  const totalRevenue = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const cashRevenue = paidOrders.filter((o) => o.paymentMethod === "CASH").reduce((sum, o) => sum + o.totalAmount, 0);
-  const qrisRevenue = paidOrders.filter((o) => o.paymentMethod === "QRIS").reduce((sum, o) => sum + o.totalAmount, 0);
 
-  // Tickets sold
-  const totalTicketsSold = paidOrders.reduce((sum, o) => sum + o.tickets.filter(t => t.status === "ACTIVE" || t.status === "USED").length, 0);
+  // Split POS vs Online orders
+  const posPaidOrders = paidOrders.filter(
+    (o) => o.channel === "POS" || Boolean(o.cashierId && !o.bookingNumber)
+  );
+  const onlinePaidOrders = paidOrders.filter(
+    (o) => o.channel === "ONLINE" || Boolean(o.bookingNumber && !o.cashierId)
+  );
+
+  // POS / Cashier breakdown
+  const posCashRevenue = posPaidOrders
+    .filter((o) => o.paymentMethod === "CASH")
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+  const posQrisRevenue = posPaidOrders
+    .filter((o) => o.paymentMethod === "QRIS")
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+  const posRevenue = posCashRevenue + posQrisRevenue;
+  const posTicketsSold = posPaidOrders.reduce(
+    (sum, o) => sum + o.tickets.filter((t) => t.status === "ACTIVE" || t.status === "USED").length,
+    0
+  );
+  const posTransactions = posPaidOrders.length;
+
+  // Online / Mobile breakdown
+  const onlineQrisRevenue = onlinePaidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const onlineRevenue = onlineQrisRevenue;
+  const onlineTicketsSold = onlinePaidOrders.reduce(
+    (sum, o) => sum + o.tickets.filter((t) => t.status === "ACTIVE" || t.status === "USED").length,
+    0
+  );
+  const onlineTransactions = onlinePaidOrders.length;
+
+  // Total summary
+  const totalRevenue = posRevenue + onlineRevenue;
+  const cashRevenue = posCashRevenue;
+  const qrisRevenue = posQrisRevenue + onlineQrisRevenue;
+  const totalTicketsSold = posTicketsSold + onlineTicketsSold;
+  const totalTransactions = paidOrders.length;
 
   // Total refunds: cancelled tickets
-  // Sum up approximate value or just count them
-  const refundedTicketsCount = orders.reduce((sum, o) => sum + o.tickets.filter(t => t.status === "CANCELLED").length, 0);
-  
-  // Approximate refund cost
+  const refundedTicketsCount = orders.reduce(
+    (sum, o) => sum + o.tickets.filter((t) => t.status === "CANCELLED").length,
+    0
+  );
   const ticketPriceSample = paidOrders[0]?.totalAmount / (paidOrders[0]?.tickets.length || 1) || 50000;
   const totalRefunds = refundedTicketsCount * ticketPriceSample;
 
@@ -55,6 +85,15 @@ export const getDailyClosingSummary = async (businessDate: Date) => {
     totalRevenue,
     cashRevenue,
     qrisRevenue,
+    posRevenue,
+    posCashRevenue,
+    posQrisRevenue,
+    posTicketsSold,
+    posTransactions,
+    onlineRevenue,
+    onlineQrisRevenue,
+    onlineTicketsSold,
+    onlineTransactions,
     totalRefunds,
     totalTransactions,
   };
@@ -74,6 +113,8 @@ export const createDailyClosing = async (userId: string, businessDate: Date) => 
       totalRevenue: summary.totalRevenue,
       cashRevenue: summary.cashRevenue,
       qrisRevenue: summary.qrisRevenue,
+      posRevenue: summary.posRevenue,
+      onlineRevenue: summary.onlineRevenue,
       totalRefunds: summary.totalRefunds,
       totalTransactions: summary.totalTransactions,
       closedById: userId,

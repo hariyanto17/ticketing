@@ -23,6 +23,8 @@ export interface DailyClosing {
   totalRevenue: number;
   cashRevenue: number;
   qrisRevenue: number;
+  posRevenue?: number;
+  onlineRevenue?: number;
   totalRefunds: number;
   totalTransactions: number;
   closedById: string;
@@ -36,6 +38,15 @@ export interface ClosingSummary {
   totalRevenue: number;
   cashRevenue: number;
   qrisRevenue: number;
+  posRevenue?: number;
+  posCashRevenue?: number;
+  posQrisRevenue?: number;
+  posTicketsSold?: number;
+  posTransactions?: number;
+  onlineRevenue?: number;
+  onlineQrisRevenue?: number;
+  onlineTicketsSold?: number;
+  onlineTransactions?: number;
   totalRefunds: number;
   totalTransactions: number;
 }

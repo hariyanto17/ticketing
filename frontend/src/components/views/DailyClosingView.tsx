@@ -89,23 +89,84 @@ export default function DailyClosingPage() {
                   </div>
                 </div>
 
-                {/* Sub details */}
-                <div className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500">{t("closing.cashRevenue")}</span>
+                {/* Breakdown by Channel (POS Loket vs Online Mobile) */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* POS Cashier Box */}
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                        <span>🖥️</span> Penjualan Loket (POS)
+                      </span>
+                      <span className="text-xs font-bold text-zinc-500">
+                        {formatNumber(summary.posTicketsSold || 0)} Tiket
+                      </span>
+                    </div>
+                    <div className="text-xl font-black text-zinc-900 dark:text-zinc-50">
+                      {formatCurrency(summary.posRevenue || 0)}
+                    </div>
+                    <div className="space-y-1.5 text-xs text-zinc-500 pt-1 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                      <div className="flex justify-between">
+                        <span>Tunai (Cash Fisik):</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.posCashRevenue || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>QRIS Loket:</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.posQrisRevenue || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Transaksi Loket:</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatNumber(summary.posTransactions || 0)} invoice</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Online Mobile Box */}
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                        <span>📱</span> Penjualan Online (Mobile)
+                      </span>
+                      <span className="text-xs font-bold text-zinc-500">
+                        {formatNumber(summary.onlineTicketsSold || 0)} Tiket
+                      </span>
+                    </div>
+                    <div className="text-xl font-black text-zinc-900 dark:text-zinc-50">
+                      {formatCurrency(summary.onlineRevenue || 0)}
+                    </div>
+                    <div className="space-y-1.5 text-xs text-zinc-500 pt-1 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                      <div className="flex justify-between">
+                        <span>QRIS / Payment Gateway:</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.onlineQrisRevenue || summary.onlineRevenue || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Booking Online:</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatNumber(summary.onlineTransactions || 0)} order</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Combined Total Recap */}
+                <div className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-3 text-sm bg-zinc-50/50 dark:bg-zinc-900/40">
+                  <div className="flex justify-between font-bold text-sm">
+                    <span className="text-zinc-700 dark:text-zinc-300">Total Keseluruhan (POS + Online):</span>
+                    <span className="text-indigo-600 dark:text-indigo-400">{formatCurrency(summary.totalRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-500">{t("closing.cashRevenue")} (Fisik Laci Kasir):</span>
                     <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.cashRevenue)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500">{t("closing.qrisRevenue")}</span>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-500">{t("closing.qrisRevenue")} (Gabungan Loket + Online):</span>
                     <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.qrisRevenue)}</span>
                   </div>
-                  <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
-                    <span className="text-zinc-500">{t("closing.refunds")}</span>
+                  <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-xs">
+                    <span className="text-zinc-500">{t("closing.refunds")}:</span>
                     <span className="font-bold text-rose-500">{formatCurrency(summary.totalRefunds)}</span>
                   </div>
-                  <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
-                    <span className="text-zinc-500 font-semibold">{t("closing.transactions")}</span>
-                    <span className="font-bold text-zinc-900 dark:text-zinc-50">{formatNumber(summary.totalTransactions)} {t("closing.invoices")}</span>
+                  <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-xs">
+                    <span className="text-zinc-500 font-semibold">{t("closing.transactions")}:</span>
+                    <span className="font-bold text-zinc-900 dark:text-zinc-50">{formatNumber(summary.totalTransactions)} {t("closing.invoices")} ({formatNumber(summary.totalTicketsSold)} tiket)</span>
                   </div>
                 </div>
 

@@ -429,6 +429,8 @@ model DailyClosing {
   totalRevenue      Float
   cashRevenue       Float
   qrisRevenue       Float
+  posRevenue        Float    @default(0.0)
+  onlineRevenue     Float    @default(0.0)
   totalRefunds      Float
   totalTransactions Int
   closedById        String

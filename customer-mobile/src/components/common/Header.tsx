@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft, Moon, Sun, Globe } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -19,9 +20,25 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { colors, isDark, toggleTheme } = useTheme();
   const { locale, toggleLocale } = useLanguage();
+  const insets = useSafeAreaInsets();
+
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 20
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, borderBottomColor: colors.cardBorder }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          borderBottomColor: colors.cardBorder,
+          paddingTop: topInset + 4,
+          height: 56 + topInset + 4,
+        },
+      ]}
+    >
       <View style={styles.leftRow}>
         {showBack && (
           <TouchableOpacity

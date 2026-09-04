@@ -8,9 +8,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Modal,
-  SafeAreaView,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import QRCode from "react-native-qrcode-svg";
 import {

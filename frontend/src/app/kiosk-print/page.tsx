@@ -157,36 +157,44 @@ export default function KioskPrintPage() {
 
   const executePrinting = async (order: KioskOrderResult) => {
     try {
-      // 1. Try Hardware Printer Agent Client if available
       const printerClient = createPrinterAgentClient();
-      const health = await printerClient.getHealth().catch(() => null);
+      const showDate = order.showtime.businessDate
+        ? new Date(order.showtime.businessDate).toLocaleDateString("id-ID")
+        : new Date(order.showtime.startTime).toLocaleDateString("id-ID");
+      const showTime = new Date(order.showtime.startTime).toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
 
-      if (health && health.status === "ok") {
-        for (const ticket of order.tickets) {
-          await printerClient.printTicket({
-            orderNumber: order.orderNumber,
-            movieTitle: order.movie.title,
-            studioName: order.studio.name,
-            studioType: order.studio.type,
-            date: order.showtime.businessDate || order.showtime.startTime,
-            time: order.showtime.startTime,
-            seatLabel: ticket.seatLabel,
-            ticketNumber: ticket.ticketNumber,
-            qrCode: ticket.qrCode,
-            customerName: order.customerName,
-            price: ticket.price,
-          }).catch(() => {});
-        }
-        return;
+      for (const ticket of order.tickets) {
+        const row = ticket.row || ticket.seatLabel.replace(/[0-9]/g, "") || "A";
+        const seatNumber = Number(ticket.seatNumber) || parseInt(ticket.seatLabel.replace(/[^0-9]/g, ""), 10) || 1;
+        const seat = ticket.seatLabel || `${row}${seatNumber}`;
+        const price = Number(ticket.price) || (order.tickets.length ? Math.round(order.totalAmount / order.tickets.length) : 0);
+
+        await printerClient.printTicket({
+          mode: "print",
+          ticketNumber: ticket.ticketNumber,
+          orderNumber: order.orderNumber,
+          movie: order.movie.title,
+          studio: order.studio.name,
+          showDate: showDate,
+          showTime: showTime,
+          seat: seat,
+          row: row,
+          seatNumber: seatNumber,
+          price: price,
+          totalAmount: Number(order.totalAmount) || price,
+          qrCode: ticket.qrCode || ticket.ticketNumber,
+          customerName: order.customerName || undefined,
+        }).catch((err) => {
+          console.warn("[PrinterAgent] Silent print ticket error:", err);
+        });
       }
     } catch (e) {
-      console.warn("PrinterAgent unavailable, falling back to browser print", e);
+      console.warn("[PrinterAgent] Silent print error:", e);
     }
-
-    // 2. Fallback to Browser Print
-    setTimeout(() => {
-      window.print();
-    }, 400);
   };
 
   const handleResetToStandby = () => {

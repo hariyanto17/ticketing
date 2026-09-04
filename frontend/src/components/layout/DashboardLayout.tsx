@@ -23,6 +23,7 @@ import {
   Receipt,
   ShieldCheck,
   Settings,
+  Printer,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -83,6 +84,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin"] },
     { name: t("nav.ticketSales"), href: "/admin/cashier", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
     { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
+    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "Gate Validator"] },
     { name: t("nav.gateValidator"), href: "/admin/tickets/validate", icon: <ShieldCheck className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
     { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin"] },
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin"] },

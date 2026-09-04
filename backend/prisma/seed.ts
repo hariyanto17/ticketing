@@ -246,10 +246,12 @@ async function ensureDefaultStudios(branchId: string) {
 async function main() {
   const adminRole = await ensureRole("Admin", "Administrator role");
   const cashierRole = await ensureRole("Cashier", "Cashier role");
+  const gateRole = await ensureRole("Gate Validator", "Gate Validator & Ticket Kiosk Operator");
   const branch = await ensureBranch();
 
   await ensureUser(branch.id, adminRole.id, "admin", "Admin", "admin@kasir-ticket.test", "+628000000000");
   await ensureUser(branch.id, cashierRole.id, "cashier", "Cashier User", "cashier@kasir-ticket.test", "+628111111111");
+  await ensureUser(branch.id, gateRole.id, "gate_kiosk", "Gate Kiosk Operator", "kiosk@kasir-ticket.test", "+628222222222");
 
   const genres = [
     ["Action", "High energy, stunts, and chases"],

@@ -72,6 +72,53 @@ export interface ApiResponse<T> {
   };
 }
 
+export interface KioskOrderTicket {
+  id: string;
+  ticketNumber: string;
+  qrCode: string;
+  status: "ACTIVE" | "USED" | "CANCELLED";
+  seatLabel: string;
+  row: string;
+  seatNumber: number;
+  seatType: string;
+  price: number;
+}
+
+export interface KioskOrderResult {
+  orderId: string;
+  orderNumber: string;
+  bookingNumber: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  totalAmount: number;
+  orderStatus: string;
+  paymentStatus: string;
+  paidAt: string;
+  paymentType: string;
+  movie: {
+    id: string;
+    title: string;
+    poster: string | null;
+    durationMinutes: number;
+    censorshipRating: string;
+  };
+  studio: {
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+  };
+  showtime: {
+    id: string;
+    businessDate: string;
+    startTime: string;
+    endTime?: string | null;
+    ticketPrice: number;
+  };
+  tickets: KioskOrderTicket[];
+}
+
 export const orderApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getOrders: builder.query<ApiResponse<Order[]>, { page?: number; limit?: number; search?: string; cashierId?: string; startDate?: string; endDate?: string }>({
@@ -100,6 +147,20 @@ export const orderApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Seat"],
     }),
+    kioskLookup: builder.mutation<ApiResponse<KioskOrderResult>, { query: string }>({
+      query: (body) => ({
+        url: "/tickets/kiosk/lookup",
+        method: "POST",
+        body,
+      }),
+    }),
+    kioskPrintLog: builder.mutation<ApiResponse<{ success: boolean; orderId: string; orderNumber: string; ticketsCount: number }>, { orderId: string }>({
+      query: (body) => ({
+        url: "/tickets/kiosk/print-log",
+        method: "POST",
+        body,
+      }),
+    }),
   }),
 });
 
@@ -108,4 +169,7 @@ export const {
   useGetOrderByIdQuery,
   useCheckoutOrderMutation,
   useValidateTicketMutation,
+  useKioskLookupMutation,
+  useKioskPrintLogMutation,
 } = orderApi;
+

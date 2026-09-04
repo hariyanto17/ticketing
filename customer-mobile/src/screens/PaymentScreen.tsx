@@ -189,7 +189,7 @@ export const PaymentScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
-        title="Pembayaran QRIS"
+        title={t("payment.title")}
         showBack
         onBack={handleCancelPayment}
       />
@@ -199,7 +199,7 @@ export const PaymentScreen: React.FC = () => {
           {/* Amount & Expiry Header Card */}
           <View style={[styles.amountCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
             <Text style={[styles.amountLabel, { color: colors.textMuted }]}>
-              Total Pembayaran
+              {t("summary.totalPay")}
             </Text>
             <Text style={[styles.amountValue, { color: colors.primary }]}>
               {formatCurrency(totalPayAmount)}
@@ -209,7 +209,7 @@ export const PaymentScreen: React.FC = () => {
             <View style={[styles.timerBadge, { backgroundColor: isExpired ? "rgba(239,68,68,0.15)" : "rgba(225,29,72,0.1)" }]}>
               <Clock size={16} color={isExpired ? colors.danger : colors.primary} />
               <Text style={[styles.timerText, { color: isExpired ? colors.danger : colors.primary }]}>
-                {isExpired ? "Waktu Habis" : `Berlaku: ${formatCountdown(remainingSeconds)}`}
+                {isExpired ? t("payment.timeOutBadge") : `${t("payment.validTimeBadge")} ${formatCountdown(remainingSeconds)}`}
               </Text>
             </View>
           </View>
@@ -219,7 +219,7 @@ export const PaymentScreen: React.FC = () => {
             <View style={styles.qrHeaderRow}>
               <QrCode size={20} color={colors.primary} />
               <Text style={[styles.qrTitle, { color: colors.text }]}>
-                Scan QRIS Dinamis
+                {t("payment.scanQris")}
               </Text>
             </View>
 
@@ -246,7 +246,7 @@ export const PaymentScreen: React.FC = () => {
                 <View style={styles.qrWhiteBoxPlaceholder}>
                   <ActivityIndicator size="large" color={colors.primary} />
                   <Text style={[styles.qrLoadingText, { color: colors.textMuted }]}>
-                    Memuat kode QRIS...
+                    {t("payment.loadingQr")}
                   </Text>
                 </View>
               )}
@@ -256,7 +256,7 @@ export const PaymentScreen: React.FC = () => {
             <View style={styles.supportChannels}>
               <Smartphone size={16} color={colors.textMuted} />
               <Text style={[styles.supportText, { color: colors.textMuted }]}>
-                BCA, GoPay, OVO, DANA, ShopeePay, LinkAja & Bank Lainnya
+                {t("payment.supportChannels")}
               </Text>
             </View>
 
@@ -264,7 +264,7 @@ export const PaymentScreen: React.FC = () => {
             <View style={[styles.statusBanner, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={[styles.statusBannerText, { color: colors.text }]}>
-                Menunggu Pembayaran...
+                {t("payment.waitingPayment")}
               </Text>
             </View>
           </Card>
@@ -273,21 +273,21 @@ export const PaymentScreen: React.FC = () => {
           <View style={[styles.securityNotice, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
             <ShieldCheck size={18} color={colors.success} />
             <Text style={[styles.securityText, { color: colors.textMuted }]}>
-              Transaksi diverifikasi otomatis secara instan oleh sistem Midtrans.
+              {t("payment.securityNotice")}
             </Text>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <Button
-              title="Saya Sudah Membayar"
+              title={t("payment.iHavePaid")}
               onPress={() => checkPaymentStatus(true)}
               loading={checkingStatus}
               size="large"
             />
 
             <Button
-              title="Batalkan Pembayaran"
+              title={t("payment.cancelPayment")}
               variant="outline"
               onPress={handleCancelPayment}
               size="medium"
@@ -298,30 +298,30 @@ export const PaymentScreen: React.FC = () => {
         <View style={styles.statusCenter}>
           <CheckCircle2 size={72} color={colors.success} />
           <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Pembayaran Berhasil!
+            {t("success.title")}
           </Text>
           <Text style={[styles.statusAmount, { color: colors.primary }]}>
             {formatCurrency(totalPayAmount)}
           </Text>
           <Text style={[styles.statusSub, { color: colors.textMuted }]}>
-            Nomor Pesanan: {bookingNumber}
+            {t("success.orderNumber")}: {bookingNumber}
           </Text>
           <Text style={[styles.statusSub, { color: colors.textMuted }]}>
-            Tiket Anda telah aktif dan siap digunakan.
+            {t("success.subtitle")}
           </Text>
         </View>
       ) : paymentState === "EXPIRED" ? (
         <View style={styles.statusCenter}>
           <Clock size={72} color={colors.danger} />
           <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Waktu Pembayaran Telah Habis
+            {t("payment.timeExpired")}
           </Text>
           <Text style={[styles.statusSub, { color: colors.textMuted }]}>
-            Batas waktu 2 menit untuk reservasi kursi telah kedaluwarsa. Kursi telah dilepas ke publik.
+            {t("payment.timeExpiredSub")}
           </Text>
           <View style={styles.buttonCol}>
             <Button
-              title="Pilih Jadwal Ulang"
+              title={t("payment.reselectSchedule")}
               onPress={() => {
                 resetBooking();
                 navigation.reset({
@@ -336,20 +336,20 @@ export const PaymentScreen: React.FC = () => {
         <View style={styles.statusCenter}>
           <XCircle size={72} color={colors.danger} />
           <Text style={[styles.statusTitle, { color: colors.text }]}>
-            Pembayaran Gagal
+            {t("payment.paymentFailed")}
           </Text>
           <Text style={[styles.statusSub, { color: colors.textMuted }]}>
-            Transaksi tidak dapat diselesaikan atau telah dibatalkan.
+            {t("payment.paymentCancelled")}
           </Text>
           <View style={styles.buttonCol}>
             <Button
-              title="Cek Status Ulang"
+              title={t("payment.retryCheck")}
               onPress={() => checkPaymentStatus(true)}
               icon={<RefreshCw size={16} color="#ffffff" />}
               loading={checkingStatus}
             />
             <Button
-              title="Kembali ke Beranda"
+              title={t("common.back")}
               variant="outline"
               onPress={() => navigation.popToTop()}
             />

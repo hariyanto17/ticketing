@@ -199,7 +199,7 @@ export const BookingSummaryScreen: React.FC = () => {
             <View style={styles.metaRow}>
               <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.seats")}</Text>
               <Text style={[styles.metaValue, { color: colors.primary }]}>
-                {selectedSeats.map((s) => s.seat.seatLabel).join(", ")} ({selectedSeats.length} Kursi)
+                {selectedSeats.map((s) => s.seat.seatLabel).join(", ")} ({selectedSeats.length} {t("summary.seatsCount")})
               </Text>
             </View>
           </Card>
@@ -276,7 +276,7 @@ export const BookingSummaryScreen: React.FC = () => {
 
             <View style={styles.priceRow}>
               <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
-                Tiket ({selectedSeats.length}x @ {formatCurrency(selectedSchedule.ticketPrice)})
+                {t("myTickets.seat")} ({selectedSeats.length}x @ {formatCurrency(selectedSchedule.ticketPrice)})
               </Text>
               <Text style={[styles.metaValue, { color: colors.text }]}>
                 {formatCurrency(estimatedTotal)}
@@ -284,8 +284,8 @@ export const BookingSummaryScreen: React.FC = () => {
             </View>
 
             <View style={styles.priceRow}>
-              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Biaya Layanan</Text>
-              <Text style={[styles.metaValue, { color: colors.success }]}>GRATIS</Text>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.serviceFee")}</Text>
+              <Text style={[styles.metaValue, { color: colors.success }]}>{t("summary.free")}</Text>
             </View>
 
             <View style={[styles.totalDivider, { backgroundColor: colors.cardBorder }]} />

@@ -6,13 +6,25 @@ import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
 
 export const getOrdersController = async (req: Request, res: Response) => {
-  const { page, limit, search, cashierId, startDate, endDate } = req.query;
+  const { page, limit, search, cashierId, channel, startDate, endDate } = req.query;
+
+  const roleUpper = (req.user?.role || "").toUpperCase();
+  const usernameLower = (req.user?.username || "").toLowerCase();
+  const isCashier =
+    roleUpper.includes("CASHIER") ||
+    usernameLower.includes("kasir") ||
+    usernameLower.includes("cashier");
+
+  // If user is a Cashier, restrict strictly to their own POS transactions
+  const enforcedCashierId = isCashier ? req.user?.id : (cashierId as string);
+  const enforcedChannel = isCashier ? "POS" : (channel as string);
 
   const result = await orderService.getAllOrders({
     page: page ? Number(page) : undefined,
     limit: limit ? Number(limit) : undefined,
     search: search as string,
-    cashierId: cashierId as string,
+    cashierId: enforcedCashierId,
+    channel: enforcedChannel,
     startDate: startDate as string,
     endDate: endDate as string,
   });
@@ -21,7 +33,19 @@ export const getOrdersController = async (req: Request, res: Response) => {
 };
 
 export const getOrderByIdController = async (req: Request, res: Response) => {
+  const roleUpper = (req.user?.role || "").toUpperCase();
+  const usernameLower = (req.user?.username || "").toLowerCase();
+  const isCashier =
+    roleUpper.includes("CASHIER") ||
+    usernameLower.includes("kasir") ||
+    usernameLower.includes("cashier");
+
   const order = await orderService.getOrderById(req.params.id);
+
+  if (isCashier && order.cashierId !== req.user?.id) {
+    throw new AppError("FORBIDDEN", "You can only access your own cashier transactions");
+  }
+
   return responseHandler.ok(res, order, "Order retrieved successfully");
 };
 
@@ -49,6 +73,18 @@ export const checkoutOrderController = async (req: Request, res: Response) => {
 
 export const voidOrderController = async (req: Request, res: Response) => {
   if (!req.user) throw new AppError("UNAUTHORIZED", "User must be authenticated");
+
+  const roleUpper = (req.user?.role || "").toUpperCase();
+  const usernameLower = (req.user?.username || "").toLowerCase();
+  const isCashier =
+    roleUpper.includes("CASHIER") ||
+    usernameLower.includes("kasir") ||
+    usernameLower.includes("cashier");
+
+  const existingOrder = await orderService.getOrderById(req.params.id);
+  if (isCashier && existingOrder.cashierId !== req.user.id) {
+    throw new AppError("FORBIDDEN", "You can only void your own cashier transactions");
+  }
 
   const order = await orderService.voidOrder(req.params.id);
 

@@ -226,6 +226,7 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
         bookingNumber,
         scheduleId: input.scheduleId,
         branchId: schedule.studio.branchId,
+        channel: "ONLINE",
         totalAmount,
         paymentMethod: "QRIS",
         paymentStatus: "PENDING",

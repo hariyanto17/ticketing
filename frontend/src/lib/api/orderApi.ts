@@ -7,6 +7,7 @@ export interface Order {
   cashierId?: string | null;
   scheduleId: string;
   branchId: string;
+  channel?: "POS" | "ONLINE" | "MOBILE" | "KIOSK" | string;
   totalAmount: number;
   paymentMethod: "CASH" | "QRIS";
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
@@ -121,7 +122,7 @@ export interface KioskOrderResult {
 
 export const orderApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getOrders: builder.query<ApiResponse<Order[]>, { page?: number; limit?: number; search?: string; cashierId?: string; startDate?: string; endDate?: string }>({
+    getOrders: builder.query<ApiResponse<Order[]>, { page?: number; limit?: number; search?: string; cashierId?: string; channel?: string; startDate?: string; endDate?: string }>({
       query: (params) => ({
         url: "/orders",
         params,

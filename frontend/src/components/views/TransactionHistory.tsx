@@ -18,16 +18,27 @@ import {
 } from "@/services/opsApi";
 import { useTranslation } from "@/lib/i18n";
 
+import { useAppSelector } from "@/store/hooks";
+
 export default function TransactionHistory() {
   const { t, formatDate, formatCurrency } = useTranslation();
+  const user = useAppSelector((state) => state.auth.user);
+  const isCashier = Boolean(
+    user?.role?.toUpperCase().includes("CASHIER") ||
+    user?.username?.toLowerCase().includes("kasir") ||
+    user?.username?.toLowerCase().includes("cashier")
+  );
+
   const [searchQuery, setSearchQuery] = useState("");
   const [cashierFilter, setCashierFilter] = useState("");
+  const [channelFilter, setChannelFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
   const { data: ordersResponse, isLoading, refetch } = useGetOrdersQuery({
     search: searchQuery || undefined,
-    cashierId: cashierFilter || undefined,
+    cashierId: isCashier ? user?.id : (cashierFilter || undefined),
+    channel: isCashier ? "POS" : (channelFilter || undefined),
     startDate: startDate || undefined,
     endDate: endDate || undefined,
   });
@@ -50,6 +61,12 @@ export default function TransactionHistory() {
   const cashierOptions = [
     { value: "", label: t("transactions.allCashiers") },
     ...(usersResponse?.data?.map((u) => ({ value: u.id, label: u.name })) || []),
+  ];
+
+  const channelOptions = [
+    { value: "", label: "Semua Sumber (POS & Online)" },
+    { value: "POS", label: "POS / Loket Kasir" },
+    { value: "ONLINE", label: "Mobile / Online Booking" },
   ];
 
   const handleVoidOrder = async (orderId: string) => {
@@ -89,7 +106,10 @@ export default function TransactionHistory() {
       
       // Open the printable view
       if (selectedOrder) {
-        window.open(`/admin/tickets/${selectedOrder.id}/print`, "_blank");
+        const printUrl = isCashier
+          ? `/cashier/tickets/${selectedOrder.id}/print`
+          : `/admin/tickets/${selectedOrder.id}/print`;
+        window.open(printUrl, "_blank");
       }
       setActiveTicketForReprint(null);
     } catch (err: any) {
@@ -99,6 +119,28 @@ export default function TransactionHistory() {
 
   const tableColumns = [
     { key: "orderNumber", header: t("transactions.order") },
+    ...(!isCashier
+      ? [
+          {
+            key: "channel",
+            header: "Sumber",
+            render: (o: Order) => {
+              const isOnline = o.channel === "ONLINE" || Boolean(o.bookingNumber && !o.cashierId);
+              return (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider ${
+                    isOnline
+                      ? "bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400"
+                      : "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
+                  }`}
+                >
+                  {isOnline ? "📱 ONLINE" : "🖥️ POS"}
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
     {
       key: "movie",
       header: t("transactions.movie"),
@@ -144,27 +186,40 @@ export default function TransactionHistory() {
         </span>
       ),
     },
-    { key: "cashier", header: t("transactions.cashier"), render: (o: Order) => o.cashier?.name },
+    ...(!isCashier
+      ? [
+          {
+            key: "cashier",
+            header: t("transactions.cashier"),
+            render: (o: Order) => o.cashier?.name || (o.customerName ? `Pelanggan: ${o.customerName}` : "Online Guest"),
+          },
+        ]
+      : []),
     {
       key: "actions",
       header: t("transactions.actions"),
-      render: (o: Order) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSelectedOrder(o)}
-            className="px-3 py-1 bg-zinc-50 hover:bg-zinc-150 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[11px] font-bold cursor-pointer"
-          >
-            {t("transactions.manage")}
-          </button>
-          <Link
-            href={`/admin/tickets/${o.id}/print`}
-            target="_blank"
-            className="p-1.5 text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center justify-center cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-          </Link>
-        </div>
-      ),
+      render: (o: Order) => {
+        const printUrl = isCashier
+          ? `/cashier/tickets/${o.id}/print`
+          : `/admin/tickets/${o.id}/print`;
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedOrder(o)}
+              className="px-3 py-1 bg-zinc-50 hover:bg-zinc-150 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[11px] font-bold cursor-pointer"
+            >
+              {t("transactions.manage")}
+            </button>
+            <Link
+              href={printUrl}
+              target="_blank"
+              className="p-1.5 text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center justify-center cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+            </Link>
+          </div>
+        );
+      },
     },
   ];
 
@@ -172,16 +227,38 @@ export default function TransactionHistory() {
     <div className="space-y-8 font-sans">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          {t("transactions.title")}
+          {isCashier ? "Transaksi Kasir Saya" : t("transactions.title")}
         </h1>
         <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-          {t("transactions.subtitle")}
+          {isCashier
+            ? "Daftar seluruh transaksi penjualan loket yang Anda proses secara langsung."
+            : t("transactions.subtitle")}
         </p>
       </div>
 
       {/* Filter Toolbar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl">
-        <Select label={t("transactions.cashier")} options={cashierOptions} onChange={(e) => setCashierFilter(e.target.value)} />
+        {!isCashier ? (
+          <>
+            <Select
+              label={t("transactions.cashier")}
+              options={cashierOptions}
+              value={cashierFilter}
+              onChange={(e) => setCashierFilter(e.target.value)}
+            />
+            <Select
+              label="Sumber Transaksi"
+              options={channelOptions}
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value)}
+            />
+          </>
+        ) : (
+          <div className="flex flex-col justify-center bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl px-4 py-2">
+            <span className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wider">Kasir Aktif</span>
+            <span className="text-sm font-bold text-indigo-950 dark:text-indigo-200">{user?.name || "Kasir"}</span>
+          </div>
+        )}
         <DateTimePicker
           mode="date"
           label={t("transactions.startDate")}

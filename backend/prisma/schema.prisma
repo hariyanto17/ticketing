@@ -319,6 +319,7 @@ model Order {
   cashierId     String?
   scheduleId    String
   branchId      String
+  channel       String   @default("POS") // POS, ONLINE, MOBILE, KIOSK
   totalAmount   Float
   paymentMethod String   // CASH, QRIS
   paymentStatus String   // PENDING, PAID, FAILED, REFUNDED

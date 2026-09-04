@@ -8,6 +8,7 @@ interface GetOrdersQuery {
   limit?: number;
   search?: string;
   cashierId?: string;
+  channel?: string;
   startDate?: string;
   endDate?: string;
 }
@@ -23,8 +24,17 @@ export const getAllOrders = async (query: GetOrdersQuery) => {
     where.cashierId = query.cashierId;
   }
 
+  if (query.channel) {
+    where.channel = query.channel;
+  }
+
   if (query.search) {
-    where.orderNumber = { contains: query.search, mode: "insensitive" };
+    where.OR = [
+      { orderNumber: { contains: query.search, mode: "insensitive" } },
+      { bookingNumber: { contains: query.search, mode: "insensitive" } },
+      { customerName: { contains: query.search, mode: "insensitive" } },
+      { customerPhone: { contains: query.search, mode: "insensitive" } },
+    ];
   }
 
   if (query.startDate || query.endDate) {
@@ -222,6 +232,7 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
         cashierId,
         scheduleId: input.scheduleId,
         branchId,
+        channel: "POS",
         totalAmount,
         paymentMethod: input.paymentMethod,
         paymentStatus: "PAID",

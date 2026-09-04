@@ -108,12 +108,23 @@ export const createQrisCharge = async (orderId: string) => {
   }
 
   // Construct Midtrans Core API QRIS Payload
-  const itemDetails = order.tickets.map((t) => ({
+  const itemDetails: any[] = order.tickets.map((t) => ({
     id: t.id,
     price: Math.round(order.schedule.ticketPrice),
     quantity: 1,
     name: `${order.schedule.movie.title.substring(0, 30)} (Seat ${t.showtimeSeat.seat.seatLabel})`,
   }));
+
+  const ticketSubtotal = order.tickets.length * order.schedule.ticketPrice;
+  const serviceFee = Math.round(order.totalAmount - ticketSubtotal);
+  if (serviceFee > 0) {
+    itemDetails.push({
+      id: "SERVICE-FEE",
+      price: serviceFee,
+      quantity: 1,
+      name: "Biaya Layanan Online",
+    });
+  }
 
   const qrisPayload = {
     payment_type: "qris",

@@ -37,6 +37,8 @@ export const BookingSummaryScreen: React.FC = () => {
     setCustomerInfo,
     reservedUntil,
     clearSelectedSeats,
+    ticketSubtotal,
+    serviceFee,
     estimatedTotal,
   } = useBooking();
   const { colors } = useTheme();
@@ -279,13 +281,15 @@ export const BookingSummaryScreen: React.FC = () => {
                 {t("myTickets.seat")} ({selectedSeats.length}x @ {formatCurrency(selectedSchedule.ticketPrice)})
               </Text>
               <Text style={[styles.metaValue, { color: colors.text }]}>
-                {formatCurrency(estimatedTotal)}
+                {formatCurrency(ticketSubtotal)}
               </Text>
             </View>
 
             <View style={styles.priceRow}>
               <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.serviceFee")}</Text>
-              <Text style={[styles.metaValue, { color: colors.success }]}>{t("summary.free")}</Text>
+              <Text style={[styles.metaValue, { color: colors.text }]}>
+                {serviceFee > 0 ? formatCurrency(serviceFee) : t("summary.free")}
+              </Text>
             </View>
 
             <View style={[styles.totalDivider, { backgroundColor: colors.cardBorder }]} />

@@ -2,6 +2,7 @@ import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { CreateBookingInput } from "./validation";
 import { emitSeatUpdate } from "../../utils/socket";
+import { getSettings } from "../settings/service";
 
 export const cleanupExpiredBookings = async () => {
   const now = new Date();
@@ -182,7 +183,9 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
     }
   }
 
-  const totalAmount = showtimeSeats.length * schedule.ticketPrice;
+  const settings = await getSettings();
+  const onlineServiceFee = Number(settings.onlineServiceFee || 4000);
+  const totalAmount = showtimeSeats.length * schedule.ticketPrice + onlineServiceFee;
   const reservedUntil = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes hold for online booking
 
   return prisma.$transaction(async (tx) => {

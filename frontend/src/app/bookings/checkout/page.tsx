@@ -295,10 +295,22 @@ function GuestCheckout() {
                     {selectedSeatIds.length > 0 ? selectedSeatIds.length : 0} seat(s)
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500 font-medium">Subtotal Tiket:</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-50">
+                    Rp {(ticketPrice * selectedSeatIds.length).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500 font-medium">Biaya Layanan Online:</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-50">
+                    Rp {selectedSeatIds.length > 0 ? (4000).toLocaleString() : "0"}
+                  </span>
+                </div>
                 <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-sm">
                   <span className="font-semibold text-zinc-850">Estimated Total:</span>
                   <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
-                    Rp {(ticketPrice * selectedSeatIds.length).toLocaleString()}
+                    Rp {selectedSeatIds.length > 0 ? (ticketPrice * selectedSeatIds.length + 4000).toLocaleString() : "0"}
                   </span>
                 </div>
               </div>

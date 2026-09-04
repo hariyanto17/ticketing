@@ -83,6 +83,8 @@ export async function seedUat(withMovies: boolean = false) {
   const rolesDef = [
     { name: "ADMINISTRATOR", description: "All-access Ticketing Admin" },
     { name: "CASHIER", description: "Ticketing Front-desk Cashier" },
+    { name: "GATE_VALIDATOR", description: "Gate Validator & Ticket Kiosk Operator" },
+    { name: "Gate Validator", description: "Gate Validator & Ticket Kiosk Operator" },
   ];
   const rolesMap: Record<string, any> = {};
   for (const r of rolesDef) {
@@ -120,6 +122,7 @@ export async function seedUat(withMovies: boolean = false) {
     { username: "uat_ticketadmin", name: "UAT Ticketing Administrator", email: "uat.ticketadmin@planetcinema.local", roleId: rolesMap["ADMINISTRATOR"].id },
     { username: "uat_ticketkasir", name: "UAT Ticketing Kasir", email: "uat.ticketkasir@planetcinema.local", roleId: rolesMap["CASHIER"].id },
     { username: "uat_executive", name: "UAT Executive GM", email: "uat.executive@planetcinema.local", roleId: rolesMap["ADMINISTRATOR"].id },
+    { username: "uat_gate_kiosk", name: "UAT Gate Kiosk Operator", email: "uat.gate_kiosk@planetcinema.local", roleId: rolesMap["GATE_VALIDATOR"].id },
   ];
 
   const usersMap: Record<string, any> = {};

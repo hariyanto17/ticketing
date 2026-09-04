@@ -35,11 +35,20 @@ function SsoCallbackInner() {
           })
         );
 
+        const roleUpper = (response.data.user.role || "").toUpperCase();
+        const usernameLower = (response.data.user.username || "").toLowerCase();
+        const isKiosk =
+          roleUpper.includes("GATE") ||
+          roleUpper.includes("KIOSK") ||
+          usernameLower.includes("gate") ||
+          usernameLower.includes("kiosk");
+        const targetPath = isKiosk ? "/kiosk-print" : "/admin/dashboard";
+
         if (typeof window !== "undefined") {
           window.history.replaceState({}, document.title, window.location.pathname);
-          window.location.href = "/admin/dashboard";
+          window.location.href = targetPath;
         } else {
-          router.replace("/admin/dashboard");
+          router.replace(targetPath);
         }
       } catch (err: unknown) {
         const errorObj = err as { name?: string };

@@ -41,14 +41,28 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginSchemaInput) => {
     try {
       const response = await login(data).unwrap();
+      const user = response.data.user;
       dispatch(
         setCredentials({
-          user: response.data.user,
+          user: user,
           token: response.data.token,
         })
       );
       toastSuccess(t("common.welcome"));
-      router.push("/admin/dashboard");
+
+      const roleUpper = (user.role || "").toUpperCase();
+      const usernameLower = (user.username || "").toLowerCase();
+      const isKiosk =
+        roleUpper.includes("GATE") ||
+        roleUpper.includes("KIOSK") ||
+        usernameLower.includes("gate") ||
+        usernameLower.includes("kiosk");
+
+      if (isKiosk) {
+        router.push("/kiosk-print");
+      } else {
+        router.push("/admin/dashboard");
+      }
     } catch (err: any) {
       toastError(err?.data?.message || t("auth.invalidCredentials"));
     }

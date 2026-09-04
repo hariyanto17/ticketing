@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Printer,
   QrCode,
@@ -14,13 +15,26 @@ import {
   ArrowRight,
   RefreshCw,
   Search,
+  LogOut,
+  ArrowLeft,
+  User as UserIcon,
 } from "lucide-react";
 import { useKioskLookupMutation, useKioskPrintLogMutation, KioskOrderResult } from "../../lib/api/orderApi";
 import { KioskCameraScanner } from "../../components/kiosk/KioskCameraScanner";
 import { KioskTicketTemplate } from "../../components/kiosk/KioskTicketTemplate";
 import { createPrinterAgentClient } from "../../lib/api/printerAgentClient";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { clearCredentials } from "@/store/authSlice";
+import { useLogoutMutation } from "@/services/authApi";
+import { useToast } from "@/components/ui/toast";
 
 export default function KioskPrintPage() {
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { error: toastError, success: toastSuccess } = useToast();
+  const [logout] = useLogoutMutation();
+  const user = useAppSelector((state) => state.auth.user);
+
   const [inputText, setInputText] = useState<string>("");
   const [activeOrder, setActiveOrder] = useState<KioskOrderResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -31,6 +45,22 @@ export default function KioskPrintPage() {
 
   const [lookupOrder] = useKioskLookupMutation();
   const [logPrint] = useKioskPrintLogMutation();
+
+  const handleLogout = async () => {
+    try {
+      await logout().unwrap();
+      dispatch(clearCredentials());
+      toastSuccess("Berhasil keluar.");
+      router.push("/login");
+    } catch (err: any) {
+      dispatch(clearCredentials());
+      router.push("/login");
+    }
+  };
+
+  const isAdmin =
+    (user?.role || "").toUpperCase().includes("ADMIN") ||
+    (user?.role || "").toUpperCase().includes("CASHIER");
 
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
   const barcodeBufferRef = useRef<string>("");
@@ -208,16 +238,50 @@ export default function KioskPrintPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             <span>Kiosk Siap Digunakan</span>
           </div>
 
-          <div className="flex items-center gap-2 text-zinc-300 font-mono text-sm bg-zinc-800/80 px-4 py-1.5 rounded-xl border border-zinc-700/50">
+          <div className="flex items-center gap-2 text-zinc-300 font-mono text-xs sm:text-sm bg-zinc-800/80 px-3 sm:px-4 py-1.5 rounded-xl border border-zinc-700/50">
             <Clock className="w-4 h-4 text-rose-400" />
             <span>{currentTime || "00:00:00"} WIB</span>
           </div>
+
+          {user && (
+            <div className="flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-xl text-xs text-zinc-300">
+                <UserIcon className="w-3.5 h-3.5 text-rose-400" />
+                <span className="font-semibold text-zinc-200">{user.name || user.username}</span>
+                <span className="text-[10px] text-zinc-500 uppercase px-1.5 py-0.5 rounded bg-zinc-800">
+                  {user.role}
+                </span>
+              </div>
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/admin/dashboard")}
+                  className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition cursor-pointer"
+                  title="Kembali ke Dashboard Admin"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Admin</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 hover:border-rose-700 rounded-xl text-xs font-semibold text-rose-300 flex items-center gap-1.5 transition cursor-pointer"
+                title="Keluar / Logout"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Keluar</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

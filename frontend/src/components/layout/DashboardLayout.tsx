@@ -65,6 +65,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [dispatch, isSessionError, router]);
 
+  const isGateUser = Boolean(
+    (user?.role || "").toUpperCase().includes("GATE") ||
+    (user?.role || "").toUpperCase().includes("KIOSK") ||
+    (user?.username || "").toLowerCase().includes("gate") ||
+    (user?.username || "").toLowerCase().includes("kiosk")
+  );
+
+  useEffect(() => {
+    if (user && isGateUser && pathname !== "/kiosk-print") {
+      router.replace("/kiosk-print");
+    }
+  }, [user, isGateUser, pathname, router]);
+
   const handleLogout = async () => {
     try {
       await logout().unwrap();
@@ -77,23 +90,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const allMenuItems = [
-    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
-    { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.ticketSales"), href: "/admin/cashier", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
-    { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
-    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "Gate Validator"] },
-    { name: t("nav.gateValidator"), href: "/admin/tickets/validate", icon: <ShieldCheck className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier"] },
-    { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin"] },
-    { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin"] },
+    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
+    { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.ticketSales"), href: "/admin/cashier", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
+    { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
+    { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "Gate Validator", "ADMINISTRATOR", "CASHIER", "GATE_VALIDATOR"] },
+    { name: t("nav.gateValidator"), href: "/admin/tickets/validate", icon: <ShieldCheck className="w-5 h-5" />, allowedRoles: ["Admin", "Cashier", "ADMINISTRATOR", "CASHIER"] },
+    { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
+    { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" />, allowedRoles: ["Admin", "ADMINISTRATOR"] },
   ];
 
-  const menuItems = allMenuItems.filter((item) => user?.role && item.allowedRoles.includes(user.role));
+  const menuItems = allMenuItems.filter((item) => {
+    if (!user?.role) return false;
+    const userRole = user.role.toUpperCase();
+    return item.allowedRoles.some(
+      (r) =>
+        r.toUpperCase() === userRole ||
+        (r === "Admin" && userRole === "ADMINISTRATOR") ||
+        (r === "Cashier" && userRole === "CASHIER") ||
+        (r === "Gate Validator" && userRole === "GATE_VALIDATOR")
+    );
+  });
 
   if (authStatus === "initializing" || isSessionLoading) {
     return (

@@ -246,7 +246,7 @@ async function ensureDefaultStudios(branchId: string) {
 async function main() {
   const adminRole = await ensureRole("Admin", "Administrator role");
   const cashierRole = await ensureRole("Cashier", "Cashier role");
-  const gateRole = await ensureRole("Gate Validator", "Gate Validator & Ticket Kiosk Operator");
+  const gateRole = await ensureRole("GATE_VALIDATOR", "Gate Validator & Ticket Kiosk Operator");
   const branch = await ensureBranch();
 
   await ensureUser(branch.id, adminRole.id, "admin", "Admin", "admin@kasir-ticket.test", "+628000000000");

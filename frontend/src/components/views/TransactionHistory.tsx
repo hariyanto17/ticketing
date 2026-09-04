@@ -18,6 +18,7 @@ import {
 } from "@/services/opsApi";
 import { useTranslation } from "@/lib/i18n";
 
+import { ConfirmationDialog } from "@/components/ui/dialogs";
 import { useAppSelector } from "@/store/hooks";
 
 export default function TransactionHistory() {
@@ -34,6 +35,7 @@ export default function TransactionHistory() {
   const [channelFilter, setChannelFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
 
   const { data: ordersResponse, isLoading, refetch } = useGetOrdersQuery({
     search: searchQuery || undefined,
@@ -70,12 +72,10 @@ export default function TransactionHistory() {
   ];
 
   const handleVoidOrder = async (orderId: string) => {
-    if (!window.confirm("Are you sure you want to VOID this entire transaction? All seats will be released immediately.")) {
-      return;
-    }
     try {
       await voidOrder(orderId).unwrap();
       toastSuccess(t("transactions.voidSuccess"));
+      setIsVoidConfirmOpen(false);
       setSelectedOrder(null);
       refetch();
     } catch (err: any) {
@@ -295,7 +295,8 @@ export default function TransactionHistory() {
               </div>
               {selectedOrder.orderStatus === "PAID" && (
                 <button
-                  onClick={() => handleVoidOrder(selectedOrder.id)}
+                  type="button"
+                  onClick={() => setIsVoidConfirmOpen(true)}
                   disabled={isVoiding}
                   className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
@@ -435,6 +436,19 @@ export default function TransactionHistory() {
           </div>
         </form>
       </Modal>
+
+      {/* Custom Confirmation Modal for VOID */}
+      <ConfirmationDialog
+        isOpen={isVoidConfirmOpen}
+        onClose={() => setIsVoidConfirmOpen(false)}
+        onConfirm={() => selectedOrder && handleVoidOrder(selectedOrder.id)}
+        title="Konfirmasi Void Transaksi"
+        message="Apakah Anda yakin ingin membatalkan (VOID) seluruh transaksi ini? Semua kursi terkait akan langsung dilepaskan ke publik."
+        confirmText="Void Transaksi"
+        cancelText="Batal"
+        isLoading={isVoiding}
+        variant="danger"
+      />
     </div>
   );
 }

@@ -12,10 +12,13 @@ import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Calendar, DollarSign, Ticket, ShieldAlert, Sparkles, UserCheck } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 
+import { ConfirmationDialog } from "@/components/ui/dialogs";
+
 export default function DailyClosingPage() {
   const { t, formatCurrency, formatNumber, formatDate } = useTranslation();
   const todayStr = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   const { data: summary, isLoading: summaryLoading, refetch: refetchSummary } = useGetClosingSummaryQuery(selectedDate);
   const { data: history, isLoading: historyLoading, refetch: refetchHistory } = useGetClosingsHistoryQuery();
@@ -23,12 +26,10 @@ export default function DailyClosingPage() {
   const { success: toastSuccess, error: toastError } = useToast();
 
   const handlePerformClosing = async () => {
-    if (!window.confirm(t("closing.confirm"))) {
-      return;
-    }
     try {
       await createClosing({ businessDate: selectedDate }).unwrap();
       toastSuccess(t("closing.success"));
+      setIsConfirmModalOpen(false);
       refetchSummary();
       refetchHistory();
     } catch (err: any) {
@@ -193,9 +194,10 @@ export default function DailyClosingPage() {
                     </div>
 
                     <button
-                      onClick={handlePerformClosing}
+                      type="button"
+                      onClick={() => setIsConfirmModalOpen(true)}
                       disabled={isClosing}
-                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-300 text-white font-bold rounded-2xl transition-all cursor-pointer shadow-sm text-sm"
+                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-300 text-white font-bold rounded-2xl transition-all cursor-pointer shadow-sm text-sm flex items-center justify-center gap-2"
                     >
                       {isClosing ? <Spinner className="w-5 h-5 mx-auto" /> : t("closing.closeDay")}
                     </button>
@@ -240,6 +242,19 @@ export default function DailyClosingPage() {
           </div>
         </div>
       </div>
+
+      {/* Custom Confirmation Modal */}
+      <ConfirmationDialog
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={handlePerformClosing}
+        title="Konfirmasi Penutupan Hari Bisnis"
+        message={t("closing.confirm")}
+        confirmText="Tutup Hari Bisnis"
+        cancelText="Batal"
+        isLoading={isClosing}
+        variant="danger"
+      />
     </div>
   );
 }

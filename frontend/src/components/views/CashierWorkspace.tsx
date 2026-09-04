@@ -7,6 +7,7 @@ import { useCheckoutOrderMutation } from "@/services/orderApi";
 import { useToast } from "@/components/ui/toast";
 import { Button, SearchableSelect } from "@/components/ui/form-controls";
 import { Spinner } from "@/components/ui/spinner";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
 import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -1006,16 +1007,12 @@ export default function CashierWorkspace() {
             {/* CASH Payment UI details */}
             {paymentMethod === "CASH" && (
               <div className="space-y-3.5">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-500">{t("cashier.amountReceived")}</label>
-                  <input
-                    type="number"
-                    value={amountReceived}
-                    onChange={(e) => setAmountReceived(e.target.value === "" ? "" : Number(e.target.value))}
-                    placeholder={t("cashier.cashPlaceholder")}
-                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </div>
+                <CurrencyInput
+                  label={t("cashier.amountReceived")}
+                  value={amountReceived}
+                  onChange={(val) => setAmountReceived(val === 0 ? "" : val)}
+                  placeholder={t("cashier.cashPlaceholder")}
+                />
                 {/* Change calculator representation */}
                 <div className="flex justify-between text-sm font-semibold p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl">
                   <span className="text-zinc-500">{t("cashier.change")}</span>
@@ -1098,21 +1095,14 @@ export default function CashierWorkspace() {
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
-              Saldo Awal Kas Tunai (IDR)
-            </label>
-            <input
-              type="number"
-              value={drawerOpeningBalance || ""}
-              onChange={(e) => setDrawerOpeningBalance(Number(e.target.value))}
-              placeholder="0"
-              className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-50 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-lg"
-              min="0"
-              step="1000"
-              required
-            />
-          </div>
+          <CurrencyInput
+            label="Saldo Awal Kas Tunai (IDR)"
+            value={drawerOpeningBalance}
+            onChange={(val) => setDrawerOpeningBalance(val)}
+            placeholder="500.000"
+            min={0}
+            required
+          />
 
           <div className="flex gap-3 justify-end pt-2">
             <button
@@ -1136,20 +1126,14 @@ export default function CashierWorkspace() {
       {/* Close Cash Drawer Modal */}
       <Modal isOpen={isCloseDrawerModalOpen} onClose={() => setIsCloseDrawerModalOpen(false)} title="Close Cash Drawer Session">
         <form onSubmit={handleCloseDrawerSubmit} className="space-y-6 py-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-              Enter Actual Cash Balance in Drawer (IDR)
-            </label>
-            <input
-              type="number"
-              value={drawerActualBalance || ""}
-              onChange={(e) => setDrawerActualBalance(Number(e.target.value))}
-              placeholder="0"
-              className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-50 font-bold focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-lg"
-              min="0"
-              required
-            />
-          </div>
+          <CurrencyInput
+            label="Enter Actual Cash Balance in Drawer (IDR)"
+            value={drawerActualBalance}
+            onChange={(val) => setDrawerActualBalance(val)}
+            placeholder="1.500.000"
+            min={0}
+            required
+          />
 
           <p className="text-xs text-zinc-400 leading-relaxed">
             Upon submitting, the system will calculate the expected sales balance against your cash count and record the overage/shortage variance.

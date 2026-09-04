@@ -27,6 +27,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/form-controls";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { useToast } from "@/components/ui/toast";
 import { useTranslation } from "@/lib/i18n";
 
@@ -305,21 +306,14 @@ export default function CashierDashboardView() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Masukkan jumlah modal uang tunai awal yang ada di laci kasir saat memulai shift.
           </p>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Modal Awal Kas (IDR)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="1000"
-              required
-              value={drawerOpeningBalance}
-              onChange={(e) => setDrawerOpeningBalance(Number(e.target.value))}
-              placeholder="Contoh: 500000"
-              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
+          <CurrencyInput
+            label="Modal Awal Kas (IDR)"
+            required
+            min={0}
+            value={drawerOpeningBalance}
+            onChange={(val) => setDrawerOpeningBalance(val)}
+            placeholder="500.000"
+          />
           <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
             <Button
               type="button"
@@ -349,21 +343,14 @@ export default function CashierDashboardView() {
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Hitung fisik uang tunai di laci kas dan masukkan jumlah aktual untuk rekonsiliasi.
             </p>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Fisik Kas Aktual (IDR)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                required
-                value={drawerActualBalance}
-                onChange={(e) => setDrawerActualBalance(Number(e.target.value))}
-                placeholder="Contoh: 1500000"
-                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+            <CurrencyInput
+              label="Fisik Kas Aktual (IDR)"
+              required
+              min={0}
+              value={drawerActualBalance}
+              onChange={(val) => setDrawerActualBalance(val)}
+              placeholder="1.500.000"
+            />
             <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
               <Button
                 type="button"

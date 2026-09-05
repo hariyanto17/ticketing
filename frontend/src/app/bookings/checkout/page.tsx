@@ -12,6 +12,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { io } from "socket.io-client";
+import { SOCKET_BASE_URL } from "@/lib/api/api";
 import { ArrowLeft, User, Phone, Mail, Ticket, Monitor, Armchair, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
@@ -48,7 +49,11 @@ function GuestCheckout() {
   useEffect(() => {
     if (!scheduleId) return;
 
-    const socket = io("http://localhost:3000");
+    const socket = io(SOCKET_BASE_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+    });
 
     socket.on("seats_held", (data: any) => {
       if (data.showtimeId === scheduleId) refetch();

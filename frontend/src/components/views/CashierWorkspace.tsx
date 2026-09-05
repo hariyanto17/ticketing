@@ -12,6 +12,7 @@ import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
 import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { io } from "socket.io-client";
+import { API_BASE_URL, SOCKET_BASE_URL } from "@/lib/api/api";
 import Link from "next/link";
 import { useGetActiveDrawerQuery, useOpenDrawerMutation, useCloseDrawerMutation } from "@/services/opsApi";
 import { createPrinterAgentClient, getPrinterAgentDeviceId } from "@/services/printerAgentClient";
@@ -182,13 +183,7 @@ export default function CashierWorkspace() {
   useEffect(() => {
     if (!selectedSchedule?.id) return;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (
-      typeof window !== "undefined"
-        ? `http://${window.location.hostname}:5011`
-        : "http://127.0.0.1:5011"
-    );
-
-    const socket = io(socketUrl, {
+    const socket = io(SOCKET_BASE_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 10,
@@ -238,7 +233,7 @@ export default function CashierWorkspace() {
       const targetSeats = selectedSeatsRef.current;
       if (targetScheduleId && targetSeats && targetSeats.length > 0) {
         const payload = JSON.stringify({ seatIds: targetSeats.map((s) => s.seatId) });
-        navigator.sendBeacon(`http://localhost:5011/api/schedules/${targetScheduleId}/release`, new Blob([payload], { type: "application/json" }));
+        navigator.sendBeacon(`${API_BASE_URL}/schedules/${targetScheduleId}/release`, new Blob([payload], { type: "application/json" }));
       }
     };
 

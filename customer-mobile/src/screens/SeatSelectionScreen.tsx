@@ -13,7 +13,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
 import { ShowtimeSeat } from "../types/schedule";
 import { useGetScheduleSeatsQuery } from "../lib/api/scheduleApi";
-import { useHoldSeatsMutation } from "../lib/api/bookingApi";
+import { useHoldSeatsMutation, useReleaseSeatsMutation } from "../lib/api/bookingApi";
 import { initSocket } from "../services/socketService";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
@@ -46,7 +46,7 @@ export const SeatSelectionScreen: React.FC = () => {
 
   const schedule = route.params.schedule;
 
-  // RTK Query: Seat matrix & Hold mutation
+  // RTK Query: Seat matrix & Hold/Release mutations
   const {
     data: serverSeats = [],
     isLoading: loading,
@@ -54,6 +54,7 @@ export const SeatSelectionScreen: React.FC = () => {
   } = useGetScheduleSeatsQuery(schedule.id);
 
   const [holdSeatsMutation, { isLoading: holding }] = useHoldSeatsMutation();
+  const [releaseSeatsMutation] = useReleaseSeatsMutation();
 
   const [seats, setSeats] = useState<ShowtimeSeat[]>([]);
 
@@ -155,8 +156,12 @@ export const SeatSelectionScreen: React.FC = () => {
     };
   }, [seats]);
 
-  const handleSeatPress = (seat: ShowtimeSeat) => {
-    if (seat.status !== "AVAILABLE" && !selectedSeats.some((s) => s.seatId === seat.seatId)) {
+  const handleSeatPress = async (seat: ShowtimeSeat) => {
+    const isAlreadySelected = selectedSeats.some(
+      (s) => s.seatId === seat.seatId || s.id === seat.id
+    );
+
+    if (seat.status !== "AVAILABLE" && !isAlreadySelected) {
       if (seat.status === "HOLD") {
         Alert.alert(t("seat.held"), t("seat.heldWarning"));
       } else if (seat.status === "SOLD") {
@@ -165,7 +170,41 @@ export const SeatSelectionScreen: React.FC = () => {
       return;
     }
 
-    toggleSeat(seat);
+    const seatIdToHold = seat.seatId || seat.seat?.id || seat.id;
+
+    try {
+      if (isAlreadySelected) {
+        toggleSeat(seat);
+        await releaseSeatsMutation({ scheduleId: schedule.id, seatIds: [seatIdToHold] }).unwrap();
+      } else {
+        if (selectedSeats.length >= 8) {
+          Alert.alert(t("seat.title"), "Maksimal 8 kursi dalam satu transaksi.");
+          return;
+        }
+        const res = await holdSeatsMutation({ scheduleId: schedule.id, seatIds: [seatIdToHold] }).unwrap();
+        if (res.reservedUntil) {
+          setReservedUntil(new Date(res.reservedUntil));
+        }
+        toggleSeat(seat);
+      }
+    } catch (err: any) {
+      Alert.alert(
+        t("common.error"),
+        err?.data?.message || err?.message || "Kursi yang Anda pilih baru saja dipesan oleh kasir atau pengguna lain. Silakan pilih kursi lain.",
+        [{ text: "OK", onPress: () => loadSeats() }]
+      );
+    }
+  };
+
+  const handleBack = async () => {
+    if (selectedSeats.length > 0) {
+      const seatIds = selectedSeats.map((s) => s.seatId || s.seat?.id || s.id);
+      try {
+        await releaseSeatsMutation({ scheduleId: schedule.id, seatIds }).unwrap();
+      } catch (e) {}
+      clearSelectedSeats();
+    }
+    navigation.goBack();
   };
 
   const handleHoldAndProceed = async () => {
@@ -174,18 +213,7 @@ export const SeatSelectionScreen: React.FC = () => {
       return;
     }
 
-    try {
-      const seatIds = selectedSeats.map((s) => s.seat.id);
-      const res = await holdSeatsMutation({ scheduleId: schedule.id, seatIds }).unwrap();
-      setReservedUntil(new Date(res.reservedUntil));
-      navigation.navigate("BookingSummary");
-    } catch (err: any) {
-      Alert.alert(
-        t("common.error"),
-        err?.data?.message || err?.message || "Kursi yang Anda pilih baru saja dipesan oleh pengguna lain. Silakan pilih kursi lain.",
-        [{ text: "OK", onPress: () => loadSeats() }]
-      );
-    }
+    navigation.navigate("BookingSummary");
   };
 
   return (
@@ -193,7 +221,7 @@ export const SeatSelectionScreen: React.FC = () => {
       <Header
         title={`${schedule.movie?.title || "Film"} • ${schedule.studio?.name || "Studio"}`}
         showBack
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
       />
 
       {loading ? (

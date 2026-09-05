@@ -180,25 +180,34 @@ export default function CashierWorkspace() {
 
   // Socket.IO synchronization
   useEffect(() => {
-    if (!selectedSchedule) return;
+    if (!selectedSchedule?.id) return;
 
-    // Connect to backend Socket.IO server on port 5011
-    const socket = io("http://localhost:5011");
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (
+      typeof window !== "undefined"
+        ? `http://${window.location.hostname}:5011`
+        : "http://127.0.0.1:5011"
+    );
+
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+    });
 
     socket.on("seats_held", (data: any) => {
-      if (data.showtimeId === selectedSchedule.id) {
+      if (data?.showtimeId === selectedSchedule.id) {
         refetchSeats();
       }
     });
 
     socket.on("seats_released", (data: any) => {
-      if (data.showtimeId === selectedSchedule.id) {
+      if (data?.showtimeId === selectedSchedule.id) {
         refetchSeats();
       }
     });
 
     socket.on("seats_sold", (data: any) => {
-      if (data.showtimeId === selectedSchedule.id) {
+      if (data?.showtimeId === selectedSchedule.id) {
         refetchSeats();
       }
     });
@@ -206,7 +215,7 @@ export default function CashierWorkspace() {
     return () => {
       socket.disconnect();
     };
-  }, [selectedSchedule, refetchSeats]);
+  }, [selectedSchedule?.id, refetchSeats]);
 
   // Clean up and release held seats when navigating away from the cashier page
   useEffect(() => {

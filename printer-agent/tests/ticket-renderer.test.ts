@@ -25,6 +25,7 @@ test("TicketRenderer emits deterministic ESC/POS initialization, text, feed, and
   assert.match(buffer.toString("utf8"), /tanggal tayang : 21\/08\/2026/);
   assert.match(buffer.toString("utf8"), /harga : Rp 50\.000/);
   assert.match(buffer.toString("utf8"), /row:\s*.*A.*seat\s*.*1.*studio\s*.*1/);
+  assert.match(buffer.toString("utf8"), /CUT HERE/);
   assert.equal(buffer.includes(Buffer.from("https://example.com/ticket/PCM-20260821-0001", "utf8")), false);
   assert.equal(buffer.includes(Buffer.from([0x1d, 0x28, 0x6b])), false);
   assert.ok(buffer.includes(Buffer.from([0x1b, 0x64, 0x03])));

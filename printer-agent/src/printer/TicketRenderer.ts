@@ -36,8 +36,18 @@ export class TicketRenderer {
     // Row, Seat, and Studio line with large bold values
     parts.push(this.renderSeatInfo(payload));
 
-    // Tear-off divider line
+    // Padding before cut line
+    parts.push(this.renderLine("", width));
+
+    // Double divider lines with centered CUT HERE text
     parts.push(this.renderLine("-".repeat(width - LEFT_MARGIN_COLUMNS), width));
+    parts.push(Buffer.from([ESC, 0x61, 0x01])); // Hardware Center
+    parts.push(Buffer.from("- CUT HERE -\n", "utf8"));
+    parts.push(Buffer.from([ESC, 0x61, 0x00])); // Reset Left
+    parts.push(this.renderLine("-".repeat(width - LEFT_MARGIN_COLUMNS), width));
+
+    // Padding after cut line
+    parts.push(this.renderLine("", width));
 
     // Stub section for gate (normal weight)
     if (payload.movie) {

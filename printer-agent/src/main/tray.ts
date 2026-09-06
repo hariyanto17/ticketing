@@ -18,7 +18,7 @@ export class PrinterTray {
   }
 
   private openSetup() {
-    const setupUrl = process.env.CINEMA_PRINTER_SETTINGS_URL || "https://ticketing-fe.168billiard.online/printer-settings";
+    const setupUrl = process.env.CINEMA_PRINTER_SETTINGS_URL || "https://ticket.168billiard.online/printer-settings";
     const separator = setupUrl.includes("#") ? "&" : "#";
     void shell.openExternal(`${setupUrl}${separator}printer-agent-device-id=${encodeURIComponent(this.deviceId)}`);
   }

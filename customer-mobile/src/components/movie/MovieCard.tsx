@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Badge } from "../common/Badge";
 
-import { formatDuration } from "../../utils/format";
+import { formatDuration, getCensorshipVariant } from "../../utils/format";
 
 interface MovieCardProps {
   movie: Movie;
@@ -39,7 +39,10 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, onPress, layout = "
         />
         <View style={styles.listContent}>
           <View style={styles.badgeRow}>
-            <Badge label={movie.censorshipRating || "SU"} variant="primary" />
+            <Badge
+              label={movie.censorshipRating || "SU"}
+              variant={getCensorshipVariant(movie.censorshipRating)}
+            />
             {movie.status === "COMING_SOON" && (
               <Badge label={t("home.comingSoon")} variant="warning" />
             )}
@@ -79,7 +82,10 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, onPress, layout = "
           resizeMode="cover"
         />
         <View style={styles.floatingBadge}>
-          <Badge label={movie.censorshipRating || "SU"} variant="primary" />
+          <Badge
+            label={movie.censorshipRating || "SU"}
+            variant={getCensorshipVariant(movie.censorshipRating)}
+          />
         </View>
       </View>
 

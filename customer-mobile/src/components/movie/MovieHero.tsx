@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Badge } from "../common/Badge";
 
-import { formatDuration } from "../../utils/format";
+import { formatDuration, getCensorshipVariant } from "../../utils/format";
 
 interface MovieHeroProps {
   movie: Movie;
@@ -35,7 +35,10 @@ export const MovieHero: React.FC<MovieHeroProps> = ({ movie, onPress }) => {
       />
       <View style={styles.overlay}>
         <View style={styles.topBadges}>
-          <Badge label={movie.censorshipRating || "SU"} variant="primary" />
+          <Badge
+            label={movie.censorshipRating || "SU"}
+            variant={getCensorshipVariant(movie.censorshipRating)}
+          />
           <Badge label={t("home.featured")} variant="warning" />
         </View>
 

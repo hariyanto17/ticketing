@@ -26,3 +26,19 @@ export function formatDuration(
   }
   return isId ? `${hours}j${remainingMinutes}m` : `${hours}h ${remainingMinutes}m`;
 }
+
+/**
+ * Returns Tailwind badge classes based on censorship rating (SU: green, 13+: yellow, 21+: red).
+ */
+export function getCensorshipBadgeClass(rating?: string | null): string {
+  if (!rating) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+  const r = rating.trim().toUpperCase();
+  if (r.includes("21") || r.includes("D21") || r.includes("17") || r.includes("D17") || r.includes("18") || r === "R" || r === "D") {
+    return "bg-rose-500/20 text-rose-400 border-rose-500/30";
+  }
+  if (r.includes("13") || r.includes("R13") || r.includes("PG")) {
+    return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  }
+  return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+}
+

@@ -40,6 +40,11 @@ export interface Movie {
   subtitle?: string | null;
   poster?: string | null;
   trailerUrl?: string | null;
+  director?: string | null;
+  writer?: string | null;
+  producer?: string | null;
+  cast?: string | null;
+  player?: string | null;
   status: "DRAFT" | "COMING_SOON" | "NOW_SHOWING" | "ENDED" | "ARCHIVED";
   productionHouseId: string;
   distributorId?: string | null;

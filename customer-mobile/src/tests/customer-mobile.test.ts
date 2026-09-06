@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import idTranslations from "../locales/id";
 import enTranslations from "../locales/en";
 
-import { formatDuration } from "../utils/format";
+import { formatDuration, getCensorshipVariant, getYouTubeVideoId } from "../utils/format";
 
 test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) => {
   await t.test("1. Movie duration formatting (e.g. 115m -> 1j55m)", () => {
@@ -14,6 +14,28 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     assert.strictEqual(formatDuration(45, "id"), "45m");
     assert.strictEqual(formatDuration(null, "id"), "Durasi belum tersedia");
     assert.strictEqual(formatDuration(undefined, "en"), "Duration unavailable");
+  });
+
+  await t.test("1b. Censorship Age Rating Variant Mapping (SU->green/success, R13/13+->yellow/warning, D21/21+/17+->red/danger)", () => {
+    assert.strictEqual(getCensorshipVariant("SU"), "success");
+    assert.strictEqual(getCensorshipVariant("su"), "success");
+    assert.strictEqual(getCensorshipVariant(null), "success");
+    assert.strictEqual(getCensorshipVariant("13+"), "warning");
+    assert.strictEqual(getCensorshipVariant("R13"), "warning");
+    assert.strictEqual(getCensorshipVariant("PG-13"), "warning");
+    assert.strictEqual(getCensorshipVariant("D21"), "danger");
+    assert.strictEqual(getCensorshipVariant("21+"), "danger");
+    assert.strictEqual(getCensorshipVariant("17+"), "danger");
+    assert.strictEqual(getCensorshipVariant("D17"), "danger");
+  });
+
+  await t.test("1c. YouTube Trailer URL Extraction for Autoplay Silent Video Player", () => {
+    assert.strictEqual(getYouTubeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+    assert.strictEqual(getYouTubeVideoId("https://youtu.be/dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+    assert.strictEqual(getYouTubeVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+    assert.strictEqual(getYouTubeVideoId("dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+    assert.strictEqual(getYouTubeVideoId(null), null);
+    assert.strictEqual(getYouTubeVideoId(""), null);
   });
 
   await t.test("2. Seat Matrix & Center/Side Aisle Preservation", () => {
@@ -81,5 +103,19 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     const ticketNumber = "PCM-20260902-00001-001";
     // QR Code must match turnstile scanner expectation
     assert.match(ticketNumber, /^PCM-\d{8}-\d{4,6}-\d{3}$/);
+  });
+
+  await t.test("6. Movie Detail Cast and Crew Translations Invariants", () => {
+    assert.strictEqual(idTranslations.movieDetail.cast, "Pemeran");
+    assert.strictEqual(idTranslations.movieDetail.director, "Sutradara");
+    assert.strictEqual(idTranslations.movieDetail.writer, "Penulis");
+    assert.strictEqual(idTranslations.movieDetail.producer, "Produser");
+    assert.strictEqual(idTranslations.movieDetail.productionHouse, "Rumah Produksi");
+
+    assert.strictEqual(enTranslations.movieDetail.cast, "Cast");
+    assert.strictEqual(enTranslations.movieDetail.director, "Director");
+    assert.strictEqual(enTranslations.movieDetail.writer, "Writer");
+    assert.strictEqual(enTranslations.movieDetail.producer, "Producer");
+    assert.strictEqual(enTranslations.movieDetail.productionHouse, "Production House");
   });
 });

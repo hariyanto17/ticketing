@@ -45,6 +45,10 @@ const movieFormSchema = (t: (key: string) => string) => z.object({
   censorshipRating: z.string().min(1, t("validation.censorshipRequired")),
   poster: z.string().optional().nullable(),
   trailerUrl: z.string().optional().nullable(),
+  director: z.string().optional().nullable(),
+  writer: z.string().optional().nullable(),
+  producer: z.string().optional().nullable(),
+  cast: z.string().optional().nullable(),
   status: z.enum(["DRAFT", "COMING_SOON", "NOW_SHOWING", "ENDED", "ARCHIVED"]),
   productionHouseId: z.string().uuid(t("validation.productionRequired")),
   distributorId: z.string().uuid(t("validation.distributorRequired")).optional().nullable(),
@@ -142,6 +146,10 @@ export default function MoviesDashboard() {
         censorshipRating: "SU",
         poster: "",
         trailerUrl: "",
+        director: "",
+        writer: "",
+        producer: "",
+        cast: "",
         status: "DRAFT",
         productionHouseId: "",
         distributorId: "",
@@ -167,6 +175,10 @@ export default function MoviesDashboard() {
         censorshipRating: item.censorshipRating,
         poster: item.poster || "",
         trailerUrl: item.trailerUrl || "",
+        director: item.director || "",
+        writer: item.writer || "",
+        producer: item.producer || "",
+        cast: item.cast || item.player || "",
         status: item.status,
         productionHouseId: item.productionHouseId,
         distributorId: item.distributorId || "",
@@ -624,6 +636,16 @@ export default function MoviesDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select label={t("movies.productionHouse")} options={phOptions} error={movieForm.formState.errors.productionHouseId?.message} {...movieForm.register("productionHouseId")} />
               <Select label={t("movies.distributor")} options={distOptions} error={movieForm.formState.errors.distributorId?.message} {...movieForm.register("distributorId")} />
+            </div>
+
+            <div>
+              <Input label={t("movies.cast")} error={movieForm.formState.errors.cast?.message} {...movieForm.register("cast")} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input label={t("movies.director")} error={movieForm.formState.errors.director?.message} {...movieForm.register("director")} />
+              <Input label={t("movies.writer")} error={movieForm.formState.errors.writer?.message} {...movieForm.register("writer")} />
+              <Input label={t("movies.producer")} error={movieForm.formState.errors.producer?.message} {...movieForm.register("producer")} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -6,7 +6,7 @@ import { Film, Calendar, Search, ShieldCheck, Ticket } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
-import { formatDuration } from "@/lib/formatDuration";
+import { formatDuration, getCensorshipBadgeClass } from "@/lib/formatDuration";
 
 export default function PublicHome() {
   const [tab, setTab] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
@@ -118,8 +118,8 @@ export default function PublicHome() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-zinc-400"><Film className="w-10 h-10" /></div>
                   )}
-                  <span className="absolute top-3 right-3 px-2 py-1 bg-zinc-900/80 text-[10px] font-bold rounded-lg text-white backdrop-blur-sm">
-                    {movie.censorshipRating}
+                  <span className={`absolute top-3 right-3 px-2 py-0.5 text-[10px] font-bold rounded-lg border backdrop-blur-md ${getCensorshipBadgeClass(movie.censorshipRating)}`}>
+                    {movie.censorshipRating || "SU"}
                   </span>
                 </div>
 

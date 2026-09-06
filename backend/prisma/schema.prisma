@@ -124,6 +124,10 @@ model Movie {
   subtitle          String?
   poster            String?
   trailerUrl        String?
+  director          String?
+  writer            String?
+  producer          String?
+  cast              String?
   status            String           @default("DRAFT") // DRAFT, COMING_SOON, NOW_SHOWING, ENDED, ARCHIVED
   source            String           @default("MANUAL")
   externalMovieId   String?          @unique

@@ -4,7 +4,7 @@ import { AppError } from "../../utils/errorHandler";
 import { ImportMoviesParsed } from "./validation";
 
 const SOURCE = "21CINEPLEX";
-const IMPORT_PRODUCTION_HOUSE = "Imported from 21 Cineplex";
+const IMPORT_PRODUCTION_HOUSE = "Cinema 21";
 
 const externalMovieSchema = z.object({
   parent_movie_id: z.string().min(1),
@@ -18,6 +18,9 @@ const externalMovieSchema = z.object({
   trailer: z.string().url().optional().nullable(),
   distributor: z.string().optional().nullable(),
   producer: z.string().optional().nullable(),
+  director: z.string().optional().nullable(),
+  writer: z.string().optional().nullable(),
+  player: z.string().optional().nullable(),
   date_show: z.string().optional().nullable(),
   published_date: z.string().optional().nullable(),
 }).passthrough();
@@ -45,6 +48,10 @@ type MovieSnapshot = {
   genreNames: string[];
   productionHouseName: string;
   externalDistributorId: string | null;
+  director: string | null;
+  writer: string | null;
+  producer: string | null;
+  cast: string | null;
 };
 
 type ImportedMovieStatus = "COMING_SOON" | "DRAFT";
@@ -120,6 +127,10 @@ const toSnapshot = (movie: ExternalMovie, genreNames: string[], releaseDate: Dat
   genreNames,
   productionHouseName,
   externalDistributorId: movie.distributor || null,
+  director: movie.director?.trim() || null,
+  writer: movie.writer?.trim() || null,
+  producer: movie.producer?.trim() || null,
+  cast: movie.player?.trim() || null,
 });
 
 const makeSlug = (title: string) => `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -132,7 +143,7 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
   if (genreNames.length === 0) throw new Error("Movie has no valid genre");
 
   const releaseDate = parseDate(movie.date_show || movie.published_date);
-  const productionHouseName = movie.producer?.trim() || IMPORT_PRODUCTION_HOUSE;
+  const productionHouseName = IMPORT_PRODUCTION_HOUSE;
   const snapshot = toSnapshot(movie, genreNames, releaseDate, productionHouseName);
 
   const previous = await prisma.movie.findFirst({
@@ -144,8 +155,19 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
     },
   });
 
-  // Jika data sudah ada di database, tidak perlu di-update (skip)
+  // Jika data sudah ada di database, update field metadata baru jika belum ada lalu skip
   if (previous) {
+    if (!previous.cast || !previous.director || !previous.writer || !previous.producer) {
+      await prisma.movie.update({
+        where: { id: previous.id },
+        data: {
+          cast: previous.cast || snapshot.cast,
+          director: previous.director || snapshot.director,
+          writer: previous.writer || snapshot.writer,
+          producer: previous.producer || snapshot.producer,
+        },
+      });
+    }
     return { action: "skipped" as const, movie: previous };
   }
 
@@ -168,6 +190,10 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
       censorshipRating: snapshot.censorshipRating,
       poster: snapshot.poster,
       trailerUrl: snapshot.trailerUrl,
+      director: snapshot.director,
+      writer: snapshot.writer,
+      producer: snapshot.producer,
+      cast: snapshot.cast,
       status, // "DRAFT" untuk NOW_PLAYING, "COMING_SOON" untuk UPCOMING
       slug: makeSlug(snapshot.title),
       productionHouseId: productionHouse.id,

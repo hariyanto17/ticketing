@@ -124,11 +124,13 @@ export const createMovie = async (input: CreateMovieParsed) => {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "") + "-" + Date.now();
 
-  const { genreIds, ...rest } = input;
+  const { genreIds, player, ...rest } = input;
+  const cast = rest.cast !== undefined && rest.cast !== null ? rest.cast : (player ?? null);
 
   return prisma.movie.create({
     data: {
       ...rest,
+      cast,
       slug,
       genres: {
         create: genreIds.map((id) => ({
@@ -145,7 +147,8 @@ export const createMovie = async (input: CreateMovieParsed) => {
 export const updateMovie = async (id: string, input: UpdateMovieParsed) => {
   await getMovieById(id);
 
-  const { genreIds, ...rest } = input;
+  const { genreIds, player, ...rest } = input;
+  const cast = rest.cast !== undefined ? rest.cast : player;
 
   // If changing genres, delete old linkages and create new ones
   if (genreIds) {
@@ -156,6 +159,7 @@ export const updateMovie = async (id: string, input: UpdateMovieParsed) => {
     where: { id },
     data: {
       ...rest,
+      ...(cast !== undefined && { cast }),
       ...(genreIds && {
         genres: {
           create: genreIds.map((gid) => ({

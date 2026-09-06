@@ -166,6 +166,35 @@ test("Self-Service Ticket Printing Kiosk Lookup & Log", async (t) => {
     assert.ok(logRes.printedAt);
   });
 
+  // 9. Test Rejection when showtime is older than 2 hours
+  await t.test("6. Kiosk lookup rejects order when showtime passed > 2 hours", async () => {
+    // Set showtime to 3 hours ago
+    await prisma.showtime.update({
+      where: { id: showtime.id },
+      data: { startTime: new Date(Date.now() - 3 * 3600000) },
+    });
+
+    await assert.rejects(
+      async () => {
+        await ticketService.kioskLookupOrder(orderNumber);
+      },
+      (err: any) => {
+        assert.ok(err.message.includes("lebih dari 2 jam") || err.message.includes("tidak ditemukan"));
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => {
+        await ticketService.kioskLookupOrder("081987654321");
+      },
+      (err: any) => {
+        assert.ok(err.message.includes("tidak ditemukan") || err.message.includes("lebih dari 2 jam"));
+        return true;
+      }
+    );
+  });
+
   // Cleanup
   await prisma.ticketScan.deleteMany({ where: { ticket: { orderId } } }).catch(() => {});
   await prisma.ticketReprint.deleteMany({ where: { ticket: { orderId } } }).catch(() => {});

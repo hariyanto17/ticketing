@@ -97,6 +97,7 @@ export const reprintTicket = async (ticketId: string, userId: string, reason: st
  */
 export const kioskLookupOrder = async (query: string) => {
   const trimmed = query.trim();
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
   // 1. Try finding order by Order Number, Booking Number, or ID directly
   let order = await prisma.order.findFirst({
@@ -164,14 +165,22 @@ export const kioskLookupOrder = async (query: string) => {
     }
   }
 
-  // 3. If still not found and query looks like phone number, find latest PAID order for phone
+  // 3. If still not found and query looks like phone number, find latest PAID order for phone with showtime not older than 2 hours ago
   if (!order && (trimmed.startsWith("08") || trimmed.startsWith("+62") || /^\d{8,15}$/.test(trimmed))) {
     order = await prisma.order.findFirst({
       where: {
         customerPhone: trimmed,
         orderStatus: "PAID",
+        schedule: {
+          startTime: {
+            gte: twoHoursAgo,
+          },
+        },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [
+        { schedule: { startTime: "asc" } },
+        { createdAt: "desc" },
+      ],
       include: {
         schedule: {
           include: {
@@ -203,6 +212,14 @@ export const kioskLookupOrder = async (query: string) => {
 
   if (order.orderStatus === "PENDING" || order.paymentStatus === "PENDING") {
     throw new AppError("BAD_REQUEST", "Pesanan belum lunas. Harap selesaikan pembayaran terlebih dahulu.");
+  }
+
+  // Check if showtime has passed by more than 2 hours
+  if (order.schedule?.startTime) {
+    const showtimeStart = new Date(order.schedule.startTime).getTime();
+    if (showtimeStart < twoHoursAgo.getTime()) {
+      throw new AppError("BAD_REQUEST", "Tiket tidak dapat dicetak karena jam tayang telah lewat lebih dari 2 jam.");
+    }
   }
 
   const latestPayment = order.payments?.[0];

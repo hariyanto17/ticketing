@@ -491,6 +491,8 @@ export const cancelBooking = async (orderId: string) => {
 export const lookupBooking = async (query: string) => {
   await cleanupExpiredBookings();
 
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
   return prisma.order.findMany({
     where: {
       OR: [
@@ -499,6 +501,11 @@ export const lookupBooking = async (query: string) => {
         { bookingNumber: query },
         { customerPhone: query },
       ],
+      schedule: {
+        startTime: {
+          gte: twoHoursAgo,
+        },
+      },
     },
     include: {
       tickets: {
@@ -515,6 +522,9 @@ export const lookupBooking = async (query: string) => {
           studio: true,
         },
       },
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
 };

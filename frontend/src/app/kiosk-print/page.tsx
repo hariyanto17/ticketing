@@ -233,11 +233,13 @@ export default function KioskPrintPage() {
       {/* Top Header Bar */}
       <header className="px-8 py-5 bg-zinc-900/60 border-b border-zinc-800 flex items-center justify-between backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center shadow-lg shadow-rose-600/30">
-            <Film className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+            alt="Planet Cinema"
+            className="h-11 w-auto object-contain"
+          />
           <div>
-            <h1 className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-white via-zinc-200 to-rose-400 bg-clip-text text-transparent">
+            <h1 className="text-base font-extrabold tracking-wider text-white">
               PLANET CINEMA
             </h1>
             <p className="text-xs text-zinc-400 font-medium tracking-wide">

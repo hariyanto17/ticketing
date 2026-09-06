@@ -116,8 +116,12 @@ export default function PrintTickets() {
             )}
 
             {/* Header */}
-            <div className="text-center border-b border-dashed border-zinc-300 pb-4 mb-4">
-              <h2 className="text-base font-bold tracking-widest text-zinc-900 uppercase">🎬 Planet Cinema</h2>
+            <div className="text-center border-b border-dashed border-zinc-300 pb-4 mb-4 flex flex-col items-center">
+              <img
+                src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+                alt="Planet Cinema"
+                className="h-8 w-auto object-contain mb-1"
+              />
               <span className="text-[10px] text-zinc-400">TICKET RECEIPT</span>
             </div>
 

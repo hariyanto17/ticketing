@@ -24,11 +24,20 @@ export default function BookingLookup() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans pb-16">
       {/* Header */}
       <header className="sticky top-0 z-40 w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-150 dark:border-zinc-800">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center gap-4">
-          <button onClick={() => router.push("/")} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl cursor-pointer">
-            <ArrowLeft className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
-          </button>
-          <span className="font-bold text-zinc-850 dark:text-zinc-200">{t("booking.lookupTitle")}</span>
+        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push("/")} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl cursor-pointer">
+              <ArrowLeft className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+            </button>
+            <span className="font-bold text-zinc-850 dark:text-zinc-200">{t("booking.lookupTitle")}</span>
+          </div>
+          <Link href="/" className="flex items-center">
+            <img
+              src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+              alt="Planet Cinema"
+              className="h-7 w-auto object-contain"
+            />
+          </Link>
         </div>
       </header>
 

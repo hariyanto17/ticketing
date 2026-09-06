@@ -123,16 +123,17 @@ export default function CustomerDisplayPage() {
       <header className="h-16 shrink-0 w-full bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800/80 px-6 flex items-center justify-between shadow-sm dark:shadow-md transition-colors duration-200">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-md shadow-indigo-500/20">
-            <Film className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+            alt="Planet Cinema"
+            className="h-11 w-auto object-contain"
+          />
           <div>
-            <h1 className="text-base font-black tracking-wider uppercase text-zinc-900 dark:text-white flex items-center gap-2">
-              Planet Cinema
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 uppercase">
                 CUSTOMER DISPLAY
               </span>
-            </h1>
+            </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">Premium Theater Experience</p>
           </div>
         </div>

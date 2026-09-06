@@ -199,17 +199,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         {/* Sidebar Brand Header */}
         <div
-          className={`h-16 flex items-center justify-between px-4 border-b border-indigo-700/40 bg-indigo-600 text-white font-bold tracking-wide select-none ${
+          className={`h-16 flex items-center justify-between px-3.5 border-b border-indigo-700/40 bg-indigo-600 text-white font-bold tracking-wide select-none ${
             isSidebarCollapsed ? "rounded-br-xl justify-center" : "rounded-br-2xl"
           }`}
         >
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <span className="text-xl shrink-0">🎬</span>
-            {!isSidebarCollapsed && (
-              <span className="font-bold text-base tracking-wide whitespace-nowrap">
-                Planet Cinema
-              </span>
-            )}
+          <div className="flex items-center gap-2 overflow-hidden">
+            <img
+              src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+              alt="Planet Cinema"
+              className={isSidebarCollapsed ? "h-9 w-auto object-contain max-w-[48px]" : "h-10 w-auto object-contain max-w-[150px] brightness-105"}
+            />
           </div>
           <button
             onClick={toggleSidebarCollapse}
@@ -264,8 +263,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden bg-black/50" onClick={() => setIsSidebarOpen(false)}>
           <aside className="w-64 h-full bg-white dark:bg-zinc-900 flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="h-16 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800 bg-indigo-600 text-white font-bold">
-              <span>🎬 Planet Cinema</span>
+            <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800 bg-indigo-600 text-white font-bold">
+              <img
+                src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+                alt="Planet Cinema"
+                className="h-9 w-auto object-contain max-w-[140px] brightness-105"
+              />
               <button onClick={() => setIsSidebarOpen(false)} className="p-1 rounded-lg hover:bg-white/10">
                 <X className="w-5 h-5" />
               </button>

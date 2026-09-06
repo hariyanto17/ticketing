@@ -29,8 +29,12 @@ export default function PublicHome() {
       {/* Public Header */}
       <header className="sticky top-0 z-40 w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-150 dark:border-zinc-800 transition-colors">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-wide flex items-center gap-2">
-            🎬 Planet Cinema
+          <Link href="/" className="flex items-center gap-2">
+            <img
+              src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+              alt="Planet Cinema"
+              className="h-10 w-auto object-contain"
+            />
           </Link>
           
           <div className="flex items-center gap-4">

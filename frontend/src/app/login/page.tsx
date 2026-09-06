@@ -78,9 +78,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 font-sans text-zinc-800 dark:text-zinc-200">
       <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-xl">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white mb-3">
-            <Film className="w-6 h-6" />
-          </div>
+          <img
+            src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+            alt="Planet Cinema"
+            className="h-16 w-auto object-contain mb-4 drop-shadow-sm"
+          />
           <h2 className="text-2xl font-bold tracking-tight">{t("auth.signIn")}</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 text-center">
             {t("auth.loginSubtitle")}

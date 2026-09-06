@@ -54,8 +54,12 @@ export default function BookingSuccess() {
       {/* Header */}
       <header className="sticky top-0 z-40 w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-150 dark:border-zinc-800">
         <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-lg font-black text-indigo-600 dark:text-indigo-400">
-            🎬 Planet Cinema
+          <Link href="/" className="flex items-center gap-2">
+            <img
+              src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+              alt="Planet Cinema"
+              className="h-8 w-auto object-contain"
+            />
           </Link>
           <span className="text-xs text-zinc-400">Booking Confirmation</span>
         </div>

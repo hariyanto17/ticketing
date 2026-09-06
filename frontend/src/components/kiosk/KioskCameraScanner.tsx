@@ -121,8 +121,11 @@ export const KioskCameraScanner: React.FC<KioskCameraScannerProps> = ({
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl">
-      {/* Scanner Element Container */}
-      <div id={containerId} className="w-full h-full object-cover" />
+      {/* Scanner Element Container (Mirrored for natural kiosk mirror experience) */}
+      <div
+        id={containerId}
+        className="w-full h-full object-cover flex items-center justify-center [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_video]:-scale-x-100 [&_video]:[transform:scaleX(-1)]"
+      />
 
       {/* Target Guide Frame & Animated Scanning Line */}
       {!cameraError && !isInitializing && (

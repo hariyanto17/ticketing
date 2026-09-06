@@ -72,3 +72,14 @@ body {
     background: #ffffff !important;
   }
 }
+
+/* Kiosk Camera Mirror Mode */
+#kiosk-qr-reader video,
+#kiosk-qr-reader canvas {
+  transform: scaleX(-1) !important;
+  -webkit-transform: scaleX(-1) !important;
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+

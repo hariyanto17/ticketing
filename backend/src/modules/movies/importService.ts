@@ -4,7 +4,7 @@ import { AppError } from "../../utils/errorHandler";
 import { ImportMoviesParsed } from "./validation";
 
 const SOURCE = "21CINEPLEX";
-const IMPORT_PRODUCTION_HOUSE = "Cinema 21";
+const IMPORT_PRODUCTION_HOUSE = "-";
 
 const externalMovieSchema = z.object({
   parent_movie_id: z.string().min(1),

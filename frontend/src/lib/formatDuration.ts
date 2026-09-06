@@ -1,9 +1,9 @@
 /**
- * Format duration in minutes to a localized human-readable string.
+ * Format duration in minutes to a localized compact string.
  * Example:
- *   115 -> "1 jam 55 menit" (id) / "1 hr 55 min" (en)
- *   120 -> "2 jam" (id) / "2 hrs" (en)
- *   45  -> "45 menit" (id) / "45 min" (en)
+ *   115 -> "1j55m" (id) / "1h 55m" (en)
+ *   120 -> "2j" (id) / "2h" (en)
+ *   45  -> "45m" (id) / "45m" (en)
  */
 export function formatDuration(
   minutes: number | null | undefined,
@@ -17,14 +17,12 @@ export function formatDuration(
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   const isId = locale === "id";
-  const hourLabel = isId ? "jam" : hours > 1 ? "hrs" : "hr";
-  const minuteLabel = isId ? "menit" : "min";
 
   if (!hours) {
-    return `${remainingMinutes} ${minuteLabel}`;
+    return `${remainingMinutes}m`;
   }
   if (!remainingMinutes) {
-    return `${hours} ${hourLabel}`;
+    return isId ? `${hours}j` : `${hours}h`;
   }
-  return `${hours} ${hourLabel} ${remainingMinutes} ${minuteLabel}`;
+  return isId ? `${hours}j${remainingMinutes}m` : `${hours}h ${remainingMinutes}m`;
 }

@@ -6,12 +6,12 @@ import enTranslations from "../locales/en";
 import { formatDuration } from "../utils/format";
 
 test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) => {
-  await t.test("1. Movie duration formatting (e.g. 115m -> 1 jam 55 menit)", () => {
-    assert.strictEqual(formatDuration(115, "id"), "1 jam 55 menit");
-    assert.strictEqual(formatDuration(115, "en"), "1 hr 55 min");
-    assert.strictEqual(formatDuration(120, "id"), "2 jam");
-    assert.strictEqual(formatDuration(120, "en"), "2 hrs");
-    assert.strictEqual(formatDuration(45, "id"), "45 menit");
+  await t.test("1. Movie duration formatting (e.g. 115m -> 1j55m)", () => {
+    assert.strictEqual(formatDuration(115, "id"), "1j55m");
+    assert.strictEqual(formatDuration(115, "en"), "1h 55m");
+    assert.strictEqual(formatDuration(120, "id"), "2j");
+    assert.strictEqual(formatDuration(120, "en"), "2h");
+    assert.strictEqual(formatDuration(45, "id"), "45m");
     assert.strictEqual(formatDuration(null, "id"), "Durasi belum tersedia");
     assert.strictEqual(formatDuration(undefined, "en"), "Duration unavailable");
   });

@@ -16,15 +16,15 @@ export class TicketRenderer {
     const width = options.paperWidth === 58 ? 32 : 42;
     const parts: Buffer[] = [Buffer.from([ESC, 0x40, GS, 0x4c, LEFT_MARGIN_DOTS, 0x00, ESC, 0x61, 0x00])];
 
-    // Header: PLANET CINEMA (Double size, bold, centered)
-    parts.push(Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]));
-    parts.push(this.renderLine("PLANET CINEMA", width, true));
-    parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]));
+    // Header: PLANET CINEMA (Hardware Center-aligned, Double size, Bold)
+    parts.push(Buffer.from([ESC, 0x61, 0x01, ESC, 0x45, 0x01, GS, 0x21, 0x11]));
+    parts.push(Buffer.from("PLANET CINEMA\n", "utf8"));
+    parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00, ESC, 0x61, 0x00]));
 
     // Movie Title below PLANET CINEMA (Left-aligned)
     if (payload.movie) {
       parts.push(Buffer.from([ESC, 0x45, 0x01]));
-      parts.push(this.renderLine(payload.movie, width, false));
+      parts.push(this.renderLine(payload.movie, width));
       parts.push(Buffer.from([ESC, 0x45, 0x00]));
     }
 
@@ -41,7 +41,7 @@ export class TicketRenderer {
 
     // Stub section for gate (normal weight)
     if (payload.movie) {
-      parts.push(this.renderLine(payload.movie, width, false));
+      parts.push(this.renderLine(payload.movie, width));
     }
 
     for (const line of this.renderLines(payload, width)) {
@@ -93,11 +93,10 @@ export class TicketRenderer {
     return Buffer.concat(parts);
   }
 
-  private renderLine(line: string, width: number, centered = false): Buffer {
+  private renderLine(line: string, width: number): Buffer {
     const contentWidth = width - LEFT_MARGIN_COLUMNS;
     const content = line.slice(0, contentWidth);
-    const padded = centered ? content.padStart(Math.floor((contentWidth + content.length) / 2)).padEnd(contentWidth, " ") : content.padEnd(contentWidth, " ");
-    return Buffer.from(`${" ".repeat(LEFT_MARGIN_COLUMNS)}${padded}\n`, "utf8");
+    return Buffer.from(`${" ".repeat(LEFT_MARGIN_COLUMNS)}${content}\n`, "utf8");
   }
 }
 

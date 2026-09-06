@@ -283,6 +283,13 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
           qrCode: ticketNumber,
           status: "ACTIVE",
         },
+        include: {
+          showtimeSeat: {
+            include: {
+              seat: true,
+            },
+          },
+        },
       });
 
       // Update ShowtimeSeat status to SOLD

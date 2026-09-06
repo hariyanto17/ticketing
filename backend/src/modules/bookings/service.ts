@@ -289,6 +289,13 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
           qrCode: ticketNumber,
           status: "PENDING", // Hardened: Tickets start as PENDING
         },
+        include: {
+          showtimeSeat: {
+            include: {
+              seat: true,
+            },
+          },
+        },
       });
 
       // Update ShowtimeSeat to HOLD

@@ -70,6 +70,7 @@ export default function CashierWorkspace() {
   const [showTomorrow, setShowTomorrow] = useState<boolean>(false);
 
   // Checkout states
+  const [lastSelectedSeats, setLastSelectedSeats] = useState<ShowtimeSeat[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
   const [amountReceived, setAmountReceived] = useState<number | "">("");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
@@ -457,6 +458,9 @@ export default function CashierWorkspace() {
     }
 
     try {
+      const seatsSnapshot = [...selectedSeats];
+      setLastSelectedSeats(seatsSnapshot);
+
       const response = await checkoutOrder({
         scheduleId: selectedSchedule.id,
         seatIds: selectedSeats.map((s) => s.seatId),
@@ -464,7 +468,37 @@ export default function CashierWorkspace() {
         amountReceived: paymentMethod === "CASH" ? Number(amountReceived) : null,
       }).unwrap();
 
-      setCheckoutResult(response.data);
+      // Ensure ticket showtimeSeat relation is always present with seat and row details
+      const seatsMap = new Map(seatsSnapshot.map((s) => [s.id, s]));
+      const seatIdMap = new Map(seatsSnapshot.map((s) => [s.seatId, s]));
+
+      const enrichedTickets = (response.data?.tickets || []).map((ticket: any, idx: number) => {
+        const matchedSeat =
+          (ticket.showtimeSeatId && seatsMap.get(ticket.showtimeSeatId)) ||
+          (ticket.showtimeSeatId && seatIdMap.get(ticket.showtimeSeatId)) ||
+          seatsSnapshot[idx];
+
+        return {
+          ...ticket,
+          showtimeSeat: ticket.showtimeSeat?.seat
+            ? ticket.showtimeSeat
+            : matchedSeat
+            ? {
+                ...(ticket.showtimeSeat || {}),
+                id: matchedSeat.id,
+                seatId: matchedSeat.seatId,
+                showtimeId: matchedSeat.showtimeId,
+                status: matchedSeat.status,
+                seat: matchedSeat.seat,
+              }
+            : ticket.showtimeSeat,
+        };
+      });
+
+      setCheckoutResult({
+        ...response.data,
+        tickets: enrichedTickets,
+      });
       setIsSuccessModalOpen(true);
       toastSuccess(t("cashier.transactionSuccess"));
 
@@ -496,7 +530,13 @@ export default function CashierWorkspace() {
       const showDate = new Date(selectedSchedule.businessDate).toLocaleDateString("en-CA");
       const price = order.totalAmount / tickets.length;
 
-      for (const ticket of tickets) {
+      for (let idx = 0; idx < tickets.length; idx++) {
+        const ticket = tickets[idx];
+        const seatObj =
+          ticket.showtimeSeat?.seat ||
+          lastSelectedSeats.find((s) => s.id === ticket.showtimeSeatId || s.seatId === ticket.showtimeSeatId)?.seat ||
+          lastSelectedSeats[idx]?.seat;
+
         await client.printTicket({
           mode: "print",
           ticketNumber: ticket.ticketNumber,
@@ -505,9 +545,9 @@ export default function CashierWorkspace() {
           studio: selectedSchedule.studio.name,
           showDate,
           showTime: startTime,
-          seat: ticket.showtimeSeat?.seat?.seatLabel || "-",
-          row: ticket.showtimeSeat?.seat?.row || "-",
-          seatNumber: ticket.showtimeSeat?.seat?.seatNumber,
+          seat: seatObj?.seatLabel || ticket.showtimeSeat?.seat?.seatLabel || "-",
+          row: seatObj?.row || ticket.showtimeSeat?.seat?.row || "-",
+          seatNumber: seatObj?.seatNumber ?? ticket.showtimeSeat?.seat?.seatNumber,
           price,
           totalAmount: order.totalAmount,
           qrCode: ticket.qrCode,

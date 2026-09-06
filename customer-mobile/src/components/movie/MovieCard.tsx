@@ -6,6 +6,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Badge } from "../common/Badge";
 
+import { formatDuration } from "../../utils/format";
+
 interface MovieCardProps {
   movie: Movie;
   onPress: () => void;
@@ -17,11 +19,9 @@ const GRID_ITEM_WIDTH = (width - 48) / 2;
 
 export const MovieCard: React.FC<MovieCardProps> = ({ movie, onPress, layout = "grid" }) => {
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
-  const durationText = movie.durationMinutes
-    ? `${movie.durationMinutes} ${t("common.minutes")}`
-    : t("common.durationUnavailable");
+  const durationText = formatDuration(movie.durationMinutes, locale, t("common.durationUnavailable"));
 
   const genreNames = movie.genres?.map((g) => g.genre.name).slice(0, 2).join(", ") || "";
 

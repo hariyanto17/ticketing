@@ -22,6 +22,7 @@ import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Edit, Trash, Plus, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { formatDuration } from "@/lib/formatDuration";
 
 const scheduleSchema = (t: (key: string) => string) => z.object({
   movieId: z.string().uuid(t("schedules.selectMovie")),
@@ -32,7 +33,7 @@ const scheduleSchema = (t: (key: string) => string) => z.object({
 });
 
 export default function SchedulesManagement() {
-  const { t, formatDate, formatCurrency } = useTranslation();
+  const { t, locale, formatDate, formatCurrency } = useTranslation();
   const schema = scheduleSchema(t);
   type ScheduleFormValues = z.infer<typeof schema>;
   const { success: toastSuccess, error: toastError } = useToast();
@@ -68,7 +69,12 @@ export default function SchedulesManagement() {
 
   const movieOptions = [
     { value: "", label: t("schedules.selectMovie") },
-    ...(moviesResponse?.data?.map((m) => ({ value: m.id, label: m.durationMinutes ? `${m.title} (${m.durationMinutes} min)` : `${m.title} (duration unspecified)` })) || []),
+    ...(moviesResponse?.data?.map((m) => ({
+      value: m.id,
+      label: m.durationMinutes
+        ? `${m.title} (${formatDuration(m.durationMinutes, locale)})`
+        : `${m.title} (${t("movies.unspecified")})`,
+    })) || []),
   ];
 
   const studioOptions = [

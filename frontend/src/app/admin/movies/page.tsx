@@ -35,6 +35,7 @@ import { Input, Select, Button } from "@/components/ui/form-controls";
 import { Edit, Trash, Plus, Film, Tag, Building2, Truck, Download } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
+import { formatDuration } from "@/lib/formatDuration";
 
 // --- VALIDATION SCHEMAS ---
 const movieFormSchema = (t: (key: string) => string) => z.object({
@@ -328,16 +329,11 @@ export default function MoviesDashboard() {
         </div>
       ),
     },
-    { key: "durationMinutes", header: t("movies.duration"), render: (m: Movie) => {
-      if (!m.durationMinutes) return t("movies.unspecified");
-      const hours = Math.floor(m.durationMinutes / 60);
-      const minutes = m.durationMinutes % 60;
-      const minuteLabel = locale === "id" ? "menit" : "min";
-      const hourLabel = locale === "id" ? "jam" : "hr";
-      if (!hours) return `${minutes} ${minuteLabel}`;
-      if (!minutes) return `${hours} ${hourLabel}`;
-      return `${hours} ${hourLabel} ${minutes} ${minuteLabel}`;
-    } },
+    {
+      key: "durationMinutes",
+      header: t("movies.duration"),
+      render: (m: Movie) => formatDuration(m.durationMinutes, locale, t("movies.unspecified")),
+    },
     {
       key: "status",
       header: t("movies.status"),

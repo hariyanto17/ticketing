@@ -2,6 +2,7 @@
 
 import React from "react";
 import { KioskOrderResult, KioskOrderTicket } from "../../lib/api/orderApi";
+import { formatDuration } from "../../lib/formatDuration";
 
 interface KioskTicketTemplateProps {
   order: KioskOrderResult;
@@ -60,7 +61,7 @@ export const KioskTicketTemplate: React.FC<KioskTicketTemplateProps> = ({ order 
           <div className="mb-2">
             <div className="text-xs font-black uppercase line-clamp-2">{order.movie.title}</div>
             <div className="text-[10px] text-gray-800">
-              Rating: {order.movie.censorshipRating} | {order.movie.durationMinutes} Menit
+              Rating: {order.movie.censorshipRating} | {formatDuration(order.movie.durationMinutes, "id")}
             </div>
           </div>
 

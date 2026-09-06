@@ -22,13 +22,15 @@ import { Button } from "../components/common/Button";
 type MovieDetailRouteProp = RouteProp<RootStackParamList, "MovieDetail">;
 type MovieDetailNavProp = StackNavigationProp<RootStackParamList>;
 
+import { formatDuration } from "../utils/format";
+
 const { width } = Dimensions.get("window");
 
 export const MovieDetailScreen: React.FC = () => {
   const navigation = useNavigation<MovieDetailNavProp>();
   const route = useRoute<MovieDetailRouteProp>();
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   const movieId = route.params.movieId;
   const { data: movie, isLoading, error } = useGetMovieByIdQuery(movieId);
@@ -41,9 +43,7 @@ export const MovieDetailScreen: React.FC = () => {
     );
   }
 
-  const durationText = movie.durationMinutes
-    ? `${movie.durationMinutes} ${t("common.minutes")}`
-    : t("common.durationUnavailable");
+  const durationText = formatDuration(movie.durationMinutes, locale, t("common.durationUnavailable"));
 
   const genreString = movie.genres?.map((g) => g.genre.name).join(", ") || "General";
 

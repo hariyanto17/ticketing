@@ -6,6 +6,7 @@ import { Film, Calendar, Search, ShieldCheck, Ticket } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
+import { formatDuration } from "@/lib/formatDuration";
 
 export default function PublicHome() {
   const [tab, setTab] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
@@ -22,7 +23,7 @@ export default function PublicHome() {
     hasSchedule: tab === "NOW_SHOWING" ? true : undefined,
     startDate: todayStr,
   });
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
@@ -132,7 +133,7 @@ export default function PublicHome() {
                     </h3>
                   </div>
                   <div className="text-[11px] text-zinc-400 flex items-center gap-1.5">
-                    {movie.durationMinutes && <span>{movie.durationMinutes} min</span>}
+                    {movie.durationMinutes && <span>{formatDuration(movie.durationMinutes, locale)}</span>}
                     {movie.durationMinutes && movie.language && <span>•</span>}
                     {movie.language && <span>{movie.language}</span>}
                     {!movie.durationMinutes && !movie.language && <span>{t("home.detailsUnspecified")}</span>}

@@ -3,16 +3,15 @@ import assert from "node:assert/strict";
 import idTranslations from "../locales/id";
 import enTranslations from "../locales/en";
 
-test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) => {
-  await t.test("1. Movie duration fallback handling (graceful null safety)", () => {
-    const formatDuration = (minutes: number | null | undefined, locale: "id" | "en") => {
-      const dict = locale === "id" ? idTranslations : enTranslations;
-      if (!minutes) return dict.common.durationUnavailable;
-      return `${minutes} ${dict.common.minutes}`;
-    };
+import { formatDuration } from "../utils/format";
 
-    assert.strictEqual(formatDuration(120, "id"), "120 menit");
-    assert.strictEqual(formatDuration(120, "en"), "120 min");
+test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) => {
+  await t.test("1. Movie duration formatting (e.g. 115m -> 1 jam 55 menit)", () => {
+    assert.strictEqual(formatDuration(115, "id"), "1 jam 55 menit");
+    assert.strictEqual(formatDuration(115, "en"), "1 hr 55 min");
+    assert.strictEqual(formatDuration(120, "id"), "2 jam");
+    assert.strictEqual(formatDuration(120, "en"), "2 hrs");
+    assert.strictEqual(formatDuration(45, "id"), "45 menit");
     assert.strictEqual(formatDuration(null, "id"), "Durasi belum tersedia");
     assert.strictEqual(formatDuration(undefined, "en"), "Duration unavailable");
   });

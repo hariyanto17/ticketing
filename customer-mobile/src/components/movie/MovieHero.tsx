@@ -6,6 +6,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Badge } from "../common/Badge";
 
+import { formatDuration } from "../../utils/format";
+
 interface MovieHeroProps {
   movie: Movie;
   onPress: () => void;
@@ -16,11 +18,9 @@ const HERO_WIDTH = width - 32;
 
 export const MovieHero: React.FC<MovieHeroProps> = ({ movie, onPress }) => {
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
-  const durationText = movie.durationMinutes
-    ? `${movie.durationMinutes} ${t("common.minutes")}`
-    : t("common.durationUnavailable");
+  const durationText = formatDuration(movie.durationMinutes, locale, t("common.durationUnavailable"));
 
   return (
     <TouchableOpacity

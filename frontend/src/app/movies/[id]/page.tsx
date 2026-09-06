@@ -7,17 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ArrowLeft, Clock, Film, Calendar, Building2, Languages, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
-
-const formatDuration = (minutes: number | null | undefined, locale: string, unavailable: string) => {
-  if (!minutes) return unavailable;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  const minuteLabel = locale === "id" ? "menit" : "min";
-  const hourLabel = locale === "id" ? "jam" : "hr";
-  if (!hours) return `${remainingMinutes} ${minuteLabel}`;
-  if (!remainingMinutes) return `${hours} ${hourLabel}`;
-  return `${hours} ${hourLabel} ${remainingMinutes} ${minuteLabel}`;
-};
+import { formatDuration } from "@/lib/formatDuration";
 
 export default function PublicMovieDetail() {
   const params = useParams();

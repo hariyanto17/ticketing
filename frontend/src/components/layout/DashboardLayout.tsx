@@ -15,6 +15,8 @@ import {
   Sun,
   Moon,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   User as UserIcon,
   Film,
   Tv,
@@ -45,9 +47,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const user = useAppSelector((state) => state.auth.user);
   const authStatus = useAppSelector((state) => state.auth.status);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("isSidebarCollapsed");
+      if (saved !== null) {
+        setIsSidebarCollapsed(saved === "true");
+      }
+    }
+  }, []);
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("isSidebarCollapsed", String(next));
+      }
+      return next;
+    });
+  };
 
   const { theme, setTheme } = useTheme();
   const { t, locale, setLocale, localeLabel } = useTranslation();
@@ -170,41 +192,70 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 transition-colors duration-200">
       {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800">
-        {/* Sidebar Brand */}
-        <div className="h-16 flex items-center px-6 border-b border-zinc-150 dark:border-zinc-800 bg-indigo-600 text-white font-bold text-lg tracking-wide rounded-br-2xl">
-          🎬 Planet Cinema
+      <aside
+        className={`hidden md:flex flex-col bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 transition-all duration-300 ease-in-out shrink-0 ${
+          isSidebarCollapsed ? "w-20" : "w-64"
+        }`}
+      >
+        {/* Sidebar Brand Header */}
+        <div
+          className={`h-16 flex items-center justify-between px-4 border-b border-indigo-700/40 bg-indigo-600 text-white font-bold tracking-wide select-none ${
+            isSidebarCollapsed ? "rounded-br-xl justify-center" : "rounded-br-2xl"
+          }`}
+        >
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <span className="text-xl shrink-0">🎬</span>
+            {!isSidebarCollapsed && (
+              <span className="font-bold text-base tracking-wide whitespace-nowrap">
+                Planet Cinema
+              </span>
+            )}
+          </div>
+          <button
+            onClick={toggleSidebarCollapse}
+            className="p-1.5 rounded-lg hover:bg-white/20 text-white shrink-0 cursor-pointer transition-colors"
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
-        
+
         {/* Sidebar Menu */}
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = pathname === item.href || (item.href === "/cashier/pos" && pathname === "/cashier/cashier");
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                className={`flex items-center gap-3 py-3 rounded-xl text-sm font-medium transition-all ${
+                  isSidebarCollapsed ? "justify-center px-0" : "px-4"
+                } ${
                   isActive
-                    ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
+                    ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-950 dark:hover:text-zinc-100"
                 }`}
+                title={isSidebarCollapsed ? item.name : undefined}
               >
-                {item.icon}
-                {item.name}
+                <span className="shrink-0">{item.icon}</span>
+                {!isSidebarCollapsed && <span className="truncate">{item.name}</span>}
               </Link>
             );
           })}
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20">
+        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors cursor-pointer"
+            className={`flex items-center gap-3 w-full py-3 text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors cursor-pointer ${
+              isSidebarCollapsed ? "justify-center px-0" : "px-4"
+            }`}
+            title={isSidebarCollapsed ? t("common.signOut") : undefined}
           >
-            <LogOut className="w-5 h-5" />
-            {t("common.signOut")}
+            <LogOut className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">{t("common.signOut")}</span>}
           </button>
         </div>
       </aside>
@@ -262,6 +313,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               className="p-2 -ml-2 rounded-lg md:hidden hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
             >
               <MenuIcon className="w-5 h-5" />
+            </button>
+
+            {/* Toggle Sidebar Collapse for Desktop */}
+            <button
+              onClick={toggleSidebarCollapse}
+              className="hidden md:flex p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 cursor-pointer transition-colors"
+              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
             </button>
             
             {/* Breadcrumbs */}

@@ -55,6 +55,12 @@ function GuestCheckout() {
       reconnectionAttempts: 10,
     });
 
+    socket.emit("join_showtime", scheduleId);
+
+    socket.on("seat_update", (data: any) => {
+      if (data?.showtimeId === scheduleId) refetch();
+    });
+
     socket.on("seats_held", (data: any) => {
       if (data.showtimeId === scheduleId) refetch();
     });
@@ -67,7 +73,12 @@ function GuestCheckout() {
       if (data.showtimeId === scheduleId) refetch();
     });
 
+    socket.on("order_updated", (data: any) => {
+      if (data.scheduleId === scheduleId) refetch();
+    });
+
     return () => {
+      socket.emit("leave_showtime", scheduleId);
       socket.disconnect();
     };
   }, [scheduleId, refetch]);

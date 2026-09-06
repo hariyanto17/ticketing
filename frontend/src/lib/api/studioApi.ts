@@ -184,7 +184,19 @@ export interface ShowtimeSeat {
   showtimeId: string;
   seatId: string;
   status: "AVAILABLE" | "HOLD" | "SOLD" | "DISABLED";
+  salesChannel?: "POS" | "ONLINE" | "MOBILE" | "KIOSK" | string | null;
   reservedUntil?: string | null;
+  ticket?: {
+    id: string;
+    ticketNumber?: string;
+    order?: {
+      id?: string;
+      channel?: string;
+      orderNumber?: string;
+      bookingNumber?: string | null;
+      cashierId?: string | null;
+    } | null;
+  } | null;
   seat: {
     id: string;
     row: string;

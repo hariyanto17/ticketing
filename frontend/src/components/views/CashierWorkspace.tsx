@@ -8,9 +8,9 @@ import { useToast } from "@/components/ui/toast";
 import { Button, SearchableSelect } from "@/components/ui/form-controls";
 import { Spinner } from "@/components/ui/spinner";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
-import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
-import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast } from "lucide-react";
+import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast, ZoomIn, ZoomOut, RotateCcw, Sparkles } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
 import { io } from "socket.io-client";
 import { API_BASE_URL, SOCKET_BASE_URL } from "@/lib/api/api";
 import Link from "next/link";
@@ -190,6 +190,14 @@ export default function CashierWorkspace() {
       reconnectionAttempts: 10,
     });
 
+    socket.emit("join_showtime", selectedSchedule.id);
+
+    socket.on("seat_update", (data: any) => {
+      if (data?.showtimeId === selectedSchedule.id) {
+        refetchSeats();
+      }
+    });
+
     socket.on("seats_held", (data: any) => {
       if (data?.showtimeId === selectedSchedule.id) {
         refetchSeats();
@@ -208,7 +216,14 @@ export default function CashierWorkspace() {
       }
     });
 
+    socket.on("order_updated", (data: any) => {
+      if (data?.scheduleId === selectedSchedule.id) {
+        refetchSeats();
+      }
+    });
+
     return () => {
+      socket.emit("leave_showtime", selectedSchedule.id);
       socket.disconnect();
     };
   }, [selectedSchedule?.id, refetchSeats]);
@@ -335,6 +350,74 @@ export default function CashierWorkspace() {
   const totalAmount = quantity * ticketPrice;
   const change = amountReceived !== "" && Number(amountReceived) >= totalAmount ? Number(amountReceived) - totalAmount : 0;
 
+  // Seat grid organization & dimensions
+  const showtimeSeats = useMemo(() => seatsResponse?.data || [], [seatsResponse?.data]);
+  const { rows, cols, seatsByRow } = useMemo(() => {
+    if (!showtimeSeats || showtimeSeats.length === 0) {
+      return { rows: [] as string[], cols: [] as number[], seatsByRow: {} as Record<string, ShowtimeSeat[]> };
+    }
+
+    const grouped = groupSeatsByRow(showtimeSeats.map((s) => ({ ...s, row: s.seat.row })));
+    const visualRows = getVisualRowOrder(Object.keys(grouped));
+    const maxColumn = Math.max(...showtimeSeats.map((s) => s.seat.column), 12);
+    const columns = Array.from({ length: maxColumn }, (_, i) => i + 1);
+
+    return { rows: visualRows, cols: columns, seatsByRow: grouped };
+  }, [showtimeSeats]);
+
+  // Natural matrix dimensions for auto-scaling
+  const SEAT_SIZE = 38;
+  const SEAT_GAP = 6;
+  const ROW_LABEL_WIDTH = 24;
+  const SCREEN_BAR_HEIGHT = 44;
+  const MATRIX_PADDING = 20;
+
+  const naturalWidth = useMemo(() => {
+    const numCols = cols.length || 1;
+    return numCols * SEAT_SIZE + Math.max(0, numCols - 1) * SEAT_GAP + ROW_LABEL_WIDTH * 2 + MATRIX_PADDING;
+  }, [cols.length]);
+
+  const naturalHeight = useMemo(() => {
+    const numRows = rows.length || 1;
+    return SCREEN_BAR_HEIGHT + numRows * SEAT_SIZE + Math.max(0, numRows - 1) * SEAT_GAP + MATRIX_PADDING;
+  }, [rows.length]);
+
+  const seatViewportRef = React.useRef<HTMLDivElement>(null);
+  const [seatScale, setSeatScale] = useState<number>(1);
+  const [manualZoom, setManualZoom] = useState<number>(1);
+
+  // Dynamically calculate scale factor to fit container dimensions
+  const updateScale = React.useCallback(() => {
+    if (!seatViewportRef.current || naturalWidth <= 0 || naturalHeight <= 0) return;
+    const container = seatViewportRef.current;
+    const availableWidth = container.clientWidth - 24; // 12px padding buffer
+    const availableHeight = container.clientHeight - 24; // 12px padding buffer
+
+    if (availableWidth > 0 && availableHeight > 0) {
+      const scaleX = availableWidth / naturalWidth;
+      const scaleY = availableHeight / naturalHeight;
+      const fit = Math.min(scaleX, scaleY);
+      setSeatScale(Math.max(0.25, Math.min(fit, 1.35)));
+    }
+  }, [naturalWidth, naturalHeight]);
+
+  useEffect(() => {
+    updateScale();
+    const el = seatViewportRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(() => {
+      updateScale();
+    });
+    observer.observe(el);
+    window.addEventListener("resize", updateScale);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateScale);
+    };
+  }, [updateScale]);
+
   // Build clean customer-facing state payload
   const getCustomerDisplayPayload = (): CustomerDisplayStatePayload => {
     return {
@@ -357,7 +440,7 @@ export default function CashierWorkspace() {
             ticketPrice: selectedSchedule.ticketPrice || 0,
           }
         : null,
-      seats: seatsResponse?.data || [],
+      seats: showtimeSeats,
       selectedSeats: selectedSeats,
       quantity,
       ticketPrice,
@@ -564,9 +647,9 @@ export default function CashierWorkspace() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-sans items-start">
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 font-sans items-start">
       {/* TOP BAR: ACTION BUTTONS & DUAL MONITOR CONTROL */}
-      <div className="lg:col-span-12 flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl shadow-sm">
+      <div className="xl:col-span-12 flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
             <Monitor className="w-5 h-5" />
@@ -604,7 +687,7 @@ export default function CashierWorkspace() {
       </div>
 
       {/* TOP BANNER: CASH DRAWER SESSION STATUS */}
-      <div className="lg:col-span-12">
+      <div className="xl:col-span-12">
         {drawerLoading ? null : activeDrawer ? (
           <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between flex-wrap gap-4 shadow-sm">
             <div className="flex items-center gap-3.5">
@@ -659,7 +742,7 @@ export default function CashierWorkspace() {
       </div>
 
       {/* LEFT PANEL: SELECTORS & SEAT MAP */}
-      <div className="lg:col-span-8 space-y-6">
+      <div className="xl:col-span-8 space-y-6">
 
         {/* Movie Selector */}
         <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-4">
@@ -833,72 +916,208 @@ export default function CashierWorkspace() {
 
         {/* Interactive Seat Map */}
         {selectedSchedule && (
-          <div className="p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl flex flex-col items-center">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2 self-start mb-6">
-              <Armchair className="w-5 h-5 text-amber-500" /> {t("cashier.seatLayout")}
-            </h2>
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 flex flex-col shadow-sm dark:shadow-xl overflow-hidden transition-colors duration-200">
+            {/* Header with Studio Info, Counts & Zoom Controls */}
+            <div className="shrink-0 flex items-center justify-between flex-wrap gap-3 pb-4 mb-3 border-b border-zinc-200 dark:border-zinc-800/80">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Armchair className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                    {t("cashier.seatLayout")}
+                  </h2>
+                  <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {selectedSchedule.studio?.name || "Studio"}
+                    </span>
+                    <span>•</span>
+                    <span>{showtimeSeats.length} {t("cashier.seatsTotal") || "Total Kursi"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Selected count badge */}
+                {selectedSeats.length > 0 && (
+                  <span className="px-3 py-1 rounded-xl bg-indigo-600 text-white text-xs font-black shadow-sm">
+                    {selectedSeats.length} {t("cashier.selected") || "Dipilih"}
+                  </span>
+                )}
+
+                {/* Zoom / Scaling Controls */}
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 rounded-xl p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setManualZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
+                    title="Zoom Out"
+                    className="p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 rounded-lg transition cursor-pointer"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualZoom(1);
+                      updateScale();
+                    }}
+                    title="Reset Fit to Screen"
+                    className="px-2 py-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 rounded-lg transition cursor-pointer"
+                  >
+                    Fit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManualZoom((z) => Math.min(1.8, Number((z + 0.1).toFixed(2))))}
+                    title="Zoom In"
+                    className="p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 rounded-lg transition cursor-pointer"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {seatsLoading ? (
-              <Spinner className="w-8 h-8 py-10" />
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Spinner className="w-8 h-8 text-indigo-600" />
+                <p className="text-xs text-zinc-400">Memuat denah kursi...</p>
+              </div>
             ) : (
               <div className="w-full flex flex-col items-center">
-                {/* Seat Grid */}
-                {(() => {
-                  const showtimeSeats = seatsResponse?.data || [];
-                  const seatsByRow = groupSeatsByRow(showtimeSeats.map((s) => ({ ...s, row: s.seat.row })));
-                  const rows = getVisualRowOrder(Object.keys(seatsByRow));
-                  const maxColumn = showtimeSeats.length > 0 ? Math.max(...showtimeSeats.map((s) => s.seat.column)) : 12;
-                  const cols = Array.from({ length: maxColumn }, (_, i) => i + 1);
-
-                  return (
-                    <div className="grid gap-2.5 overflow-x-auto w-full pb-4">
-                      <div className="w-full max-w-md bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 text-center py-1.5 rounded-b-2xl font-bold tracking-widest text-[10px] uppercase mb-4">
-                        {t("cashier.screen")}
-                      </div>
-                      {rows.map((row) => (
-                        <div key={row} className="flex gap-2.5 items-center justify-center min-w-[400px]">
-                          <span className="w-6 text-center font-bold text-zinc-400 text-xs">{row}</span>
-                          {cols.map((col) => {
-                            const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
-                            if (!seat) {
-                              return <div key={`gap-${row}-${col}`} className="w-8 h-8 sm:w-10 sm:h-10 xl:w-11 xl:h-11" />;
-                            }
-
-                            const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                            const isHold = seat.status === "HOLD" && !isSelected;
-
-                            // Determine colors
-                            let seatColor = "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"; // AVAILABLE
-                            if (seat.status === "DISABLED") seatColor = "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-650 cursor-not-allowed";
-                            else if (seat.status === "SOLD") seatColor = "bg-rose-500 text-white cursor-not-allowed";
-                            else if (isHold) seatColor = "bg-amber-400 text-white cursor-not-allowed";
-                            else if (isSelected) seatColor = "bg-indigo-600 hover:bg-indigo-700 text-white ring-4 ring-indigo-500/20";
-
-                            return (
-                              <button
-                                key={seat.id}
-                                onClick={() => handleSeatClick(seat)}
-                                disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
-                                className={`w-8 h-8 sm:w-10 sm:h-10 xl:w-11 xl:h-11 rounded-xl text-[10px] sm:text-xs font-bold border transition-all flex items-center justify-center ${seatColor}`}
-                              >
-                                {seat.seat.seatLabel}
-                              </button>
-                            );
-                          })}
-                          <span className="w-6 text-center font-bold text-zinc-400 text-xs">{row}</span>
+                {/* SEAT GRID SECTION (Auto-scaling responsive viewport matching customer-display) */}
+                <div
+                  ref={seatViewportRef}
+                  className="w-full min-h-[380px] sm:min-h-[460px] h-[58vh] max-h-[660px] flex items-center justify-center overflow-auto p-2 sm:p-4 relative bg-zinc-50/50 dark:bg-zinc-950/40 rounded-2xl border border-zinc-150 dark:border-zinc-800/60"
+                >
+                  {rows.length > 0 && cols.length > 0 && (
+                    <div
+                      style={{
+                        width: `${naturalWidth * seatScale * manualZoom}px`,
+                        height: `${naturalHeight * seatScale * manualZoom}px`,
+                        position: "relative",
+                        flexShrink: 0,
+                      }}
+                      className="transition-all duration-150 ease-out"
+                    >
+                      <div
+                        style={{
+                          width: `${naturalWidth}px`,
+                          height: `${naturalHeight}px`,
+                          transform: `scale(${seatScale * manualZoom})`,
+                          transformOrigin: "top left",
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                        }}
+                        className="flex flex-col items-center justify-center select-none"
+                      >
+                        {/* SCREEN CURVE (BEFORE ROW A) */}
+                        <div className="w-full max-w-sm shrink-0 mb-4 flex flex-col items-center">
+                          <div className="w-full h-3 bg-gradient-to-b from-indigo-500/40 via-indigo-500/20 to-transparent rounded-t-[120px] border-t-2 border-indigo-500 dark:border-indigo-400 shadow-md shadow-indigo-500/20" />
+                          <span className="text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300/80 tracking-[0.28em] uppercase mt-1">
+                            {t("cashier.screen")}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  );
-                })()}
 
-                {/* Legend */}
-                <div className="flex flex-wrap gap-4 justify-center mt-10 pt-4 border-t border-zinc-100 dark:border-zinc-800 w-full max-w-md text-[11px] font-semibold text-zinc-400">
-                  <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-emerald-600 rounded-sm" /> {t("cashier.available")}</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-amber-400 rounded-sm" /> {t("cashier.hold")}</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-rose-500 rounded-sm" /> {t("cashier.sold")}</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-indigo-600 rounded-sm" /> {t("cashier.selected")}</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded-sm" /> {t("cashier.disabled")}</div>
+                        {/* Rows & Seats Grid */}
+                        <div className="flex flex-col gap-1.5 justify-center items-center w-full">
+                          {rows.map((row) => (
+                            <div key={row} className="flex gap-1.5 items-center justify-center">
+                              <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
+                                {row}
+                              </span>
+                              {cols.map((col) => {
+                                const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
+
+                                if (!seat) {
+                                  return <div key={`gap-${row}-${col}`} className="w-9 h-9" />;
+                                }
+
+                                const isSelected = selectedSeats.some((s) => s.id === seat.id);
+                                const isHold = seat.status === "HOLD" && !isSelected;
+
+                                // Determine colors & channel indicator
+                                let seatClasses = "bg-emerald-600 dark:bg-emerald-600/90 text-white border-emerald-500/50 hover:bg-emerald-700 active:scale-95 cursor-pointer shadow-sm"; // AVAILABLE
+                                let seatTooltip = seat.seat.seatLabel;
+
+                                if (seat.status === "DISABLED") {
+                                  seatClasses = "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700/50 opacity-40 cursor-not-allowed";
+                                  seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.disabled")}`;
+                                } else if (seat.status === "SOLD") {
+                                  const isOnline =
+                                    seat.salesChannel === "ONLINE" ||
+                                    seat.salesChannel === "MOBILE" ||
+                                    seat.ticket?.order?.channel === "ONLINE" ||
+                                    seat.ticket?.order?.channel === "MOBILE" ||
+                                    Boolean(seat.ticket?.order?.bookingNumber);
+
+                                  if (isOnline) {
+                                    seatClasses = "bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800/70 opacity-80 cursor-not-allowed line-through";
+                                    seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.soldOnline") || "Terjual (Online)"} ${seat.ticket?.ticketNumber ? `(#${seat.ticket.ticketNumber})` : ""}`;
+                                  } else {
+                                    seatClasses = "bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800/70 opacity-80 cursor-not-allowed line-through";
+                                    seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.soldPos") || "Terjual (Kasir)"} ${seat.ticket?.ticketNumber ? `(#${seat.ticket.ticketNumber})` : ""}`;
+                                  }
+                                } else if (isHold) {
+                                  seatClasses = "bg-amber-500 dark:bg-amber-500/90 text-white border-amber-400/60 animate-pulse cursor-not-allowed";
+                                  seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.hold")}`;
+                                } else if (isSelected) {
+                                  seatClasses =
+                                    "bg-indigo-600 text-white border-indigo-400 ring-4 ring-indigo-500/30 scale-105 shadow-md shadow-indigo-500/40 font-black cursor-pointer";
+                                  seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.selected")}`;
+                                }
+
+                                return (
+                                  <button
+                                    key={seat.id}
+                                    type="button"
+                                    onClick={() => handleSeatClick(seat)}
+                                    disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
+                                    title={seatTooltip}
+                                    className={`w-9 h-9 rounded-xl text-xs font-bold border transition-transform duration-100 flex items-center justify-center ${seatClasses}`}
+                                  >
+                                    {seat.seat.seatLabel}
+                                  </button>
+                                );
+                              })}
+                              <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
+                                {row}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Legend (Bottom) */}
+                <div className="flex flex-wrap gap-3 sm:gap-4 justify-center mt-5 pt-3.5 border-t border-zinc-200 dark:border-zinc-800/80 w-full text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 bg-emerald-600 rounded-md border border-emerald-500/50" />
+                    <span>{t("cashier.available")}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 bg-indigo-600 rounded-md ring-2 ring-indigo-400/50 border border-indigo-400" />
+                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">{t("cashier.selected")}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 bg-amber-500 rounded-md border border-amber-400/60" />
+                    <span>{t("cashier.hold")}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 bg-rose-200 dark:bg-rose-950/80 rounded-md border border-rose-300 dark:border-rose-900" />
+                    <span>{t("cashier.soldPos") || "Terjual (Kasir)"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 bg-sky-200 dark:bg-sky-950/80 rounded-md border border-sky-300 dark:border-sky-900" />
+                    <span>{t("cashier.soldOnline") || "Terjual (Online)"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded-md border border-zinc-300 dark:border-zinc-700" />
+                    <span>{t("cashier.disabled")}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -906,8 +1125,8 @@ export default function CashierWorkspace() {
         )}
       </div>
 
-      {/* RIGHT PANEL: BILLING & CHECKOUT */}
-      <div className="lg:col-span-4 p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-6">
+      {/* RIGHT PANEL: BILLING & CHECKOUT (Sticky on desktop) */}
+      <div className="xl:col-span-4 xl:sticky xl:top-6 p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-6 shadow-sm">
         <div className="border-b border-zinc-100 dark:border-zinc-800 pb-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>

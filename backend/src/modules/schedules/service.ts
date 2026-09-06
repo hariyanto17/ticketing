@@ -196,6 +196,25 @@ export const getScheduleSeats = async (scheduleId: string) => {
     },
   });
 
+  const seatInclude = {
+    seat: true,
+    ticket: {
+      select: {
+        id: true,
+        ticketNumber: true,
+        order: {
+          select: {
+            id: true,
+            channel: true,
+            orderNumber: true,
+            bookingNumber: true,
+            cashierId: true,
+          },
+        },
+      },
+    },
+  };
+
   // Get all seats in the studio
   const studioSeats = await prisma.seat.findMany({
     where: { studioId: schedule.studioId },
@@ -204,7 +223,7 @@ export const getScheduleSeats = async (scheduleId: string) => {
   // Get current showtime seat allocations
   let showtimeSeats = await prisma.showtimeSeat.findMany({
     where: { showtimeId: scheduleId },
-    include: { seat: true },
+    include: seatInclude,
   });
 
   // If showtimeSeats are missing (lazy creation), initialize them
@@ -223,13 +242,34 @@ export const getScheduleSeats = async (scheduleId: string) => {
 
       showtimeSeats = await prisma.showtimeSeat.findMany({
         where: { showtimeId: scheduleId },
-        include: { seat: true },
+        include: seatInclude,
       });
     }
   }
 
+  const mappedSeats = showtimeSeats.map((s: any) => {
+    let salesChannel: string | null = null;
+    if (s.status === "SOLD") {
+      const orderChannel = s.ticket?.order?.channel;
+      if (orderChannel === "ONLINE" || orderChannel === "MOBILE" || Boolean(s.ticket?.order?.bookingNumber)) {
+        salesChannel = "ONLINE";
+      } else if (orderChannel === "POS" || Boolean(s.ticket?.order?.cashierId)) {
+        salesChannel = "POS";
+      } else if (orderChannel) {
+        salesChannel = orderChannel;
+      } else {
+        salesChannel = "POS";
+      }
+    }
+
+    return {
+      ...s,
+      salesChannel,
+    };
+  });
+
   // Sort seats row-column order for consistent display
-  return showtimeSeats.sort((a, b) => {
+  return mappedSeats.sort((a: any, b: any) => {
     if (a.seat.row !== b.seat.row) {
       return a.seat.row.localeCompare(b.seat.row);
     }

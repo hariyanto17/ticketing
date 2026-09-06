@@ -16,16 +16,21 @@ export class TicketRenderer {
     const width = options.paperWidth === 58 ? 32 : 42;
     const parts: Buffer[] = [Buffer.from([ESC, 0x40, GS, 0x4c, LEFT_MARGIN_DOTS, 0x00, ESC, 0x61, 0x00])];
 
-    // Header: PLANET CINEMA (Hardware Center-aligned, Double size, Bold)
-    parts.push(Buffer.from([ESC, 0x61, 0x01, ESC, 0x45, 0x01, GS, 0x21, 0x11]));
+    // Header: PLANET CINEMA with top and bottom lines (Hardware Center-aligned, Bold, normal size)
+    parts.push(this.renderLine("-".repeat(width - LEFT_MARGIN_COLUMNS), width));
+    parts.push(Buffer.from([ESC, 0x61, 0x01, ESC, 0x45, 0x01]));
     parts.push(Buffer.from("PLANET CINEMA\n", "utf8"));
-    parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00, ESC, 0x61, 0x00]));
+    parts.push(Buffer.from([ESC, 0x45, 0x00, ESC, 0x61, 0x00]));
+    parts.push(this.renderLine("-".repeat(width - LEFT_MARGIN_COLUMNS), width));
 
-    // Movie Title below PLANET CINEMA (Left-aligned)
+    // Jarak antara PLANET CINEMA dan judul film
+    parts.push(this.renderLine("", width));
+
+    // Movie Title below PLANET CINEMA (Left-aligned, Double size & Bold)
     if (payload.movie) {
-      parts.push(Buffer.from([ESC, 0x45, 0x01]));
+      parts.push(Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]));
       parts.push(this.renderLine(payload.movie, width));
-      parts.push(Buffer.from([ESC, 0x45, 0x00]));
+      parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]));
     }
 
     for (const line of this.renderLines(payload, width)) {

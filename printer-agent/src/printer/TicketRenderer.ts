@@ -26,11 +26,13 @@ export class TicketRenderer {
     // Jarak antara PLANET CINEMA dan judul film
     parts.push(this.renderLine("", width));
 
-    // Movie Title below PLANET CINEMA (Left-aligned, Double size & Bold)
+    // Movie Title below PLANET CINEMA (Left-aligned, Double Height & Bold)
     if (payload.movie) {
-      parts.push(Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]));
+      parts.push(Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x01]));
       parts.push(this.renderLine(payload.movie, width));
       parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]));
+      // Jarak antara judul dan tanggal tayang
+      parts.push(this.renderLine("", width));
     }
 
     for (const line of this.renderLines(payload, width)) {

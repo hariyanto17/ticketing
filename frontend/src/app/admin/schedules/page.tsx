@@ -88,7 +88,7 @@ export default function SchedulesManagement() {
       movieId: "",
       studioId: "",
       startTime: new Date().toISOString().substring(0, 16),
-      ticketPrice: 50000,
+      ticketPrice: 45000,
       status: "DRAFT",
     });
     setIsFormOpen(true);

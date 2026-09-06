@@ -22,6 +22,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (savedTheme) {
         setThemeState(savedTheme);
       }
+
+      const handleStorage = (e: StorageEvent) => {
+        if (e.key === "theme" && e.newValue) {
+          setThemeState(e.newValue as Theme);
+        }
+      };
+
+      window.addEventListener("storage", handleStorage);
+      return () => window.removeEventListener("storage", handleStorage);
     }
   }, []);
 

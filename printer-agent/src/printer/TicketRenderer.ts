@@ -16,15 +16,37 @@ export class TicketRenderer {
     const width = options.paperWidth === 58 ? 32 : 42;
     const parts: Buffer[] = [Buffer.from([ESC, 0x40, GS, 0x4c, LEFT_MARGIN_DOTS, 0x00, ESC, 0x61, 0x00])];
 
+    // Header: PLANET CINEMA (Double size, bold, centered)
     parts.push(Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]));
-    parts.push(this.renderLine(payload.movie || "PLANET CINEMA", width, true));
+    parts.push(this.renderLine("PLANET CINEMA", width, true));
     parts.push(Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]));
+
+    // Movie Title below PLANET CINEMA (Left-aligned)
+    if (payload.movie) {
+      parts.push(Buffer.from([ESC, 0x45, 0x01]));
+      parts.push(this.renderLine(payload.movie, width, false));
+      parts.push(Buffer.from([ESC, 0x45, 0x00]));
+    }
 
     for (const line of this.renderLines(payload, width)) {
       parts.push(this.renderLine(line, width));
     }
+    parts.push(this.renderLine("", width));
 
+    // Row, Seat, and Studio line with large bold values
+    parts.push(this.renderSeatInfo(payload));
+
+    // Tear-off divider line
     parts.push(this.renderLine("-".repeat(width - LEFT_MARGIN_COLUMNS), width));
+
+    // Stub section for gate (normal weight)
+    if (payload.movie) {
+      parts.push(this.renderLine(payload.movie, width, false));
+    }
+
+    for (const line of this.renderLines(payload, width)) {
+      parts.push(this.renderLine(line, width));
+    }
 
     parts.push(Buffer.from([ESC, 0x45, 0x00, ESC, 0x64, 0x03, LF]));
     if (options.autoCut) {
@@ -44,9 +66,31 @@ export class TicketRenderer {
       `tanggal tayang : ${formatDate(payload.showDate)}`,
       `jam tayang : ${payload.showTime || "-"}`,
       `harga : Rp ${formattedPrice}`,
-      "",
-      `row: ${payload.row || payload.seat?.charAt(0) || "-"} seat ${payload.seatNumber ?? (payload.seat?.slice(1) || "-")} studio ${payload.studio || "-"}`,
     ];
+  }
+
+  private renderSeatInfo(payload: TicketPrintPayload): Buffer {
+    const rowVal = String(payload.row || payload.seat?.charAt(0) || "-");
+    const seatVal = String(payload.seatNumber ?? (payload.seat?.slice(1) || "-"));
+    const studioVal = String(payload.studio?.split(" ").pop() || payload.studio || "-");
+
+    const parts: Buffer[] = [
+      Buffer.from(" ".repeat(LEFT_MARGIN_COLUMNS), "utf8"),
+      Buffer.from("row: ", "utf8"),
+      Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]), // Bold + Double Width & Double Height
+      Buffer.from(rowVal, "utf8"),
+      Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]), // Normal font
+      Buffer.from(" seat ", "utf8"),
+      Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]), // Bold + Double Width & Double Height
+      Buffer.from(seatVal, "utf8"),
+      Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]), // Normal font
+      Buffer.from(" studio ", "utf8"),
+      Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]), // Bold + Double Width & Double Height
+      Buffer.from(studioVal, "utf8"),
+      Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00, LF]), // Normal font + Line Feed
+    ];
+
+    return Buffer.concat(parts);
   }
 
   private renderLine(line: string, width: number, centered = false): Buffer {

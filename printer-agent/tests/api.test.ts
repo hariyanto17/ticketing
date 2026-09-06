@@ -23,7 +23,7 @@ test("printer agent API enforces auth and reports honest macOS capability", asyn
 
     const health = await request(app).get("/api/health").set("X-Printer-Agent-Device-Id", deviceId);
     assert.equal(health.status, 200);
-    assert.equal(health.body.platform, "darwin");
+    assert.equal(health.body.platform, process.platform);
     assert.equal(health.body.printerBackend, "unsupported");
     assert.equal(health.body.hardwarePrintingSupported, false);
 

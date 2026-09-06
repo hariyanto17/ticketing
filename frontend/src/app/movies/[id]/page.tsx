@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGetPublicMovieByIdQuery, useGetPublicSchedulesQuery } from "@/services/bookingApi";
 import { Spinner } from "@/components/ui/spinner";
-import { ArrowLeft, Clock, Film, Calendar, Building2, Languages, PlayCircle, Users, UserCheck, PenTool, Clapperboard, Truck } from "lucide-react";
+import { ArrowLeft, Clock, Film, Calendar, Building2, Languages, PlayCircle, Users, UserCheck, PenTool, Clapperboard } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import { formatDuration } from "@/lib/formatDuration";
@@ -173,15 +173,6 @@ export default function PublicMovieDetail() {
                 </div>
                 <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{movie.productionHouse?.name || t("movieDetail.unavailable")}</p>
               </div>
-
-              {movie.distributor?.name && (
-                <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    <Truck className="w-4 h-4 text-indigo-500" /> {t("movieDetail.distributor")}
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{movie.distributor.name}</p>
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-5 border-t border-zinc-200 dark:border-zinc-800 pt-5">

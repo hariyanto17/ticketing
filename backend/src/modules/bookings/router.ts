@@ -15,11 +15,30 @@ import * as scheduleService from "../schedules/service";
 import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
 
+import { getSettings } from "../settings/service";
+
 const router = Router();
 
 // ====================
 // PUBLIC GUEST ROUTES
 // ====================
+
+// 0. Public Booking Configuration (Service fee, Currency, etc.)
+router.get(
+  "/config",
+  catchAsync(async (req, res) => {
+    const settings = await getSettings();
+    return responseHandler.ok(
+      res,
+      {
+        onlineServiceFee: Number(settings.onlineServiceFee || 4000),
+        currency: settings.currency || "IDR",
+        cinemaName: settings.cinemaName || "Planet Cinema",
+      },
+      "Public booking configuration loaded successfully"
+    );
+  })
+);
 
 // 1. Movie Listings (Dedicated endpoints for Now Showing & Coming Soon)
 router.get("/movies", catchAsync(getMoviesController));

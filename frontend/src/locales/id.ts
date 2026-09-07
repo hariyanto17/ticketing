@@ -165,6 +165,7 @@ export default {
     operationalBusinessDate: "Tanggal Bisnis Operasional",
     currencySymbol: "Simbol Mata Uang",
     taxPercentage: "Persentase Pajak (%)",
+    onlineServiceFee: "Biaya Layanan Online (Rp)",
     applyTaxes: "Terapkan Pajak pada Checkout Invoice Tiket",
     saveSuccess: "Pengaturan berhasil disimpan!",
     saveFailed: "Gagal menyimpan pengaturan",

@@ -184,7 +184,9 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
   }
 
   const settings = await getSettings();
-  const onlineServiceFee = Number(settings.onlineServiceFee || 4000);
+  const channel = input.channel?.toUpperCase() || "KASIR";
+  const isMobile = channel === "MOBILE";
+  const onlineServiceFee = isMobile ? Number(settings.onlineServiceFee || 4000) : 0;
   const totalAmount = showtimeSeats.length * schedule.ticketPrice + onlineServiceFee;
   const reservedUntil = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes hold for online booking
 
@@ -229,7 +231,7 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
         bookingNumber,
         scheduleId: input.scheduleId,
         branchId: schedule.studio.branchId,
-        channel: "ONLINE",
+        channel: isMobile ? "MOBILE" : (input.channel?.toUpperCase() || "KASIR"),
         totalAmount,
         paymentMethod: "QRIS",
         paymentStatus: "PENDING",

@@ -6,6 +6,7 @@ export const createBookingSchema = z.object({
   customerName: z.string().min(1, "Name is required"),
   customerPhone: z.string().min(1, "Phone number is required"),
   customerEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
+  channel: z.string().optional(),
 });
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;

@@ -38,6 +38,53 @@ export const verifyMidtransSignature = (
   return payload.signature_key === expectedSignature;
 };
 
+export const buildMidtransItemDetails = (order: {
+  tickets: Array<{
+    id: string;
+    showtimeSeat: { seat: { seatLabel: string } };
+  }>;
+  schedule: {
+    ticketPrice: number;
+    movie: { title: string };
+  };
+  totalAmount: number;
+}) => {
+  const itemDetails: Array<{
+    id: string;
+    price: number;
+    quantity: number;
+    name: string;
+  }> = order.tickets.map((t) => ({
+    id: t.id.substring(0, 50),
+    price: Math.round(order.schedule.ticketPrice),
+    quantity: 1,
+    name: `${order.schedule.movie.title.substring(0, 35)} (Seat ${t.showtimeSeat.seat.seatLabel})`.substring(0, 50),
+  }));
+
+  const ticketPriceRounded = Math.round(order.schedule.ticketPrice);
+  const ticketSubtotal = ticketPriceRounded * order.tickets.length;
+  const grossAmount = Math.round(order.totalAmount);
+  const difference = grossAmount - ticketSubtotal;
+
+  if (difference > 0) {
+    itemDetails.push({
+      id: "SERVICE-FEE",
+      price: difference,
+      quantity: 1,
+      name: "Biaya Layanan Online",
+    });
+  } else if (difference < 0) {
+    itemDetails.push({
+      id: "DISCOUNT",
+      price: difference,
+      quantity: 1,
+      name: "Diskon / Penyesuaian",
+    });
+  }
+
+  return itemDetails;
+};
+
 export const createQrisCharge = async (orderId: string) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -108,23 +155,7 @@ export const createQrisCharge = async (orderId: string) => {
   }
 
   // Construct Midtrans Core API QRIS Payload
-  const itemDetails: any[] = order.tickets.map((t) => ({
-    id: t.id,
-    price: Math.round(order.schedule.ticketPrice),
-    quantity: 1,
-    name: `${order.schedule.movie.title.substring(0, 30)} (Seat ${t.showtimeSeat.seat.seatLabel})`,
-  }));
-
-  const ticketSubtotal = order.tickets.length * order.schedule.ticketPrice;
-  const serviceFee = Math.round(order.totalAmount - ticketSubtotal);
-  if (serviceFee > 0) {
-    itemDetails.push({
-      id: "SERVICE-FEE",
-      price: serviceFee,
-      quantity: 1,
-      name: "Biaya Layanan Online",
-    });
-  }
+  const itemDetails = buildMidtransItemDetails(order);
 
   const qrisPayload = {
     payment_type: "qris",
@@ -291,12 +322,7 @@ export const createSnapTransaction = async (orderId: string) => {
   }
 
   // Construct Midtrans Snap Payload
-  const itemDetails = order.tickets.map((t) => ({
-    id: t.id,
-    price: Math.round(order.schedule.ticketPrice),
-    quantity: 1,
-    name: `${order.schedule.movie.title.substring(0, 30)} (Seat ${t.showtimeSeat.seat.seatLabel})`,
-  }));
+  const itemDetails = buildMidtransItemDetails(order);
 
   const snapPayload = {
     transaction_details: {

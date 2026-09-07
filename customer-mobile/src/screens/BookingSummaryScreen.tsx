@@ -89,6 +89,7 @@ export const BookingSummaryScreen: React.FC = () => {
         customerName: customerInfo.name.trim(),
         customerPhone: customerInfo.phone.trim(),
         customerEmail: customerInfo.email.trim() || undefined,
+        channel: "MOBILE",
       }).unwrap();
 
       const orderId = bookingRes.order.id;

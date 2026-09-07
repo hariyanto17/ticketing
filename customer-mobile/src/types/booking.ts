@@ -50,6 +50,7 @@ export interface CreateBookingRequest {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  channel?: string;
 }
 
 export interface CreateBookingResponse {

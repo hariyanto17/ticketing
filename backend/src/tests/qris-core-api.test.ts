@@ -92,6 +92,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
 
   let testOrderId = "";
   let testOrderNumber = "";
+  let testOrderAmount = 0;
 
   await t.test("1. Create Online Guest Booking in PENDING state", async () => {
     const booking = await bookingService.createGuestBooking({
@@ -110,6 +111,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
 
     testOrderId = booking.order.id;
     testOrderNumber = booking.order.orderNumber;
+    testOrderAmount = booking.order.totalAmount;
   });
 
   await t.test("2. Generate Direct Midtrans Core API QRIS charge", async () => {
@@ -118,7 +120,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
     assert.strictEqual(qrisRes.orderId, testOrderId);
     assert.strictEqual(qrisRes.orderNumber, testOrderNumber);
     assert.strictEqual(qrisRes.status, "PENDING");
-    assert.strictEqual(qrisRes.amount, 50000);
+    assert.strictEqual(qrisRes.amount, testOrderAmount);
     assert.ok(qrisRes.qrUrl || qrisRes.qrString, "QR URL or QR String must be present");
     assert.ok(qrisRes.expiredAt, "Expiration timestamp must be present");
 
@@ -206,7 +208,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
 
   await t.test("6. Webhook Settlement: Confirm Payment, Order, Tickets, and Seats", async () => {
     const statusCode = "200";
-    const grossAmount = "50000.00";
+    const grossAmount = `${Math.round(testOrderAmount)}.00`;
     const signature = midtransService.generateMidtransSignature(
       testOrderNumber,
       statusCode,
@@ -257,7 +259,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
 
   await t.test("7. Webhook Idempotency: Duplicate settlement notification", async () => {
     const statusCode = "200";
-    const grossAmount = "50000.00";
+    const grossAmount = `${Math.round(testOrderAmount)}.00`;
     const signature = midtransService.generateMidtransSignature(
       testOrderNumber,
       statusCode,
@@ -285,7 +287,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
 
   await t.test("8. Out-of-order Webhook: Stale pending cannot downgrade PAID order", async () => {
     const statusCode = "201";
-    const grossAmount = "50000.00";
+    const grossAmount = `${Math.round(testOrderAmount)}.00`;
     const signature = midtransService.generateMidtransSignature(
       testOrderNumber,
       statusCode,
@@ -331,7 +333,7 @@ test("Phase 8B.1: Midtrans Direct QRIS Core API & Webhook Lifecycle", async (t) 
 
     // Send 'expire' webhook
     const statusCode = "200";
-    const grossAmount = "50000.00";
+    const grossAmount = `${Math.round(booking2.order.totalAmount)}.00`;
     const signature = midtransService.generateMidtransSignature(
       orderNum2,
       statusCode,

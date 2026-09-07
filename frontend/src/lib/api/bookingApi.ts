@@ -53,7 +53,7 @@ export const bookingApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Seat"],
     }),
-    createBooking: builder.mutation<BookingResponse, { scheduleId: string; seatIds: string[]; customerName: string; customerPhone: string; customerEmail?: string }>({
+    createBooking: builder.mutation<BookingResponse, { scheduleId: string; seatIds: string[]; customerName: string; customerPhone: string; customerEmail?: string; channel?: string }>({
       query: (body) => ({
         url: "/bookings",
         method: "POST",
@@ -64,6 +64,11 @@ export const bookingApi = api.injectEndpoints({
     }),
     lookupBooking: builder.query<Order[], string>({
       query: (queryVal) => `/bookings/lookup?query=${queryVal}`,
+      transformResponse: (response: any) => response.data,
+    }),
+
+    getPublicConfig: builder.query<{ onlineServiceFee: number; currency: string; cinemaName: string }, void>({
+      query: () => "/bookings/config",
       transformResponse: (response: any) => response.data,
     }),
 
@@ -93,6 +98,7 @@ export const bookingApi = api.injectEndpoints({
 });
 
 export const {
+  useGetPublicConfigQuery,
   useGetPublicMoviesQuery,
   useGetPublicMovieByIdQuery,
   useGetPublicSchedulesQuery,

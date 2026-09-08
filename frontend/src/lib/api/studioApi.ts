@@ -154,6 +154,17 @@ export const studioApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Schedule"],
     }),
+    copySchedules: builder.mutation<
+      ApiResponse<CopySchedulesResult>,
+      { sourceDate?: string; targetDate?: string; status?: "DRAFT" | "PUBLISHED" | "CLOSED" } | void
+    >({
+      query: (body) => ({
+        url: "/schedules/copy-yesterday",
+        method: "POST",
+        body: body || {},
+      }),
+      invalidatesTags: ["Schedule"],
+    }),
 
     // Schedule seat status and hold actions
     getScheduleSeats: builder.query<ApiResponse<ShowtimeSeat[]>, string>({
@@ -207,6 +218,17 @@ export interface ShowtimeSeat {
   };
 }
 
+export interface CopySchedulesResult {
+  sourceDate: string;
+  targetDate: string;
+  totalFound: number;
+  created: number;
+  skipped: number;
+  createdSchedules: Schedule[];
+  skippedReasons: { scheduleId: string; movieTitle: string; studioName: string; reason: string }[];
+  message: string;
+}
+
 export const {
   useGetStudiosQuery,
   useGetStudioByIdQuery,
@@ -223,6 +245,7 @@ export const {
   useCreateScheduleMutation,
   useUpdateScheduleMutation,
   useDeleteScheduleMutation,
+  useCopySchedulesMutation,
   useGetScheduleSeatsQuery,
   useHoldSeatsMutation,
   useReleaseSeatsMutation,

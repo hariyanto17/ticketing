@@ -116,10 +116,10 @@ export const createQrisCharge = async (orderId: string) => {
     );
   }
 
-  // Check if booking has expired (2 minutes from creation)
+  // Check if booking has expired (10 minutes from creation)
   const now = new Date();
-  const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
-  if (order.createdAt < twoMinutesAgo) {
+  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+  if (order.createdAt < tenMinutesAgo) {
     throw new AppError("BAD_REQUEST", "Booking time has expired. Please re-select your seats.");
   }
 
@@ -140,7 +140,7 @@ export const createQrisCharge = async (orderId: string) => {
     const expiredAt =
       existingQrisPayment.expiredAt && new Date(existingQrisPayment.expiredAt) > now
         ? new Date(existingQrisPayment.expiredAt)
-        : new Date(order.createdAt.getTime() + 2 * 60 * 1000);
+        : new Date(order.createdAt.getTime() + 10 * 60 * 1000);
 
     return {
       orderId: order.id,
@@ -173,7 +173,7 @@ export const createQrisCharge = async (orderId: string) => {
       ...(order.customerEmail && { email: order.customerEmail }),
     },
     custom_expiry: {
-      expiry_duration: 2,
+      expiry_duration: 10,
       unit: "minute",
     },
   };
@@ -184,7 +184,7 @@ export const createQrisCharge = async (orderId: string) => {
   let qrUrl = "";
   let qrString = "";
   let rawMidtransResponse: any = null;
-  let expiredAt = new Date(Date.now() + 2 * 60 * 1000);
+  let expiredAt = new Date(Date.now() + 10 * 60 * 1000);
 
   try {
     const response = await fetch(`${MIDTRANS_API_BASE_URL}/charge`, {
@@ -337,7 +337,7 @@ export const createSnapTransaction = async (orderId: string) => {
     },
     expiry: {
       unit: "minutes",
-      duration: 2,
+      duration: 10,
     },
   };
 
@@ -399,7 +399,7 @@ export const createSnapTransaction = async (orderId: string) => {
         redirectUrl,
         paymentType: "MIDTRANS_SNAP",
         providerOrderId: order.orderNumber,
-        expiredAt: new Date(Date.now() + 2 * 60 * 1000),
+        expiredAt: new Date(Date.now() + 10 * 60 * 1000),
       },
     });
   }
@@ -528,3 +528,78 @@ export const handleMidtransNotification = async (payload: MidtransNotificationIn
     orderId: order.id,
   };
 };
+
+export const syncMidtransStatus = async (orderId: string) => {
+  let order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      payments: true,
+      tickets: {
+        include: {
+          showtimeSeat: {
+            include: { seat: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!order) throw new AppError("NOT_FOUND", "Order not found");
+
+  if (order.orderStatus === "PAID") {
+    return order;
+  }
+
+  // Attempt to query Midtrans Status API
+  const authHeader = `Basic ${Buffer.from(MIDTRANS_SERVER_KEY + ":").toString("base64")}`;
+  try {
+    const response = await fetch(`${MIDTRANS_API_BASE_URL}/${order.orderNumber}/status`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: authHeader,
+      },
+    });
+
+    if (response.ok) {
+      const data: any = await response.json();
+      const status = data.transaction_status?.toLowerCase();
+      const fraudStatus = data.fraud_status?.toLowerCase();
+
+      if (status === "settlement" || (status === "capture" && fraudStatus === "accept")) {
+        if (order.orderStatus !== "PAID") {
+          await confirmBookingPayment(order.id, {
+            provider: "MIDTRANS",
+            paymentType: data.payment_type || "qris",
+            providerTransactionId: data.transaction_id,
+            rawResponse: data,
+          });
+        }
+      } else if (["expire", "cancel", "deny"].includes(status)) {
+        if (order.orderStatus === "PENDING") {
+          await cancelBooking(order.id);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error(`[Midtrans] Error syncing status for order ${order.orderNumber}:`, err?.message || err);
+  }
+
+  // Re-fetch latest updated order
+  order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      payments: true,
+      tickets: {
+        include: {
+          showtimeSeat: {
+            include: { seat: true },
+          },
+        },
+      },
+    },
+  });
+
+  return order!;
+};
+

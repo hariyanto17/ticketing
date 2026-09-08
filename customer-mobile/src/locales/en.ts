@@ -126,7 +126,7 @@ export default {
     openMidtransPrompt: "Opening Midtrans Payment Gateway...",
     cancelPayment: "Cancel Payment",
     timeExpired: "Payment Time Expired",
-    timeExpiredSub: "The 2-minute seat reservation limit has expired. Seats have been released to the public.",
+    timeExpiredSub: "The 10-minute seat reservation limit has expired. Seats have been released to the public.",
     reselectSchedule: "Reselect Schedule",
     timeOutBadge: "Expired",
     validTimeBadge: "Valid for:",

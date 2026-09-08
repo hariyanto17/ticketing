@@ -199,7 +199,7 @@ export default function CashierDashboardView() {
               Tanggal Operasional
             </span>
             <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {settingsLoading ? <Spinner className="w-5 h-5" /> : formatDate(businessDate, { dateStyle: "medium" })}
+              {settingsLoading ? <Spinner className="w-5 h-5" /> : formatDate(businessDate)}
             </div>
             <p className="text-xs text-zinc-400">Zona Waktu: {settings?.timezone || "UTC"}</p>
           </div>

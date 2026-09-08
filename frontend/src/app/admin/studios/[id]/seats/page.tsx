@@ -32,11 +32,16 @@ const getRowLabel = (index: number): string => {
 export default function SeatLayoutEditor() {
   const params = useParams();
   const router = useRouter();
-  const studioId = params.id as string;
+  const rawId = params?.id;
+  const studioId = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
   const { success: toastSuccess, error: toastError } = useToast();
 
-  const { data: studioResponse, isLoading: studioLoading } = useGetStudioByIdQuery(studioId);
-  const { data: seatsResponse, isLoading: seatsLoading } = useGetSeatsQuery(studioId);
+  const { data: studioResponse, isLoading: studioLoading } = useGetStudioByIdQuery(studioId, {
+    skip: !studioId,
+  });
+  const { data: seatsResponse, isLoading: seatsLoading } = useGetSeatsQuery(studioId, {
+    skip: !studioId,
+  });
   const [saveLayout, { isLoading: isSaving }] = useSaveLayoutMutation();
   const [updateStudio] = useUpdateStudioMutation();
   const [validateRemoval] = useLazyValidateRemovalQuery();

@@ -47,6 +47,8 @@ export const api = createApi({
     "DailyClosing",
     "Setting",
     "Report",
+    "Payment",
+    "Order",
   ],
   endpoints: () => ({}),
 });

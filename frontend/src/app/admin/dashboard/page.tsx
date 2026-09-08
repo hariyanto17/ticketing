@@ -29,7 +29,7 @@ export default function DashboardHome() {
   const stats = [
     {
       title: t("dashboard.currentBusinessDate"),
-      value: settingsLoading ? <Spinner className="w-5 h-5" /> : formatDate(businessDate, { dateStyle: "medium" }),
+      value: settingsLoading ? <Spinner className="w-5 h-5" /> : formatDate(businessDate),
       desc: `${t("dashboard.operationsCalendar")}: ${settings?.timezone || "UTC"}`,
       icon: <Calendar className="w-6 h-6 text-purple-500" />,
     },

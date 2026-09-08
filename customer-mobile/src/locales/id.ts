@@ -126,7 +126,7 @@ export default {
     openMidtransPrompt: "Membuka gerbang pembayaran Midtrans...",
     cancelPayment: "Batalkan Pembayaran",
     timeExpired: "Waktu Pembayaran Telah Habis",
-    timeExpiredSub: "Batas waktu 2 menit untuk reservasi kursi telah kedaluwarsa. Kursi telah dilepas ke publik.",
+    timeExpiredSub: "Batas waktu 10 menit untuk reservasi kursi telah kedaluwarsa. Kursi telah dilepas ke publik.",
     reselectSchedule: "Pilih Jadwal Ulang",
     timeOutBadge: "Waktu Habis",
     validTimeBadge: "Berlaku:",

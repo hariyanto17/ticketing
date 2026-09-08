@@ -6,7 +6,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { ArrowLeft, Search, Ticket, Calendar, QrCode, Printer, HelpCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, formatDateTimeDMY } from "@/lib/i18n";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 
 export default function BookingLookup() {
   const router = useRouter();
@@ -31,13 +33,17 @@ export default function BookingLookup() {
             </button>
             <span className="font-bold text-zinc-850 dark:text-zinc-200">{t("booking.lookupTitle")}</span>
           </div>
-          <Link href="/" className="flex items-center">
-            <img
-              src="/PLANET-CINEMA-LOGO-2-COLOR.png"
-              alt="Planet Cinema"
-              className="h-7 w-auto object-contain"
-            />
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <LanguageToggle />
+            <ThemeToggle />
+            <Link href="/" className="flex items-center pl-1">
+              <img
+                src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+                alt="Planet Cinema"
+                className="h-7 w-auto object-contain"
+              />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -101,7 +107,7 @@ export default function BookingLookup() {
                     <div>
                       <span className="text-zinc-400 block mb-0.5">{t("booking.showtimeStudio")}</span>
                       <span className="font-bold text-zinc-900 dark:text-zinc-50">
-                        {order.schedule && formatDate(order.schedule.startTime, { dateStyle: "medium", timeStyle: "short" })} ({order.schedule?.studio?.code})
+                        {order.schedule && formatDateTimeDMY(order.schedule.startTime)} ({order.schedule?.studio?.code})
                       </span>
                     </div>
                     <div>

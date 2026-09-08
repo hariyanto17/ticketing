@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Calendar, DollarSign, Ticket, ShieldAlert, Sparkles, UserCheck } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, formatDateTimeDMY } from "@/lib/i18n";
 
 import { ConfirmationDialog } from "@/components/ui/dialogs";
 
@@ -225,12 +225,12 @@ export default function DailyClosingPage() {
                     className="p-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl space-y-2 text-xs"
                   >
                     <div className="flex justify-between font-bold text-zinc-900 dark:text-zinc-50">
-                      <span>{formatDate(h.businessDate, { dateStyle: "medium" })}</span>
+                      <span>{formatDate(h.businessDate)}</span>
                       <span className="text-indigo-600">{formatCurrency(h.totalRevenue)}</span>
                     </div>
                     <div className="text-[10px] text-zinc-400 space-y-1">
                       <div>{t("closing.auditedBy")}: {h.closedBy?.name || "System"}</div>
-                      <div>{t("closing.closedAt")}: {formatDate(h.closedAt, { dateStyle: "short", timeStyle: "short" })}</div>
+                      <div>{t("closing.closedAt")}: {formatDateTimeDMY(h.closedAt)}</div>
                     </div>
                   </div>
                 ))}

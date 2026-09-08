@@ -13,7 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Modal } from "@/components/ui/modal";
 import { Check, X, Printer, Search, Info, AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, formatDateTimeDMY } from "@/lib/i18n";
 
 export default function AdminBookingsPage() {
   const { t, formatDate, formatCurrency } = useTranslation();
@@ -156,7 +156,7 @@ export default function AdminBookingsPage() {
             <div className="flex justify-between items-start border-b border-zinc-100 dark:border-zinc-800 pb-4">
               <div>
                 <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{selectedBooking.bookingNumber}</h3>
-                <p className="text-xs text-zinc-400 mt-0.5">{formatDate(selectedBooking.createdAt, { dateStyle: "medium", timeStyle: "short" })}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{formatDateTimeDMY(selectedBooking.createdAt)}</p>
               </div>
 
               {selectedBooking.orderStatus === "PENDING" && (

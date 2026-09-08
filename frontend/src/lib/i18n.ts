@@ -8,7 +8,7 @@ const STORAGE_KEY = "language";
 interface LanguageContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: string, fallback?: string) => string;
+  t: (key: string, paramsOrFallback?: Record<string, any> | string, fallback?: string) => string;
   formatDate: (value: string | Date, options?: Intl.DateTimeFormatOptions) => string;
   formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
   formatCurrency: (value: number, options?: Intl.NumberFormatOptions) => string;
@@ -60,14 +60,27 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const t = (key: string, fallback?: string) => {
+  const t = (key: string, paramsOrFallback?: Record<string, any> | string, fallback?: string) => {
     const dictionary = locales[locale] as TranslationDictionary;
-    const value = getNestedValue(dictionary as any, key) ?? fallback ?? key;
+    let value = getNestedValue(dictionary as any, key);
+    if (!value) {
+      if (typeof paramsOrFallback === "string") return paramsOrFallback;
+      return fallback ?? key;
+    }
+    if (paramsOrFallback && typeof paramsOrFallback === "object") {
+      Object.entries(paramsOrFallback).forEach(([k, v]) => {
+        value = (value as string).replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      });
+    }
     return value;
   };
 
   const formatDate = (value: string | Date, options?: Intl.DateTimeFormatOptions) => {
     const dateValue = value instanceof Date ? value : new Date(value);
+    if (isNaN(dateValue.getTime())) return String(value);
+    if (!options) {
+      return formatDateDMY(dateValue);
+    }
     return new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-US", options).format(dateValue);
   };
 
@@ -98,6 +111,28 @@ export function useTranslation() {
     throw new Error("useTranslation must be used within a LanguageProvider");
   }
   return context;
+}
+
+export function formatDateDMY(value: string | Date | null | undefined): string {
+  if (!value) return "-";
+  const dateValue = value instanceof Date ? value : new Date(value);
+  if (isNaN(dateValue.getTime())) return String(value);
+  const day = String(dateValue.getDate()).padStart(2, "0");
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const year = dateValue.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+export function formatDateTimeDMY(value: string | Date | null | undefined): string {
+  if (!value) return "-";
+  const dateValue = value instanceof Date ? value : new Date(value);
+  if (isNaN(dateValue.getTime())) return String(value);
+  const day = String(dateValue.getDate()).padStart(2, "0");
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const year = dateValue.getFullYear();
+  const hours = String(dateValue.getHours()).padStart(2, "0");
+  const minutes = String(dateValue.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 export { localeOptions, defaultLocale, type Locale };

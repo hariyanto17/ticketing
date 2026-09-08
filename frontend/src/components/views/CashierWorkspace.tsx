@@ -823,7 +823,7 @@ export default function CashierWorkspace() {
                       Hari Ini
                     </span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                      {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
+                      {new Date().toLocaleDateString("id-ID", { weekday: "long" })}, {formatDate(new Date())}
                     </span>
                   </div>
 
@@ -873,7 +873,7 @@ export default function CashierWorkspace() {
                         {(() => {
                           const tmr = new Date();
                           tmr.setDate(tmr.getDate() + 1);
-                          return tmr.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+                          return `${tmr.toLocaleDateString("id-ID", { weekday: "long" })}, ${formatDate(tmr)}`;
                         })()}
                       </span>
                     </div>

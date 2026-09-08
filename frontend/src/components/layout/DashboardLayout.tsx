@@ -173,7 +173,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       const url = `/${paths.slice(0, idx + 1).join("/")}`;
       const isLast = idx === paths.length - 1;
       const formattedName = path.charAt(0).toUpperCase() + path.slice(1);
-      
+
       return (
         <React.Fragment key={url}>
           <span className="text-zinc-400">/</span>
@@ -193,15 +193,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-200 transition-colors duration-200">
       {/* Sidebar for Desktop */}
       <aside
-        className={`hidden md:flex flex-col bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 transition-all duration-300 ease-in-out shrink-0 ${
-          isSidebarCollapsed ? "w-20" : "w-64"
-        }`}
+        className={`hidden md:flex flex-col bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 transition-all duration-300 ease-in-out shrink-0 ${isSidebarCollapsed ? "w-20" : "w-64"
+          }`}
       >
         {/* Sidebar Brand Header */}
         <div
-          className={`h-16 flex items-center justify-between px-3.5 border-b border-indigo-700/40 bg-indigo-600 text-white font-bold tracking-wide select-none ${
-            isSidebarCollapsed ? "rounded-br-xl justify-center" : "rounded-br-2xl"
-          }`}
+          className={`h-16 flex items-center justify-between px-3.5 border-b border-indigo-700/40 text-white font-bold tracking-wide select-none ${isSidebarCollapsed ? "rounded-br-xl justify-center" : "rounded-br-2xl"
+            }`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <img
@@ -228,13 +226,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 py-3 rounded-xl text-sm font-medium transition-all ${
-                  isSidebarCollapsed ? "justify-center px-0" : "px-4"
-                } ${
-                  isActive
+                className={`flex items-center gap-3 py-3 rounded-xl text-sm font-medium transition-all ${isSidebarCollapsed ? "justify-center px-0" : "px-4"
+                  } ${isActive
                     ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-950 dark:hover:text-zinc-100"
-                }`}
+                  }`}
                 title={isSidebarCollapsed ? item.name : undefined}
               >
                 <span className="shrink-0">{item.icon}</span>
@@ -248,9 +244,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20">
           <button
             onClick={handleLogout}
-            className={`flex items-center gap-3 w-full py-3 text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors cursor-pointer ${
-              isSidebarCollapsed ? "justify-center px-0" : "px-4"
-            }`}
+            className={`flex items-center gap-3 w-full py-3 text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors cursor-pointer ${isSidebarCollapsed ? "justify-center px-0" : "px-4"
+              }`}
             title={isSidebarCollapsed ? t("common.signOut") : undefined}
           >
             <LogOut className="w-5 h-5 shrink-0" />
@@ -281,11 +276,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     key={item.name}
                     href={item.href}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      isActive
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${isActive
                         ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
                         : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-950 dark:hover:text-zinc-100"
-                    }`}
+                      }`}
                   >
                     {item.icon}
                     {item.name}
@@ -327,7 +321,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
             </button>
-            
+
             {/* Breadcrumbs */}
             <div className="hidden sm:flex items-center gap-2 text-sm text-zinc-500">
               <span className="font-medium text-zinc-600 dark:text-zinc-400">{t("common.cinema")}</span>

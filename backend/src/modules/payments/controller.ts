@@ -40,15 +40,11 @@ export const createSnapTransactionController = async (req: Request, res: Respons
 
 export const getPaymentStatusController = async (req: Request, res: Response) => {
   const { orderId } = req.params;
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: {
-      payments: true,
-      tickets: true,
-    },
-  });
+  if (!orderId) {
+    throw new AppError("BAD_REQUEST", "orderId is required");
+  }
 
-  if (!order) throw new AppError("NOT_FOUND", "Order not found");
+  const order = await midtransService.syncMidtransStatus(orderId);
 
   const latestPayment = order.payments[order.payments.length - 1];
   let qrUrl = "";
@@ -61,22 +57,22 @@ export const getPaymentStatusController = async (req: Request, res: Response) =>
     qrString = raw.qr_string || "";
   }
 
-    return responseHandler.ok(
-      res,
-      {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        orderStatus: order.orderStatus,
-        paymentStatus: order.paymentStatus,
-        payments: order.payments,
-        tickets: order.tickets,
-        qrUrl,
-        qrString,
-        expiredAt,
-      },
-      "Payment status retrieved"
-    );
-  };
+  return responseHandler.ok(
+    res,
+    {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      payments: order.payments,
+      tickets: order.tickets,
+      qrUrl,
+      qrString,
+      expiredAt,
+    },
+    "Payment status retrieved"
+  );
+};
   
   export const simulateQrisPaymentSuccessController = async (req: Request, res: Response) => {
     const { orderId } = req.params;

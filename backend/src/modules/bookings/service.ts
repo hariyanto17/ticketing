@@ -6,7 +6,7 @@ import { getSettings } from "../settings/service";
 
 export const cleanupExpiredBookings = async () => {
   const now = new Date();
-  const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
 
   // 1. Auto-release any expired HOLD seats whose reservedUntil has passed
   const expiredHeldSeats = await prisma.showtimeSeat.findMany({
@@ -37,12 +37,12 @@ export const cleanupExpiredBookings = async () => {
     }
   }
 
-  // 2. Find expired pending bookings older than 2 minutes
+  // 2. Find expired pending bookings older than 10 minutes
   const expiredOrders = await prisma.order.findMany({
     where: {
       orderStatus: "PENDING",
       createdAt: {
-        lt: twoMinutesAgo,
+        lt: tenMinutesAgo,
       },
     },
     include: {
@@ -184,11 +184,11 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
   }
 
   const settings = await getSettings();
-  const channel = input.channel?.toUpperCase() || "KASIR";
-  const isMobile = channel === "MOBILE";
-  const onlineServiceFee = isMobile ? Number(settings.onlineServiceFee || 4000) : 0;
+  const channel = input.channel?.toUpperCase() || "ONLINE";
+  const isOnline = channel === "MOBILE" || channel === "ONLINE" || channel === "GUEST";
+  const onlineServiceFee = isOnline ? Number(settings.onlineServiceFee || 4000) : 0;
   const totalAmount = showtimeSeats.length * schedule.ticketPrice + onlineServiceFee;
-  const reservedUntil = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes hold for online booking
+  const reservedUntil = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes hold for online booking
 
   return prisma.$transaction(async (tx) => {
     // Generate Serial Order Number
@@ -214,24 +214,24 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
           OR: [{ orderNumber }, { bookingNumber }],
         },
       });
-      if (existing) {
-        const nextEntropy = Math.random().toString(36).substring(2, 7).toUpperCase();
-        orderNumber = `ORD-${dateStr}-${serial}-${nextEntropy}`;
-        bookingNumber = `BOOK-${dateStr}-${serial}-${nextEntropy}`;
-        attempts++;
-      } else {
+      if (!existing) {
         isUnique = true;
+      } else {
+        const retryEntropy = Math.random().toString(36).substring(2, 7).toUpperCase();
+        orderNumber = `ORD-${dateStr}-${serial}-${retryEntropy}`;
+        bookingNumber = `BOOK-${dateStr}-${serial}-${retryEntropy}`;
+        attempts++;
       }
     }
 
-    // 1. Create Order in PENDING status
+    // 1. Create Order with PENDING status
     const order = await tx.order.create({
       data: {
         orderNumber,
         bookingNumber,
         scheduleId: input.scheduleId,
         branchId: schedule.studio.branchId,
-        channel: isMobile ? "MOBILE" : (input.channel?.toUpperCase() || "KASIR"),
+        channel,
         totalAmount,
         paymentMethod: "QRIS",
         paymentStatus: "PENDING",
@@ -342,10 +342,10 @@ export const confirmBookingPayment = async (
     return order;
   }
 
-  if (order.orderStatus !== "PENDING") {
+  if (order.orderStatus !== "PENDING" && order.orderStatus !== "CANCELLED") {
     throw new AppError(
       "BAD_REQUEST",
-      `Only PENDING bookings can have payment confirmed (current status: ${order.orderStatus})`
+      `Cannot confirm payment for order in ${order.orderStatus} status`
     );
   }
 
@@ -360,10 +360,10 @@ export const confirmBookingPayment = async (
     });
 
     // 2. Update or Create Payment record to PAID with paidAt timestamp
-    const existingPendingPayment = order.payments.find((p) => p.status === "PENDING");
-    if (existingPendingPayment) {
+    const latestPayment = order.payments[order.payments.length - 1];
+    if (latestPayment) {
       await tx.payment.update({
-        where: { id: existingPendingPayment.id },
+        where: { id: latestPayment.id },
         data: {
           status: "PAID",
           paidAt: new Date(),
@@ -392,11 +392,10 @@ export const confirmBookingPayment = async (
       });
     }
 
-    // 3. Activate Tickets (PENDING -> ACTIVE)
+    // 3. Activate Tickets (set to ACTIVE)
     await tx.ticket.updateMany({
       where: {
         orderId,
-        status: "PENDING",
       },
       data: {
         status: "ACTIVE",

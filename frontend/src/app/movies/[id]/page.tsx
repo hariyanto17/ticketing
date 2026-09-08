@@ -8,11 +8,14 @@ import { ArrowLeft, Clock, Film, Calendar, Building2, Languages, PlayCircle, Use
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import { formatDuration } from "@/lib/formatDuration";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 
 export default function PublicMovieDetail() {
   const params = useParams();
   const router = useRouter();
-  const movieId = params.id as string;
+  const rawId = params?.id;
+  const movieId = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
   const { t, locale, formatDate } = useTranslation();
 
   const todayStr = React.useMemo(() => {
@@ -23,12 +26,34 @@ export default function PublicMovieDetail() {
     return `${year}-${month}-${day}`;
   }, []);
 
-  const { data: movieResponse, isLoading: movieLoading } = useGetPublicMovieByIdQuery(movieId);
-  const { data: schedulesResponse, isLoading: schedulesLoading } = useGetPublicSchedulesQuery({ movieId, startDate: todayStr });
+  const { data: movieResponse, isLoading: movieLoading } = useGetPublicMovieByIdQuery(movieId, {
+    skip: !movieId,
+  });
+  const { data: schedulesResponse, isLoading: schedulesLoading } = useGetPublicSchedulesQuery(
+    { movieId, startDate: todayStr },
+    { skip: !movieId }
+  );
 
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  if (movieLoading || schedulesLoading) {
+  const schedules = schedulesResponse?.data || [];
+  const uniqueDates = React.useMemo(() => {
+    return Array.from(
+      new Set(
+        schedules
+          .map((s) => s.businessDate?.split("T")[0])
+          .filter((d): d is string => Boolean(d))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [schedules]);
+
+  useEffect(() => {
+    if (!selectedDate && uniqueDates.length > 0) {
+      setSelectedDate(uniqueDates[0]);
+    }
+  }, [selectedDate, uniqueDates]);
+
+  if (!movieId || movieLoading || schedulesLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <Spinner className="w-12 h-12" />
@@ -46,18 +71,7 @@ export default function PublicMovieDetail() {
     );
   }
 
-  // Extract and sort unique dates from schedules
-  const schedules = schedulesResponse?.data || [];
-  const uniqueDates = Array.from(new Set(schedules.map((s) => s.businessDate.split("T")[0])))
-    .sort((a, b) => a.localeCompare(b));
-
-  useEffect(() => {
-    if (!selectedDate && uniqueDates.length > 0) {
-      setSelectedDate(uniqueDates[0]);
-    }
-  }, [selectedDate, uniqueDates]);
-
-  const filteredSchedules = schedules.filter((s) => s.businessDate.split("T")[0] === selectedDate);
+  const filteredSchedules = schedules.filter((s) => s.businessDate?.split("T")[0] === selectedDate);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans pb-16">
@@ -70,13 +84,17 @@ export default function PublicMovieDetail() {
             </button>
             <span className="font-bold text-zinc-850 dark:text-zinc-200">{t("movieDetail.title")}</span>
           </div>
-          <Link href="/" className="flex items-center">
-            <img
-              src="/PLANET-CINEMA-LOGO-2-COLOR.png"
-              alt="Planet Cinema"
-              className="h-7 w-auto object-contain"
-            />
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <LanguageToggle />
+            <ThemeToggle />
+            <Link href="/" className="flex items-center pl-1">
+              <img
+                src="/PLANET-CINEMA-LOGO-2-COLOR.png"
+                alt="Planet Cinema"
+                className="h-7 w-auto object-contain"
+              />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -122,6 +140,24 @@ export default function PublicMovieDetail() {
                   <div>•</div>
                   <div>{t("movieDetail.subtitles")}: {movie.subtitle}</div>
                 </>
+              )}
+            </div>
+
+            {/* Genre & Trailer Button */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                <Languages className="w-4 h-4 text-indigo-500" />
+                <span className="font-medium">{movie.genres?.map((genre) => genre?.genre?.name).filter(Boolean).join(", ") || t("movieDetail.genreUnavailable")}</span>
+              </div>
+              {movie.trailerUrl && (
+                <a
+                  href={movie.trailerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-indigo-700 shadow-sm"
+                >
+                  <PlayCircle className="w-4 h-4" /> {t("movieDetail.watchTrailer")}
+                </a>
               )}
             </div>
 
@@ -178,11 +214,11 @@ export default function PublicMovieDetail() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-5 border-t border-zinc-200 dark:border-zinc-800 pt-5">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{t("movieDetail.releaseDate")}</p>
-                <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{movie.releaseDate ? formatDate(movie.releaseDate, { day: "numeric", month: "long", year: "numeric" }) : t("movieDetail.unavailable")}</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{movie.releaseDate ? formatDate(movie.releaseDate) : t("movieDetail.unavailable")}</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{t("movieDetail.status")}</p>
-                <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{movie.status.replaceAll("_", " ")}</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{movie.status ? movie.status.replace(/_/g, " ") : "-"}</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Bahasa</p>
@@ -192,23 +228,6 @@ export default function PublicMovieDetail() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Subtitle</p>
                 <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{movie.subtitle || t("movieDetail.unavailable")}</p>
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
-                <Languages className="w-4 h-4 text-indigo-500" />
-                <span>{movie.genres?.map((genre) => genre.genre.name).join(", ") || t("movieDetail.genreUnavailable")}</span>
-              </div>
-              {movie.trailerUrl && (
-                <a
-                  href={movie.trailerUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-indigo-700"
-                >
-                  <PlayCircle className="w-4 h-4" /> {t("movieDetail.watchTrailer")}
-                </a>
-              )}
             </div>
           </div>
         </div>
@@ -227,7 +246,6 @@ export default function PublicMovieDetail() {
               {/* Date tabs */}
               <div className="flex flex-wrap gap-2.5">
                 {uniqueDates.map((date) => {
-                  const d = new Date(date);
                   const active = selectedDate === date;
                   return (
                     <button
@@ -239,7 +257,7 @@ export default function PublicMovieDetail() {
                           : "bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
                       }`}
                     >
-                      {d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+                      {formatDate(date)}
                     </button>
                   );
                 })}
@@ -248,7 +266,9 @@ export default function PublicMovieDetail() {
               {/* Showtimes Grid */}
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {filteredSchedules.map((schedule) => {
-                  const startTime = new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  const startTime = schedule.startTime
+                    ? new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "-";
                   return (
                     <button
                       key={schedule.id}

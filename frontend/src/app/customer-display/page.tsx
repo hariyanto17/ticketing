@@ -12,7 +12,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { Film, Clock, Armchair, Ticket, Sparkles, CheckCircle2 } from "lucide-react";
 
 export default function CustomerDisplayPage() {
-  const { t, formatCurrency, setLocale, locale } = useTranslation();
+  const { t, formatDate, formatCurrency, setLocale, locale } = useTranslation();
   const { setTheme, theme: currentTheme } = useTheme();
 
   const [displayState, setDisplayState] = useState<CustomerDisplayStatePayload | null>(null);
@@ -407,10 +407,7 @@ export default function CustomerDisplayPage() {
                       {new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                     <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      • {new Date(schedule.businessDate || schedule.startTime).toLocaleDateString(
-                        locale === "id" ? "id-ID" : "en-US",
-                        { weekday: "short", day: "numeric", month: "short" }
-                      )}
+                      • {formatDate(schedule.businessDate || schedule.startTime)}
                     </span>
                   </p>
                 </div>

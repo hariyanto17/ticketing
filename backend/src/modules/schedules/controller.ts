@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createScheduleSchema, updateScheduleSchema } from "./validation";
+import { createScheduleSchema, updateScheduleSchema, copySchedulesSchema } from "./validation";
 import * as scheduleService from "./service";
 import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
@@ -114,5 +114,30 @@ export const releaseSeatsController = async (req: Request, res: Response) => {
   }
 
   return responseHandler.ok(res, null, "Seats released successfully");
+};
+
+export const copySchedulesController = async (req: Request, res: Response) => {
+  const result = copySchedulesSchema.safeParse(req.body || {});
+  if (!result.success) {
+    throw new AppError("BAD_REQUEST", result.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const response = await scheduleService.copySchedules(result.data);
+
+  if (req.user) {
+    await logActivity({
+      userId: req.user.id,
+      module: "SCHEDULE",
+      action: "COPY",
+      newData: {
+        sourceDate: response.sourceDate,
+        targetDate: response.targetDate,
+        createdCount: response.created,
+        skippedCount: response.skipped,
+      },
+    });
+  }
+
+  return responseHandler.ok(res, response, response.message);
 };
 

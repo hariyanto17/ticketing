@@ -17,11 +17,11 @@ interface DateTimePickerProps {
 }
 
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
 ];
 
-const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const WEEK_DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 export const DateTimePicker: React.FC<DateTimePickerProps> = ({
   mode = "datetime",
@@ -219,21 +219,27 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
   };
 
   const getDisplayValue = () => {
-    if (!value) return placeholder || (mode === "time" ? "Select time" : mode === "date" ? "Select date" : "Select date and time");
+    if (!value) return placeholder || (mode === "time" ? "Pilih jam" : mode === "date" ? "Pilih tanggal (DD/MM/YYYY)" : "Pilih tanggal dan jam");
 
     if (mode === "time") return value;
 
     if (mode === "date") {
       const d = new Date(value);
       if (isNaN(d.getTime())) return value;
-      return `${d.getDate()} ${MONTH_NAMES[d.getMonth()].substring(0, 3)} ${d.getFullYear()}`;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
     }
 
     const d = new Date(value);
     if (isNaN(d.getTime())) return value;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
     const hours = String(d.getHours()).padStart(2, "0");
     const minutes = String(d.getMinutes()).padStart(2, "0");
-    return `${d.getDate()} ${MONTH_NAMES[d.getMonth()].substring(0, 3)} ${d.getFullYear()} • ${hours}:${minutes}`;
+    return `${day}/${month}/${year} • ${hours}:${minutes}`;
   };
 
   const isDaySelected = (day: number) => {

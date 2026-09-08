@@ -158,9 +158,11 @@ export default function KioskPrintPage() {
   const executePrinting = async (order: KioskOrderResult) => {
     try {
       const printerClient = createPrinterAgentClient();
-      const showDate = order.showtime.businessDate
-        ? new Date(order.showtime.businessDate).toLocaleDateString("id-ID")
-        : new Date(order.showtime.startTime).toLocaleDateString("id-ID");
+      const dateVal = order.showtime.businessDate || order.showtime.startTime;
+      const d = new Date(dateVal);
+      const showDate = isNaN(d.getTime())
+        ? String(dateVal)
+        : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
       const showTime = new Date(order.showtime.startTime).toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",

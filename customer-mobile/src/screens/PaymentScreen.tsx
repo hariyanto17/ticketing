@@ -67,7 +67,7 @@ export const PaymentScreen: React.FC = () => {
         return new Date(parsed);
       }
     }
-    return new Date(Date.now() + 2 * 60 * 1000);
+    return new Date(Date.now() + 10 * 60 * 1000);
   }, [rawExpiredAt]);
 
   // Expiration countdown timer

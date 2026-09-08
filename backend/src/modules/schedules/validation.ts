@@ -16,7 +16,15 @@ export const updateScheduleSchema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]).optional(),
 });
 
+export const copySchedulesSchema = z.object({
+  sourceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal sumber tidak valid (YYYY-MM-DD)").optional(),
+  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal target tidak valid (YYYY-MM-DD)").optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]).optional(),
+});
+
 export type CreateScheduleInput = z.input<typeof createScheduleSchema>;
 export type UpdateScheduleInput = z.input<typeof updateScheduleSchema>;
+export type CopySchedulesInput = z.input<typeof copySchedulesSchema>;
 export type CreateScheduleParsed = z.output<typeof createScheduleSchema>;
 export type UpdateScheduleParsed = z.output<typeof updateScheduleSchema>;
+export type CopySchedulesParsed = z.output<typeof copySchedulesSchema>;

@@ -21,6 +21,7 @@ export interface Order {
     id: string;
     startTime: string;
     businessDate: string;
+    ticketPrice?: number;
     movie: { id: string; title: string };
     studio: { id: string; name: string; code: string };
   };

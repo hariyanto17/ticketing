@@ -8,6 +8,9 @@ import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import { formatDuration, getCensorshipBadgeClass } from "@/lib/formatDuration";
 
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
+
 export default function PublicHome() {
   const [tab, setTab] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
   const todayStr = React.useMemo(() => {
@@ -38,18 +41,21 @@ export default function PublicHome() {
             />
           </Link>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <ThemeToggle />
+
             <Link
               href="/bookings/lookup"
-              className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
             >
-              <Search className="w-3.5 h-3.5" /> {t("home.lookupBooking")}
+              <Search className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("home.lookupBooking")}</span>
             </Link>
             <Link
               href="/login"
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <ShieldCheck className="w-3.5 h-3.5" /> {t("home.staffLogin")}
+              <ShieldCheck className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("home.staffLogin")}</span>
             </Link>
           </div>
         </div>

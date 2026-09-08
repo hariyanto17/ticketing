@@ -6,13 +6,17 @@ import { useGetOrderByIdQuery } from "@/services/orderApi";
 import { Spinner } from "@/components/ui/spinner";
 import { Printer, ArrowLeft } from "lucide-react";
 import { createPrinterAgentClient, getPrinterAgentDeviceId } from "@/services/printerAgentClient";
+import { formatDateDMY, formatDateTimeDMY } from "@/lib/i18n";
 
 export default function PrintTickets() {
   const params = useParams();
-  const orderId = params.id as string;
+  const rawId = params?.id;
+  const orderId = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
   const [printError, setPrintError] = useState<string | null>(null);
 
-  const { data: orderResponse, isLoading } = useGetOrderByIdQuery(orderId);
+  const { data: orderResponse, isLoading } = useGetOrderByIdQuery(orderId, {
+    skip: !orderId,
+  });
 
   useEffect(() => {
     if (orderResponse?.data) {
@@ -76,8 +80,8 @@ export default function PrintTickets() {
   const movie = order.schedule.movie;
   const studio = order.schedule.studio;
   const startTime = new Date(order.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const date = new Date(order.schedule.businessDate).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  const purchaseTime = new Date(order.createdAt).toLocaleString();
+  const date = formatDateDMY(order.schedule.businessDate);
+  const purchaseTime = formatDateTimeDMY(order.createdAt);
 
   return (
     <div className="min-h-screen bg-zinc-100 p-8 print:bg-white print:p-0 font-mono">

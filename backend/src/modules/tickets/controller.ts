@@ -4,6 +4,7 @@ import * as ticketService from "./service";
 import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
+import { emitToRoom } from "../../utils/socket";
 
 export const validateTicketController = async (req: Request, res: Response) => {
   const result = validateTicketSchema.safeParse(req.body);
@@ -83,5 +84,27 @@ export const kioskPrintLogController = async (req: Request, res: Response) => {
   }
 
   return responseHandler.ok(res, data, "Kiosk ticket print logged successfully");
+};
+
+export const kioskTriggerPrintController = async (req: Request, res: Response) => {
+  const { kioskId, query } = req.body;
+  if (!kioskId || !query) {
+    throw new AppError("BAD_REQUEST", "kioskId dan query nomor tiket/pesanan wajib diisi");
+  }
+
+  const orderData = await ticketService.kioskLookupOrder(String(query));
+
+  // Broadcast to Kiosk Terminal Room
+  emitToRoom(`kiosk_${kioskId}`, "kiosk_print_order", {
+    kioskId,
+    query,
+    order: orderData,
+  });
+
+  return responseHandler.ok(
+    res,
+    { success: true, order: orderData, kioskId },
+    "Perintah cetak tiket berhasil dikirim ke Kiosk"
+  );
 };
 

@@ -55,6 +55,35 @@ export const initSocket = (server: HttpServer) => {
       socket.broadcast.emit("seats_released", data);
     });
 
+    // Kiosk pairing & real-time printing bridge
+    socket.on("join_kiosk", (kioskId: string) => {
+      if (kioskId) {
+        socket.join(`kiosk_${kioskId}`);
+        console.log(`🖥️ Kiosk terminal ${socket.id} joined kiosk_${kioskId}`);
+      }
+    });
+
+    socket.on("leave_kiosk", (kioskId: string) => {
+      if (kioskId) {
+        socket.leave(`kiosk_${kioskId}`);
+        console.log(`🖥️ Kiosk terminal ${socket.id} left kiosk_${kioskId}`);
+      }
+    });
+
+    socket.on("kiosk_trigger_print", (data: { kioskId: string; query: string; orderData?: any }) => {
+      if (data?.kioskId) {
+        console.log(`🖨️ Kiosk trigger print received for kiosk_${data.kioskId}:`, data.query);
+        io?.to(`kiosk_${data.kioskId}`).emit("kiosk_print_order", data);
+      }
+    });
+
+    socket.on("kiosk_customer_connected", (data: { kioskId: string; customerDevice?: string }) => {
+      if (data?.kioskId) {
+        console.log(`📱 Customer phone connected to kiosk_${data.kioskId}`);
+        io?.to(`kiosk_${data.kioskId}`).emit("kiosk_customer_connected", data);
+      }
+    });
+
     socket.on("disconnect", () => {
       console.log(`❌ Client disconnected: ${socket.id}`);
     });

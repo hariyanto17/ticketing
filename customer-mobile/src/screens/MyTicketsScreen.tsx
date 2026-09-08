@@ -25,10 +25,15 @@ import {
   X,
   Scan,
   Film,
+  Printer,
+  CheckCircle2,
+  Radio,
+  Smartphone,
 } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
 import { Order, Ticket as TicketType } from "../types/booking";
-import { useLazyLookupBookingsQuery } from "../lib/api/bookingApi";
+import { useLazyLookupBookingsQuery, useTriggerKioskPrintMutation } from "../lib/api/bookingApi";
+import { initSocket, getSocket } from "../services/socketService";
 import { storageService, StoredBookingRef } from "../services/storageService";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -63,7 +68,53 @@ export const MyTicketsScreen: React.FC = () => {
     order: Order;
   } | null>(null);
 
+  // Kiosk Printing Modal State
+  const [kioskModalOrder, setKioskModalOrder] = useState<Order | null>(null);
+  const [selectedKioskId, setSelectedKioskId] = useState<string>("KIOSK-01");
+  const [customKioskId, setCustomKioskId] = useState<string>("");
+  const [kioskPrintStatus, setKioskPrintStatus] = useState<"idle" | "printing" | "success" | "error">("idle");
+  const [kioskErrorMessage, setKioskErrorMessage] = useState<string>("");
+
   const [triggerLookup, { isFetching: loading }] = useLazyLookupBookingsQuery();
+  const [triggerKioskPrint, { isLoading: isTriggeringPrint }] = useTriggerKioskPrintMutation();
+
+  const handleSendPrintToKiosk = async () => {
+    if (!kioskModalOrder) return;
+    const targetKiosk = (customKioskId.trim() || selectedKioskId).toUpperCase();
+    if (!targetKiosk) {
+      setKioskErrorMessage("Pilih atau masukkan ID Stasiun Kiosk.");
+      setKioskPrintStatus("error");
+      return;
+    }
+
+    try {
+      setKioskPrintStatus("printing");
+      setKioskErrorMessage("");
+
+      // 1. Emit via Socket.IO for immediate local bridge
+      const socket = getSocket() || initSocket();
+      if (socket) {
+        socket.emit("kiosk_trigger_print", {
+          kioskId: targetKiosk,
+          query: kioskModalOrder.orderNumber,
+        });
+      }
+
+      // 2. Call backend REST endpoint
+      await triggerKioskPrint({
+        kioskId: targetKiosk,
+        query: kioskModalOrder.orderNumber,
+      }).unwrap();
+
+      setKioskPrintStatus("success");
+    } catch (err: any) {
+      console.error("Kiosk print failed:", err);
+      setKioskErrorMessage(
+        err?.data?.message || err?.message || "Gagal mengirim perintah ke Kiosk."
+      );
+      setKioskPrintStatus("error");
+    }
+  };
 
   useEffect(() => {
     if (route.params?.autoQuery) {
@@ -304,6 +355,23 @@ export const MyTicketsScreen: React.FC = () => {
                   </View>
                 </View>
 
+                {/* Action: Cetak di Mesin Kiosk */}
+                {(order.orderStatus === "PAID" || order.paymentStatus === "PAID") && (
+                  <TouchableOpacity
+                    style={[styles.kioskPrintBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      setKioskModalOrder(order);
+                      setKioskPrintStatus("idle");
+                      setKioskErrorMessage("");
+                      setCustomKioskId("");
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Printer size={16} color="#ffffff" />
+                    <Text style={styles.kioskPrintBtnText}>Cetak Tiket Fisik di Kiosk</Text>
+                  </TouchableOpacity>
+                )}
+
                 {/* Individual Seat Tickets & QR Codes */}
                 <View style={styles.ticketsContainer}>
                   <Text style={[styles.ticketsTitle, { color: colors.textMuted }]}>
@@ -490,6 +558,143 @@ export const MyTicketsScreen: React.FC = () => {
                     size="large"
                   />
                 </View>
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        )}
+      </Modal>
+
+      {/* KIOSK PRINTING MODAL */}
+      <Modal
+        visible={!!kioskModalOrder}
+        animationType="slide"
+        transparent={true}
+        statusBarTranslucent
+        onRequestClose={() => setKioskModalOrder(null)}
+      >
+        {kioskModalOrder && (
+          <View style={styles.modalOverlay}>
+            <SafeAreaView style={[styles.kioskModalCard, { backgroundColor: colors.background }]}>
+              {/* Top Header */}
+              <View style={[styles.modalTopBar, { borderBottomColor: colors.cardBorder }]}>
+                <View style={styles.modalHeaderTitleRow}>
+                  <Printer size={18} color={colors.primary} />
+                  <Text style={[styles.modalHeaderTitle, { color: colors.text }]}>
+                    Cetak di Mesin Kiosk
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
+                  onPress={() => setKioskModalOrder(null)}
+                  activeOpacity={0.7}
+                >
+                  <X size={20} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.kioskModalBody} showsVerticalScrollIndicator={false}>
+                {kioskPrintStatus === "success" ? (
+                  <View style={styles.kioskSuccessBox}>
+                    <View style={[styles.kioskSuccessIconCircle, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
+                      <CheckCircle2 size={48} color={colors.success} />
+                    </View>
+                    <Text style={[styles.kioskSuccessTitle, { color: colors.text }]}>
+                      Perintah Cetak Terkirim!
+                    </Text>
+                    <Text style={[styles.kioskSuccessSubtitle, { color: colors.textMuted }]}>
+                      Mesin Kiosk <Text style={{ color: colors.primary, fontWeight: "800" }}>{(customKioskId.trim() || selectedKioskId).toUpperCase()}</Text> sedang mencetak tiket fisik Anda. Silakan ambil tiket pada slot printer di bawah layar kiosk.
+                    </Text>
+                    <Button
+                      title="Selesai"
+                      onPress={() => setKioskModalOrder(null)}
+                      size="large"
+                      style={{ width: "100%", marginTop: 16 }}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    {/* Order summary */}
+                    <View style={[styles.kioskOrderSummary, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                      <Text style={[styles.kioskMovieTitle, { color: colors.primary }]}>
+                        {kioskModalOrder.schedule?.movie?.title || "Planet Cinema"}
+                      </Text>
+                      <Text style={[styles.kioskOrderMeta, { color: colors.textMuted }]}>
+                        {kioskModalOrder.schedule?.studio?.name} • {kioskModalOrder.tickets?.length} Tiket ({kioskModalOrder.tickets?.map((t) => t.showtimeSeat?.seat?.seatLabel).join(", ")})
+                      </Text>
+                    </View>
+
+                    {/* Step instruction */}
+                    <View style={[styles.kioskInstructionBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                      <Smartphone size={20} color={colors.primary} />
+                      <Text style={[styles.kioskInstructionText, { color: colors.text }]}>
+                        Lihat kode stasiun pada layar mesin kiosk di depan Anda (contoh: <Text style={{ color: colors.primary, fontWeight: "bold" }}>KIOSK-01</Text>).
+                      </Text>
+                    </View>
+
+                    {/* Station Presets */}
+                    <Text style={[styles.kioskStationLabel, { color: colors.textMuted }]}>
+                      PILIH STASIUN KIOSK:
+                    </Text>
+                    <View style={styles.kioskPresetRow}>
+                      {["KIOSK-01", "KIOSK-02", "KIOSK-03"].map((id) => (
+                        <TouchableOpacity
+                          key={id}
+                          style={[
+                            styles.kioskPresetBtn,
+                            {
+                              backgroundColor: (selectedKioskId === id && !customKioskId) ? colors.primary : colors.card,
+                              borderColor: (selectedKioskId === id && !customKioskId) ? colors.primary : colors.cardBorder,
+                            },
+                          ]}
+                          onPress={() => {
+                            setSelectedKioskId(id);
+                            setCustomKioskId("");
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Radio size={14} color={(selectedKioskId === id && !customKioskId) ? "#ffffff" : colors.textMuted} />
+                          <Text
+                            style={[
+                              styles.kioskPresetText,
+                              { color: (selectedKioskId === id && !customKioskId) ? "#ffffff" : colors.text },
+                            ]}
+                          >
+                            {id}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {/* Custom Input */}
+                    <View style={[styles.customKioskInputRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                      <TextInput
+                        style={[styles.customKioskInput, { color: colors.text }]}
+                        placeholder="Atau ketik kode kiosk lainnya..."
+                        placeholderTextColor={colors.textMuted}
+                        value={customKioskId}
+                        onChangeText={setCustomKioskId}
+                        autoCapitalize="characters"
+                      />
+                    </View>
+
+                    {/* Error Banner */}
+                    {kioskPrintStatus === "error" && kioskErrorMessage ? (
+                      <View style={styles.kioskErrorBanner}>
+                        <Text style={styles.kioskErrorText}>{kioskErrorMessage}</Text>
+                      </View>
+                    ) : null}
+
+                    {/* Submit Button */}
+                    <Button
+                      title={kioskPrintStatus === "printing" ? "Mengirim ke Kiosk..." : "Cetak Tiket Sekarang"}
+                      onPress={handleSendPrintToKiosk}
+                      loading={kioskPrintStatus === "printing" || isTriggeringPrint}
+                      size="large"
+                      icon={<Printer size={18} color="#ffffff" />}
+                      style={{ width: "100%", marginTop: 8 }}
+                    />
+                  </>
+                )}
               </ScrollView>
             </SafeAreaView>
           </View>
@@ -799,5 +1004,134 @@ const styles = StyleSheet.create({
   modalButtonContainer: {
     width: "100%",
     marginTop: 6,
+  },
+  kioskPrintBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  kioskPrintBtnText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  kioskModalCard: {
+    flex: 1,
+  },
+  kioskModalBody: {
+    padding: 20,
+    gap: 16,
+    paddingBottom: 40,
+  },
+  kioskSuccessBox: {
+    alignItems: "center",
+    paddingVertical: 30,
+    gap: 12,
+  },
+  kioskSuccessIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  kioskSuccessTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  kioskSuccessSubtitle: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 290,
+  },
+  kioskOrderSummary: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  kioskMovieTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  kioskOrderMeta: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  kioskInstructionBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  kioskInstructionText: {
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 18,
+  },
+  kioskStationLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  kioskPresetRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  kioskPresetBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  kioskPresetText: {
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: "monospace",
+  },
+  customKioskInputRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    height: 48,
+    justifyContent: "center",
+  },
+  customKioskInput: {
+    fontSize: 13,
+    fontFamily: "monospace",
+    fontWeight: "600",
+  },
+  kioskErrorBanner: {
+    padding: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderRadius: 12,
+  },
+  kioskErrorText: {
+    color: "#ef4444",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

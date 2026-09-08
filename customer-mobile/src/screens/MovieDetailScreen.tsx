@@ -18,6 +18,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
 import { Badge } from "../components/common/Badge";
 import { Button } from "../components/common/Button";
+// @ts-ignore
 import Video from "react-native-video";
 
 type MovieDetailRouteProp = RouteProp<RootStackParamList, "MovieDetail">;

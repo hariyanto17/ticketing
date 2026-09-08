@@ -47,6 +47,14 @@ export const bookingApi = baseApi.injectEndpoints({
       query: (query) => `/bookings/lookup?query=${encodeURIComponent(query)}`,
       providesTags: ["Booking"],
     }),
+
+    triggerKioskPrint: builder.mutation<{ success: boolean; order: Order; kioskId: string }, { kioskId: string; query: string }>({
+      query: (body) => ({
+        url: "/tickets/kiosk/trigger-print",
+        method: "POST",
+        body,
+      }),
+    }),
   }),
 });
 
@@ -56,4 +64,5 @@ export const {
   useCreateBookingMutation,
   useLookupBookingsQuery,
   useLazyLookupBookingsQuery,
+  useTriggerKioskPrintMutation,
 } = bookingApi;

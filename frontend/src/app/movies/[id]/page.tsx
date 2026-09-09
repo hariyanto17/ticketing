@@ -10,6 +10,8 @@ import { useTranslation } from "@/lib/i18n";
 import { formatDuration } from "@/lib/formatDuration";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
+import { Schedule } from "@/services/studioApi";
+import { AppDownloadModal } from "@/components/common/AppDownloadModal";
 
 export default function PublicMovieDetail() {
   const params = useParams();
@@ -35,6 +37,8 @@ export default function PublicMovieDetail() {
   );
 
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedScheduleForApp, setSelectedScheduleForApp] = useState<Schedule | null>(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const schedules = schedulesResponse?.data || [];
   const uniqueDates = React.useMemo(() => {
@@ -272,8 +276,11 @@ export default function PublicMovieDetail() {
                   return (
                     <button
                       key={schedule.id}
-                      onClick={() => router.push(`/bookings/checkout?scheduleId=${schedule.id}`)}
-                      className="p-4 bg-zinc-50 dark:bg-zinc-950 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-zinc-200 dark:border-zinc-850 hover:border-indigo-200 rounded-2xl text-left space-y-3 transition-all cursor-pointer group"
+                      onClick={() => {
+                        setSelectedScheduleForApp(schedule);
+                        setShowDownloadModal(true);
+                      }}
+                      className="p-4 bg-zinc-50 dark:bg-zinc-950 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-zinc-200 dark:border-zinc-850 hover:border-indigo-300 dark:hover:border-indigo-700/60 rounded-2xl text-left space-y-3 transition-all cursor-pointer group shadow-xs hover:shadow-md"
                     >
                       <div className="flex justify-between items-start">
                         <span className="text-base font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
@@ -297,6 +304,19 @@ export default function PublicMovieDetail() {
           )}
         </div>
       </main>
+
+      {/* App Download Prompt Modal */}
+      <AppDownloadModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        movieTitle={movie.title}
+        showtime={
+          selectedScheduleForApp?.startTime
+            ? new Date(selectedScheduleForApp.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : undefined
+        }
+        studioName={selectedScheduleForApp?.studio?.name}
+      />
     </div>
   );
 }

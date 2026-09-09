@@ -65,7 +65,7 @@ function GuestCheckout() {
   }, [schedulesResponse?.data, scheduleId]);
 
   const ticketPrice = activeSchedule?.ticketPrice || 0;
-  const onlineFee = configResponse?.onlineServiceFee !== undefined ? Number(configResponse.onlineServiceFee) : 4000;
+  const onlineFee = configResponse?.onlineServiceFee !== undefined ? Number(configResponse.onlineServiceFee) : 40;
 
   // Selected seats state
   const [selectedSeats, setSelectedSeats] = useState<ShowtimeSeat[]>([]);

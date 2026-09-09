@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   businessDate: new Date().toISOString().split("T")[0],
   timezone: "Asia/Jakarta",
   currency: "IDR",
-  onlineServiceFee: "4000",
+  onlineServiceFee: "40",
 };
 
 export const getSettings = async () => {

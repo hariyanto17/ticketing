@@ -1,6 +1,7 @@
 import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { CreateScheduleParsed, UpdateScheduleParsed, CopySchedulesParsed } from "./validation";
+import { getCache, setCache, invalidateScheduleCache } from "../../utils/redis";
 
 export const getAllSchedules = async (query: {
   movieId?: string;
@@ -10,6 +11,12 @@ export const getAllSchedules = async (query: {
   endDate?: string;
   minDate?: string;
 }) => {
+  const cacheKey = `cache:schedules:${JSON.stringify(query)}`;
+  const cached = await getCache<any[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const where: any = {};
   if (query.movieId) where.movieId = query.movieId;
   if (query.studioId) where.studioId = query.studioId;
@@ -31,7 +38,7 @@ export const getAllSchedules = async (query: {
     };
   }
 
-  return prisma.showtime.findMany({
+  const schedules = await prisma.showtime.findMany({
     where,
     include: {
       movie: { select: { id: true, title: true, durationMinutes: true, poster: true } },
@@ -39,9 +46,20 @@ export const getAllSchedules = async (query: {
     },
     orderBy: { startTime: "asc" },
   });
+
+  // Cache for 3 minutes (180s)
+  await setCache(cacheKey, schedules, 180);
+
+  return schedules;
 };
 
 export const getScheduleById = async (id: string) => {
+  const cacheKey = `cache:schedule:${id}`;
+  const cached = await getCache<any>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const schedule = await prisma.showtime.findUnique({
     where: { id },
     include: {
@@ -50,6 +68,9 @@ export const getScheduleById = async (id: string) => {
     },
   });
   if (!schedule) throw new AppError("NOT_FOUND", "Schedule not found");
+
+  await setCache(cacheKey, schedule, 180);
+
   return schedule;
 };
 
@@ -104,7 +125,7 @@ export const createSchedule = async (input: CreateScheduleParsed) => {
     );
   }
 
-  return prisma.showtime.create({
+  const created = await prisma.showtime.create({
     data: {
       movieId: input.movieId,
       studioId: input.studioId,
@@ -115,6 +136,9 @@ export const createSchedule = async (input: CreateScheduleParsed) => {
       status: input.status,
     },
   });
+
+  await invalidateScheduleCache(created.id);
+  return created;
 };
 
 export const updateSchedule = async (id: string, input: UpdateScheduleParsed) => {
@@ -151,7 +175,7 @@ export const updateSchedule = async (id: string, input: UpdateScheduleParsed) =>
     );
   }
 
-  return prisma.showtime.update({
+  const updated = await prisma.showtime.update({
     where: { id },
     data: {
       movieId,
@@ -163,11 +187,16 @@ export const updateSchedule = async (id: string, input: UpdateScheduleParsed) =>
       ...(input.status && { status: input.status }),
     },
   });
+
+  await invalidateScheduleCache(id);
+  return updated;
 };
 
 export const deleteSchedule = async (id: string) => {
   await getScheduleById(id);
-  return prisma.showtime.delete({ where: { id } });
+  const deleted = await prisma.showtime.delete({ where: { id } });
+  await invalidateScheduleCache(id);
+  return deleted;
 };
 
 export const getScheduleSeats = async (scheduleId: string) => {
@@ -485,6 +514,10 @@ export const copySchedules = async (input: CopySchedulesParsed) => {
     });
 
     createdSchedules.push(newShowtime);
+  }
+
+  if (createdSchedules.length > 0) {
+    await invalidateScheduleCache();
   }
 
   return {

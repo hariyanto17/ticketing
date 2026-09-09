@@ -10,6 +10,7 @@ import { errorHandler } from "./utils/errorHandler";
 import { initSocket } from "./utils/socket";
 import { PORT } from "./config/constant";
 import internalRouter from "./modules/internal/router";
+import { initMovieScheduler } from "./modules/movies/movieScheduler";
 
 dotenv.config();
 
@@ -18,6 +19,9 @@ const server = createServer(app);
 
 // Boot Socket.IO
 initSocket(server);
+
+// Boot Cron Schedulers
+initMovieScheduler();
 
 app.use(
   cors({

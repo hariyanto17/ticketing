@@ -11,7 +11,7 @@ export const getLogicalRowOrder = (rows: string[]): string[] => {
 };
 
 export const getVisualRowOrder = (rows: string[]): string[] => {
-  return getLogicalRowOrder(rows);
+  return [...new Set(rows)].sort((a, b) => getRowIndex(b) - getRowIndex(a));
 };
 
 export const groupSeatsByRow = <T extends { row: string }>(items: T[]): Record<string, T[]> => {

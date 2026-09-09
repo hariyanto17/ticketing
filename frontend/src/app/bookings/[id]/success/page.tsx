@@ -320,7 +320,7 @@ export default function BookingSuccess() {
                   Scan QRIS untuk Menyelesaikan Pembayaran
                 </h2>
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  Buka aplikasi mobile banking (BCA, Mandiri, BRI, BNI) atau e-wallet (GoPay, OVO, Dana, ShopeePay) lalu scan QR code.
+                  Buka aplikasi mobile banking (BCA, Mandiri, BRI, BNI) lalu scan QR code QRIS di atas.
                 </p>
               </div>
 
@@ -454,7 +454,7 @@ export default function BookingSuccess() {
             const rawSubtotal = (schedule as any)?.ticketPrice ? (schedule as any).ticketPrice * tickets.length : 0;
             const serviceFeeVal = order.totalAmount > rawSubtotal && rawSubtotal > 0
               ? order.totalAmount - rawSubtotal
-              : (order.totalAmount > 0 && tickets.length > 0 && order.totalAmount > 4000 && (order.totalAmount - 4000) % tickets.length === 0 ? 4000 : 0);
+              : (order.totalAmount > 0 && tickets.length > 0 && order.totalAmount > 40 && (order.totalAmount - 40) % tickets.length === 0 ? 40 : 0);
             
             const ticketSubtotalVal = order.totalAmount - serviceFeeVal;
             const ticketPriceVal = tickets.length > 0 ? Math.floor(ticketSubtotalVal / tickets.length) : (schedule as any)?.ticketPrice || 0;

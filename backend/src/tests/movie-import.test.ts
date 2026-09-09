@@ -45,4 +45,11 @@ test("Movie Import Business Invariants (21 Cineplex)", async (t) => {
     assert.strictEqual(raw21Movie.writer, "Jacob Chase, David Leslie Johnson-McGoldrick");
     assert.strictEqual(raw21Movie.producer, "Jason Blum, Oren Peli, James Wan, Leigh Whannell");
   });
+
+  await t.test("Movie Scheduler initializes cron task for 10:00 AM", async () => {
+    const { initMovieScheduler } = await import("../modules/movies/movieScheduler");
+    const task = initMovieScheduler();
+    assert.ok(task, "Task should be instantiated");
+    task.stop();
+  });
 });

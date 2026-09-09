@@ -113,7 +113,7 @@ export default {
     qrisTitle: "QRIS Payment",
     scanQris: "Scan Dynamic QRIS",
     waitingPayment: "Awaiting Payment...",
-    supportChannels: "BCA, GoPay, OVO, DANA, ShopeePay, LinkAja & Other Banks",
+    supportChannels: "BCA, Mandiri, BRI, BNI & Other Mobile Banking Apps",
     securityNotice: "Transactions are verified automatically and instantly by Midtrans.",
     iHavePaid: "I Have Paid",
     verifying: "Verifying Payment...",

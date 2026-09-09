@@ -186,7 +186,7 @@ export const createGuestBooking = async (input: CreateBookingInput) => {
   const settings = await getSettings();
   const channel = input.channel?.toUpperCase() || "ONLINE";
   const isOnline = channel === "MOBILE" || channel === "ONLINE" || channel === "GUEST";
-  const onlineServiceFee = isOnline ? Number(settings.onlineServiceFee || 4000) : 0;
+  const onlineServiceFee = isOnline ? Number(settings.onlineServiceFee || 40) : 0;
   const totalAmount = showtimeSeats.length * schedule.ticketPrice + onlineServiceFee;
   const reservedUntil = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes hold for online booking
 

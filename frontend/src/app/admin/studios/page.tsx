@@ -15,7 +15,7 @@ import * as z from "zod";
 import { useToast } from "@/components/ui/toast";
 import { DataTable } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
-import { DeleteDialog } from "@/components/ui/dialogs";
+import { DeleteDialog, ConfirmationDialog } from "@/components/ui/dialogs";
 import { Input, Select, Button } from "@/components/ui/form-controls";
 import { Edit, Trash, Plus, Armchair, Copy } from "lucide-react";
 import Link from "next/link";
@@ -38,6 +38,7 @@ export default function StudiosManagement() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCopyOpen, setIsCopyOpen] = useState(false);
+  const [isConfirmCopyOpen, setIsConfirmCopyOpen] = useState(false);
   const [sourceStudioId, setSourceStudioId] = useState("");
   const [selectedStudio, setSelectedStudio] = useState<Studio | null>(null);
 
@@ -114,7 +115,7 @@ export default function StudiosManagement() {
     setIsCopyOpen(true);
   };
 
-  const handleCopyLayout = async (e: React.FormEvent) => {
+  const handleCopyLayout = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudio) return;
     if (!sourceStudioId) {
@@ -125,20 +126,20 @@ export default function StudiosManagement() {
     const sourceStudio = studiosResponse?.data?.find((s) => s.id === sourceStudioId);
     if (!sourceStudio) return;
 
-    if (
-      !window.confirm(
-        `This will replace the current seat layout of "${selectedStudio.name}" with the layout from "${sourceStudio.name}". Existing seats in this studio will be replaced. Showtimes and tickets will not be copied. Are you sure you want to proceed?`
-      )
-    ) {
-      return;
-    }
+    setIsConfirmCopyOpen(true);
+  };
 
+  const executeCopyLayout = async () => {
+    if (!selectedStudio || !sourceStudioId) return;
     try {
       const res = await copyLayout({
         destinationStudioId: selectedStudio.id,
         sourceStudioId,
       }).unwrap();
-      toastSuccess(`${t("studios.copyAction")}: ${formatNumber(res.data.seatCount)} (${t("studios.capacity")} ${formatNumber(res.data.capacity)})`);
+      toastSuccess(
+        `${t("studios.copyAction")}: ${formatNumber(res.data.seatCount)} (${t("studios.capacity")} ${formatNumber(res.data.capacity)})`
+      );
+      setIsConfirmCopyOpen(false);
       setIsCopyOpen(false);
     } catch (err: any) {
       toastError(err?.data?.message || t("studios.saveFailed"));
@@ -330,6 +331,18 @@ export default function StudiosManagement() {
         title={t("studios.closed")}
         message={`${t("studios.deleteFailed")} "${selectedStudio?.name}"?`}
         isLoading={isDeleting}
+      />
+
+      <ConfirmationDialog
+        isOpen={isConfirmCopyOpen}
+        onClose={() => setIsConfirmCopyOpen(false)}
+        onConfirm={executeCopyLayout}
+        title={t("studios.warning")}
+        message={`This will replace the current seat layout of "${selectedStudio?.name}" with the layout from "${studiosResponse?.data?.find((s) => s.id === sourceStudioId)?.name || "selected studio"}". Existing seats in this studio will be replaced. Showtimes and tickets will not be copied. Are you sure you want to proceed?`}
+        confirmText={t("studios.copyAction")}
+        cancelText={t("studios.cancel")}
+        isLoading={isCopying}
+        variant="warning"
       />
     </div>
   );

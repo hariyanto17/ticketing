@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { DataTable } from "@/components/ui/data-table";
 import { Spinner } from "@/components/ui/spinner";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmationDialog } from "@/components/ui/dialogs";
 import { Check, X, Printer, Search, Info, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useTranslation, formatDateTimeDMY } from "@/lib/i18n";
@@ -27,13 +28,19 @@ export default function AdminBookingsPage() {
   const [activeTicketForReprint, setActiveTicketForReprint] = useState<any>(null);
   const [reprintReason, setReprintReason] = useState("Thermal Print Defect");
 
-  const handleConfirmPayment = async (id: string) => {
-    if (!window.confirm("Confirm payment received? This will issue digital tickets and release showtime seats hold to SOLD.")) {
-      return;
-    }
+  const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+
+  const handleConfirmPayment = (id: string) => {
+    setConfirmPaymentId(id);
+  };
+
+  const executeConfirmPayment = async () => {
+    if (!confirmPaymentId) return;
     try {
-      await confirmPayment(id).unwrap();
+      await confirmPayment(confirmPaymentId).unwrap();
       toastSuccess(t("bookingsAdmin.confirmed"));
+      setConfirmPaymentId(null);
       setSelectedBooking(null);
       refetch();
     } catch (err: any) {
@@ -41,13 +48,16 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const handleCancelBooking = async (id: string) => {
-    if (!window.confirm("Are you sure you want to CANCEL this booking? Held seats will return to AVAILABLE state immediately.")) {
-      return;
-    }
+  const handleCancelBooking = (id: string) => {
+    setCancelBookingId(id);
+  };
+
+  const executeCancelBooking = async () => {
+    if (!cancelBookingId) return;
     try {
-      await cancelBooking(id).unwrap();
+      await cancelBooking(cancelBookingId).unwrap();
       toastSuccess(t("bookingsAdmin.cancelled"));
+      setCancelBookingId(null);
       setSelectedBooking(null);
       refetch();
     } catch (err: any) {
@@ -293,6 +303,32 @@ export default function AdminBookingsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Confirm Payment Dialog */}
+      <ConfirmationDialog
+        isOpen={!!confirmPaymentId}
+        onClose={() => setConfirmPaymentId(null)}
+        onConfirm={executeConfirmPayment}
+        title={t("bookingsAdmin.confirmPayment")}
+        message="Confirm payment received? This will issue digital tickets and release showtime seats hold to SOLD."
+        confirmText={t("bookingsAdmin.confirmPayment")}
+        cancelText={t("bookingsAdmin.cancel")}
+        isLoading={isConfirming}
+        variant="primary"
+      />
+
+      {/* Cancel Booking Dialog */}
+      <ConfirmationDialog
+        isOpen={!!cancelBookingId}
+        onClose={() => setCancelBookingId(null)}
+        onConfirm={executeCancelBooking}
+        title={t("bookingsAdmin.cancelReservation")}
+        message="Are you sure you want to CANCEL this booking? Held seats will return to AVAILABLE state immediately."
+        confirmText={t("bookingsAdmin.cancelReservation")}
+        cancelText={t("bookingsAdmin.cancel")}
+        isLoading={isCancelling}
+        variant="danger"
+      />
     </div>
   );
 }

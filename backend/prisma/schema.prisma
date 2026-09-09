@@ -250,6 +250,11 @@ model Showtime {
   ticketPriceRel TicketPrice? @relation(fields: [ticketPriceId], references: [id])
   showtimeSeats ShowtimeSeat[]
   orders        Order[]
+
+  @@index([businessDate, status])
+  @@index([startTime])
+  @@index([movieId, status])
+  @@index([studioId, startTime])
 }
 
 
@@ -264,6 +269,10 @@ model ShowtimeSeat {
   showtime Showtime @relation(fields: [showtimeId], references: [id])
   seat     Seat     @relation(fields: [seatId], references: [id])
   ticket   Ticket?
+
+  @@index([showtimeId, status])
+  @@index([seatId])
+  @@index([reservedUntil])
 }
 
 model Member {
@@ -338,6 +347,11 @@ model Order {
   branch   Branch   @relation(fields: [branchId], references: [id])
   tickets  Ticket[]
   payments Payment[]
+
+  @@index([scheduleId])
+  @@index([branchId, createdAt])
+  @@index([orderStatus, createdAt])
+  @@index([bookingNumber])
 }
 
 model Ticket {
@@ -353,6 +367,8 @@ model Ticket {
   showtimeSeat ShowtimeSeat @relation(fields: [showtimeSeatId], references: [id])
   ticketScans  TicketScan[]
   reprints     TicketReprint[]
+
+  @@index([orderId])
 }
 
 model Payment {
@@ -373,6 +389,9 @@ model Payment {
   rawResponse           Json?
 
   order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([providerOrderId])
 }
 
 
@@ -386,6 +405,9 @@ model TicketScan {
 
   ticket   Ticket @relation(fields: [ticketId], references: [id])
   operator User   @relation(fields: [operatorId], references: [id])
+
+  @@index([ticketId])
+  @@index([scanTime])
 }
 
 model AuditLog {
@@ -402,6 +424,9 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([module, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Setting {

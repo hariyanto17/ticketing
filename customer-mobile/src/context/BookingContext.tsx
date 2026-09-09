@@ -63,7 +63,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const ticketSubtotal = (selectedSchedule?.ticketPrice || 0) * selectedSeats.length;
-  const serviceFee = selectedSeats.length > 0 ? 4000 : 0;
+  const serviceFee = selectedSeats.length > 0 ? 40 : 0;
   const estimatedTotal = selectedSeats.length > 0 ? ticketSubtotal + serviceFee : 0;
 
   return (

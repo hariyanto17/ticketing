@@ -12,6 +12,7 @@ import {
 } from "@/services/studioApi";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/form-controls";
+import { ConfirmationDialog } from "@/components/ui/dialogs";
 import { getRowIndex, getVisualRowOrder } from "@/lib/seatLayout";
 import { ArrowLeft, Save, Info, RefreshCw, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -58,25 +59,26 @@ export default function SeatLayoutEditor() {
   const [selectedColToRemove, setSelectedColToRemove] = useState<number>(1);
   const [selectedAisleToRemove, setSelectedAisleToRemove] = useState<number>(1);
 
-  // Grid dimensions (derive dynamically)
-  const defaultRowsCount = 11; // A-K
-  const defaultColsCount = 12;
+  // Custom Confirmation Dialog states
+  const [isConfirmRowOpen, setIsConfirmRowOpen] = useState(false);
+  const [isConfirmColOpen, setIsConfirmColOpen] = useState(false);
+  const [isConfirmAisleOpen, setIsConfirmAisleOpen] = useState(false);
 
-  const studioRowsCount = studioResponse?.data?.layoutRows ?? null;
-  const studioColsCount = studioResponse?.data?.layoutColumns ?? null;
+  // Grid dimensions (derived strictly from database values & active seats)
+  const studioRowsCount = studioResponse?.data?.layoutRows || 0;
+  const studioColsCount = studioResponse?.data?.layoutColumns || 0;
 
-  const uniqueRows = Array.from(new Set(localSeats.map((s) => s.row))).sort((a, b) => getRowIndex(a) - getRowIndex(b));
+  const currentSeatMaxCol = localSeats.length > 0 ? Math.max(...localSeats.map((s) => s.column)) : 0;
+  const currentSeatMaxRowIdx = localSeats.length > 0 ? Math.max(...localSeats.map((s) => getRowIndex(s.row))) : -1;
 
-  const maxRowIndex = uniqueRows.length > 0 ? getRowIndex(uniqueRows[uniqueRows.length - 1]) : -1;
+  const derivedDbRows = studioRowsCount > 0 ? studioRowsCount : currentSeatMaxRowIdx >= 0 ? currentSeatMaxRowIdx + 1 : 1;
+  const derivedDbCols = studioColsCount > 0 ? studioColsCount : currentSeatMaxCol > 0 ? currentSeatMaxCol : 1;
 
-  const rowsCount =
-    localRowsCount ?? (studioRowsCount ?? (maxRowIndex >= 0 ? maxRowIndex + 1 : defaultRowsCount));
+  const rowsCount = localRowsCount ?? derivedDbRows;
+  const maxColumn = localColsCount ?? derivedDbCols;
 
   const rows = Array.from({ length: rowsCount }, (_, i) => getRowLabel(i));
   const visualRows = getVisualRowOrder(rows);
-
-  const maxColumn =
-    localColsCount ?? (studioColsCount ?? Math.max(...localSeats.map((s) => s.column), defaultColsCount));
   const cols = Array.from({ length: maxColumn }, (_, i) => i + 1);
   const emptyColumns = new Set(cols.filter((c) => !localSeats.some((s) => s.column === c)));
 
@@ -106,25 +108,24 @@ export default function SeatLayoutEditor() {
     return updatedSeats;
   };
 
-  // Sync loaded seats to local state
+  // Sync loaded seats and synchronize dimensions strictly from database
   useEffect(() => {
     if (seatsResponse?.data) {
-      setLocalSeats(recalculateSeatLabels(seatsResponse.data));
-    }
-  }, [seatsResponse]);
+      const formatted = recalculateSeatLabels(seatsResponse.data);
+      setLocalSeats(formatted);
 
-  // Initialize editable rows/cols counts from studio or computed values
-  useEffect(() => {
-    if (localRowsCount === null) {
-      const initialRows = studioRowsCount ?? (maxRowIndex >= 0 ? maxRowIndex + 1 : defaultRowsCount);
-      setLocalRowsCount(initialRows);
+      const seatCols = formatted.length > 0 ? Math.max(...formatted.map((s) => s.column)) : 0;
+      const seatRows = formatted.length > 0 ? Math.max(...formatted.map((s) => getRowIndex(s.row))) + 1 : 0;
+      const stdCols = studioResponse?.data?.layoutColumns || 0;
+      const stdRows = studioResponse?.data?.layoutRows || 0;
+
+      const finalCols = stdCols > 0 ? stdCols : seatCols > 0 ? seatCols : 1;
+      const finalRows = stdRows > 0 ? stdRows : seatRows > 0 ? seatRows : 1;
+
+      setLocalColsCount(finalCols);
+      setLocalRowsCount(finalRows);
     }
-    if (localColsCount === null) {
-      const initialCols = studioColsCount ?? Math.max(...localSeats.map((s) => s.column), defaultColsCount);
-      setLocalColsCount(initialCols);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studioResponse, seatsResponse]);
+  }, [seatsResponse, studioResponse]);
 
   // Update selection dropdown defaults when dimensions change
   useEffect(() => {
@@ -268,9 +269,12 @@ export default function SeatLayoutEditor() {
       }
     }
 
-    if (!window.confirm(`Are you sure you want to remove Row ${selectedRowToRemove}? This will shift rows above it down.`)) {
-      return;
-    }
+    setIsConfirmRowOpen(true);
+  };
+
+  const executeRemoveRow = () => {
+    const rowIdx = getRowIndex(selectedRowToRemove);
+    if (rowIdx < 0) return;
 
     setLocalSeats((prev) => {
       const filtered = prev.filter((s) => s.row !== selectedRowToRemove);
@@ -285,6 +289,7 @@ export default function SeatLayoutEditor() {
     });
 
     setLocalRowsCount((prev) => Math.max(0, (prev ?? rows.length) - 1));
+    setIsConfirmRowOpen(false);
     toastSuccess(`Row ${selectedRowToRemove} removed successfully.`);
   };
 
@@ -305,9 +310,11 @@ export default function SeatLayoutEditor() {
       }
     }
 
-    if (!window.confirm(`Are you sure you want to remove Column ${selectedColToRemove}?`)) {
-      return;
-    }
+    setIsConfirmColOpen(true);
+  };
+
+  const executeRemoveColumn = () => {
+    if (!selectedColToRemove) return;
 
     setLocalSeats((prev) => {
       const filtered = prev.filter((s) => s.column !== selectedColToRemove);
@@ -321,15 +328,17 @@ export default function SeatLayoutEditor() {
     });
 
     setLocalColsCount((prev) => Math.max(0, (prev ?? cols.length) - 1));
+    setIsConfirmColOpen(false);
     toastSuccess(`Column ${selectedColToRemove} removed successfully.`);
   };
 
   const handleRemoveAisle = () => {
     if (!selectedAisleToRemove) return;
+    setIsConfirmAisleOpen(true);
+  };
 
-    if (!window.confirm(`Are you sure you want to remove the aisle at Column ${selectedAisleToRemove}?`)) {
-      return;
-    }
+  const executeRemoveAisle = () => {
+    if (!selectedAisleToRemove) return;
 
     setLocalSeats((prev) => {
       const shifted = prev.map((s) => {
@@ -342,33 +351,27 @@ export default function SeatLayoutEditor() {
     });
 
     setLocalColsCount((prev) => Math.max(0, (prev ?? cols.length) - 1));
+    setIsConfirmAisleOpen(false);
     toastSuccess(`Aisle at Column ${selectedAisleToRemove} removed.`);
   };
 
   const handleResetToDefault = () => {
-    const defaultSeats: Seat[] = [];
-    const defaultRows = Array.from({ length: 11 }, (_, i) => getRowLabel(i));
-    const totalCols = 13; // column 7 is aisle
+    if (seatsResponse?.data) {
+      const formatted = recalculateSeatLabels(seatsResponse.data);
+      setLocalSeats(formatted);
 
-    defaultRows.forEach((r) => {
-      for (let c = 1; c <= totalCols; c++) {
-        if (c === 7) continue;
-        defaultSeats.push({
-          studioId,
-          row: r,
-          column: c,
-          seatNumber: c > 7 ? c - 1 : c,
-          seatLabel: `${r}${c > 7 ? c - 1 : c}`,
-          seatType: "REGULAR",
-          status: "ACTIVE",
-        });
-      }
-    });
+      const seatCols = formatted.length > 0 ? Math.max(...formatted.map((s) => s.column)) : 0;
+      const seatRows = formatted.length > 0 ? Math.max(...formatted.map((s) => getRowIndex(s.row))) + 1 : 0;
+      const stdCols = studioResponse?.data?.layoutColumns || 0;
+      const stdRows = studioResponse?.data?.layoutRows || 0;
 
-    setLocalSeats(defaultSeats);
-    setLocalRowsCount(11);
-    setLocalColsCount(13);
-    toastSuccess("Reset to default layout template (11 rows, 12 columns + 1 aisle)");
+      const finalCols = stdCols > 0 ? stdCols : seatCols > 0 ? seatCols : 1;
+      const finalRows = stdRows > 0 ? stdRows : seatRows > 0 ? seatRows : 1;
+
+      setLocalColsCount(finalCols);
+      setLocalRowsCount(finalRows);
+      toastSuccess("Grid dikembalikan ke konfigurasi data database");
+    }
   };
 
   const getSeatColor = (seat: Seat) => {
@@ -573,58 +576,200 @@ export default function SeatLayoutEditor() {
         </div>
       </div>
 
+      {/* Stats Summary Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-semibold text-zinc-400 block uppercase">Total Kapasitas</span>
+          <span className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+            {localSeats.filter((s) => s.status === "ACTIVE").length} <span className="text-xs font-normal text-zinc-400">kursi</span>
+          </span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-semibold text-zinc-400 block uppercase">Regular</span>
+          <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+            {localSeats.filter((s) => s.status === "ACTIVE" && s.seatType === "REGULAR").length}
+          </span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-semibold text-zinc-400 block uppercase">VIP</span>
+          <span className="text-xl font-bold text-amber-500">
+            {localSeats.filter((s) => s.status === "ACTIVE" && s.seatType === "VIP").length}
+          </span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-semibold text-zinc-400 block uppercase">Couple</span>
+          <span className="text-xl font-bold text-rose-500">
+            {localSeats.filter((s) => s.status === "ACTIVE" && s.seatType === "COUPLE").length}
+          </span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-semibold text-zinc-400 block uppercase">Wheelchair</span>
+          <span className="text-xl font-bold text-blue-500">
+            {localSeats.filter((s) => s.status === "ACTIVE" && s.seatType === "WHEELCHAIR").length}
+          </span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+          <span className="text-[11px] font-semibold text-zinc-400 block uppercase">Dimensi Grid</span>
+          <span className="text-xl font-bold text-zinc-700 dark:text-zinc-300">
+            {rows.length} <span className="text-xs text-zinc-400">×</span> {cols.length}
+          </span>
+        </div>
+      </div>
+
       {/* Seat Grid Area */}
-      <div className="p-8 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-x-auto flex flex-col items-center shadow-inner">
-        <div className="w-full max-w-xl bg-zinc-350 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-center py-2.5 rounded-b-3xl font-bold tracking-widest text-xs uppercase mb-16 shadow-inner border-t border-zinc-200 dark:border-zinc-750">
-          SCREEN STAGE
+      <div className="p-6 sm:p-10 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-x-auto flex flex-col items-center shadow-inner">
+        {/* Modern Curved Cinema Screen Bar */}
+        <div className="w-full max-w-3xl mb-12 flex flex-col items-center">
+          <div className="w-full h-3 bg-gradient-to-r from-transparent via-indigo-500/80 to-transparent rounded-full shadow-[0_0_24px_rgba(99,102,241,0.5)] border-t border-indigo-300/40" />
+          <div className="mt-2 text-[11px] font-extrabold tracking-[0.3em] text-zinc-500 dark:text-zinc-400 uppercase text-center flex items-center gap-2">
+            <span>—</span>
+            <span>LAYAR BIOSKOP / SCREEN</span>
+            <span>—</span>
+          </div>
+        </div>
+
+        {/* Column Number Headers (Top) */}
+        <div className="flex gap-2 items-center mb-3 select-none">
+          <div className="w-8 text-center text-[10px] font-bold text-zinc-400">ROW</div>
+          {cols.map((col) => {
+            const isAisle = emptyColumns.has(col);
+            return (
+              <div
+                key={`col-hdr-${col}`}
+                className={`w-9 sm:w-10 text-center text-[10px] font-mono font-bold ${
+                  isAisle ? "text-zinc-350 dark:text-zinc-650" : "text-zinc-400 dark:text-zinc-500"
+                }`}
+                title={isAisle ? `Kolom ${col} (Lorong / Aisle)` : `Kolom ${col}`}
+              >
+                {col}
+              </div>
+            );
+          })}
+          <div className="w-8 text-center text-[10px] font-bold text-zinc-400">ROW</div>
         </div>
 
         {/* Grid layout representation */}
-        <div className="grid gap-3 select-none">
+        <div className="grid gap-2.5 select-none">
           {visualRows.map((row) => (
-            <div key={row} className="flex gap-3 items-center">
-              {/* Row Label header */}
-              <div className="w-8 text-center font-bold text-zinc-400 text-sm">{row}</div>
+            <div key={row} className="flex gap-2 items-center">
+              {/* Left Row Label header */}
+              <div className="w-8 h-9 sm:h-10 flex items-center justify-center font-bold text-zinc-600 dark:text-zinc-300 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                {row}
+              </div>
 
               {/* Seats inside row */}
               {cols.map((col) => {
-                if (emptyColumns.has(col)) {
+                const seat = getSeatAt(row, col);
+                const isAisleCol = emptyColumns.has(col);
+
+                if (!seat && isAisleCol) {
                   return (
-                    <div key={`aisle-${row}-${col}`} className="w-10 h-10 flex items-center justify-center mx-1">
-                      {/* empty aisle spacer */}
-                    </div>
+                    <button
+                      key={`aisle-${row}-${col}`}
+                      type="button"
+                      onClick={() => handleCellClick(row, col)}
+                      title={`Lorong Kolom ${col} (Klik untuk tambah kursi pada baris ${row})`}
+                      className="w-9 sm:w-10 h-9 sm:h-10 flex items-center justify-center rounded-xl border border-dashed border-zinc-250 dark:border-zinc-850 hover:border-indigo-400 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 text-transparent hover:text-indigo-400 text-[10px] transition-all cursor-pointer"
+                    >
+                      +
+                    </button>
                   );
                 }
 
-                const seat = getSeatAt(row, col);
                 return (
                   <button
                     key={`${row}-${col}`}
+                    type="button"
                     onClick={() => handleCellClick(row, col)}
-                    className={`w-10 h-10 rounded-xl text-[10px] font-bold transition-all hover:scale-105 border flex items-center justify-center ${
+                    title={
+                      seat
+                        ? `${seat.seatLabel} (Tipe: ${seat.seatType}, Status: ${seat.status})`
+                        : `Slot Kosong ${row}${col} (Klik untuk pasang kursi)`
+                    }
+                    className={`w-9 sm:w-10 h-9 sm:h-10 rounded-xl text-[10px] sm:text-xs font-bold transition-all hover:scale-105 border flex items-center justify-center cursor-pointer shadow-xs ${
                       seat
                         ? getSeatColor(seat)
-                        : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-transparent hover:text-zinc-400 dark:hover:text-zinc-650 hover:border-zinc-300"
+                        : "bg-white/80 dark:bg-zinc-900/80 border-dashed border-zinc-300 dark:border-zinc-750 text-zinc-350 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600"
                     }`}
                   >
-                    {seat ? seat.seatLabel : ""}
+                    {seat ? seat.seatLabel : `${row}${col}`}
                   </button>
                 );
               })}
+
+              {/* Right Row Label header */}
+              <div className="w-8 h-9 sm:h-10 flex items-center justify-center font-bold text-zinc-600 dark:text-zinc-300 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xs">
+                {row}
+              </div>
             </div>
           ))}
         </div>
 
+        {/* Column Number Headers (Bottom) */}
+        <div className="flex gap-2 items-center mt-3 select-none">
+          <div className="w-8 text-center text-[10px] font-bold text-zinc-400">ROW</div>
+          {cols.map((col) => {
+            const isAisle = emptyColumns.has(col);
+            return (
+              <div
+                key={`col-ftr-${col}`}
+                className={`w-9 sm:w-10 text-center text-[10px] font-mono font-bold ${
+                  isAisle ? "text-zinc-350 dark:text-zinc-650" : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
+                {col}
+              </div>
+            );
+          })}
+          <div className="w-8 text-center text-[10px] font-bold text-zinc-400">ROW</div>
+        </div>
+
         {/* Legend */}
-        <div className="flex flex-wrap gap-4 justify-center mt-12 pt-6 border-t border-zinc-200 dark:border-zinc-850 w-full max-w-xl text-xs font-semibold text-zinc-500">
-          <div className="flex items-center gap-1.5"><div className="w-4 h-4 bg-indigo-600 rounded-sm" /> Regular</div>
-          <div className="flex items-center gap-1.5"><div className="w-4 h-4 bg-amber-500 rounded-sm" /> VIP</div>
-          <div className="flex items-center gap-1.5"><div className="w-4 h-4 bg-rose-500 rounded-sm" /> Couple</div>
-          <div className="flex items-center gap-1.5"><div className="w-4 h-4 bg-blue-500 rounded-sm" /> Wheelchair</div>
-          <div className="flex items-center gap-1.5"><div className="w-4 h-4 bg-zinc-300 dark:bg-zinc-850 rounded-sm" /> Disabled</div>
-          <div className="flex items-center gap-1.5"><div className="w-4 h-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm" /> Empty / Path</div>
+        <div className="flex flex-wrap gap-4 sm:gap-6 justify-center mt-12 pt-6 border-t border-zinc-200 dark:border-zinc-800 w-full max-w-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-indigo-600 rounded-md shadow-xs" /> Regular</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-amber-500 rounded-md shadow-xs" /> VIP</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-rose-500 rounded-md shadow-xs" /> Couple</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-blue-500 rounded-md shadow-xs" /> Wheelchair</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-zinc-300 dark:bg-zinc-800 rounded-md shadow-xs" /> Nonaktif</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-md shadow-xs" /> Slot Kosong / Lorong</div>
         </div>
       </div>
+
+      {/* Remove Row Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isConfirmRowOpen}
+        onClose={() => setIsConfirmRowOpen(false)}
+        onConfirm={executeRemoveRow}
+        title="Hapus Baris Kursi"
+        message={`Are you sure you want to remove Row ${selectedRowToRemove}? This will shift rows above it down.`}
+        confirmText="Hapus Baris"
+        cancelText="Batal"
+        variant="danger"
+      />
+
+      {/* Remove Column Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isConfirmColOpen}
+        onClose={() => setIsConfirmColOpen(false)}
+        onConfirm={executeRemoveColumn}
+        title="Hapus Kolom Kursi"
+        message={`Are you sure you want to remove Column ${selectedColToRemove}?`}
+        confirmText="Hapus Kolom"
+        cancelText="Batal"
+        variant="danger"
+      />
+
+      {/* Remove Aisle Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isConfirmAisleOpen}
+        onClose={() => setIsConfirmAisleOpen(false)}
+        onConfirm={executeRemoveAisle}
+        title="Hapus Lorong"
+        message={`Are you sure you want to remove the aisle at Column ${selectedAisleToRemove}?`}
+        confirmText="Hapus Lorong"
+        cancelText="Batal"
+        variant="warning"
+      />
     </div>
   );
 }

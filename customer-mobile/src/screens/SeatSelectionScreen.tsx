@@ -130,7 +130,7 @@ export const SeatSelectionScreen: React.FC = () => {
     ]);
   };
 
-  // Group seats by Row (ordered A -> K) and preserve column matrix (preserving aisles)
+  // Group seats by Row (ordered K -> A from screen down) and preserve column matrix (preserving aisles)
   const { rowList, maxColumn, seatSize } = useMemo(() => {
     const rowsMap: Record<string, Record<number, ShowtimeSeat>> = {};
     let maxCol = 1;
@@ -145,7 +145,15 @@ export const SeatSelectionScreen: React.FC = () => {
       if (col > maxCol) maxCol = col;
     }
 
-    const sortedRows = Object.keys(rowsMap).sort();
+    const getRowIndex = (row: string): number => {
+      let index = 0;
+      for (let i = 0; i < row.length; i++) {
+        index = index * 26 + (row.charCodeAt(i) - 64);
+      }
+      return index - 1;
+    };
+
+    const sortedRows = Object.keys(rowsMap).sort((a, b) => getRowIndex(b) - getRowIndex(a));
     const padding = 60;
     const computedSize = Math.max(22, Math.min(32, Math.floor((width - padding) / (maxCol + 1))));
 

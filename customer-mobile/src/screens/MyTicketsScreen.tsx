@@ -342,6 +342,7 @@ export const MyTicketsScreen: React.FC = () => {
                         ? new Date(order.schedule.startTime).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
+                          hour12: false,
                         })
                         : "-"}
                     </Text>
@@ -526,6 +527,7 @@ export const MyTicketsScreen: React.FC = () => {
                       ? new Date(selectedTicketForModal.order.schedule.startTime).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
+                        hour12: false,
                       }) + " WIB"
                       : ""}
                   </Text>

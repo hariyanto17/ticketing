@@ -79,7 +79,7 @@ export default function PrintTickets() {
 
   const movie = order.schedule.movie;
   const studio = order.schedule.studio;
-  const startTime = new Date(order.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const startTime = new Date(order.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   const date = formatDateDMY(order.schedule.businessDate);
   const purchaseTime = formatDateTimeDMY(order.createdAt);
 

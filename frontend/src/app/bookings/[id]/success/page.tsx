@@ -417,7 +417,7 @@ export default function BookingSuccess() {
             <div className="space-y-1">
               <span className="text-zinc-400 block font-medium">Studio & Jadwal</span>
               <span className="font-bold text-zinc-900 dark:text-zinc-50">
-                {schedule?.studio?.name} • {schedule?.startTime ? new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
+                {schedule?.studio?.name} • {schedule?.startTime ? new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : "-"}
               </span>
               <span className="text-[11px] text-zinc-500 block">
                 {schedule?.businessDate ? formatDate(schedule.businessDate) : "-"}

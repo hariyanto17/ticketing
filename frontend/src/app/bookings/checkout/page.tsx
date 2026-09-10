@@ -343,7 +343,7 @@ function GuestCheckout() {
                   <div className="flex items-center gap-1 font-bold text-zinc-800 dark:text-zinc-200">
                     <Clock className="w-3.5 h-3.5 text-emerald-500" />
                     <span>
-                      {new Date(activeSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(activeSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                     </span>
                   </div>
                 </div>

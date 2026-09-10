@@ -151,7 +151,7 @@ export default function ReportsDashboard() {
                 {reports?.scheduleReport?.map((r, i) => (
                   <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-950/50">
                     <td className="px-6 py-4 font-semibold text-zinc-500">
-                      {r.startTime ? new Date(r.startTime).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "-"}
+                      {r.startTime ? new Date(r.startTime).toLocaleString([], { dateStyle: "short", timeStyle: "short", hour12: false }) : "-"}
                     </td>
                     <td className="px-6 py-4 font-bold text-zinc-900 dark:text-zinc-50">{r.movieTitle}</td>
                     <td className="px-6 py-4">{r.studioCode}</td>

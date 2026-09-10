@@ -700,7 +700,7 @@ export default function CashierWorkspace() {
                   Sesi Laci Kas Aktif (Cash Drawer Open)
                 </h3>
                 <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                  Modal Awal: <span className="font-bold">{formatCurrency(activeDrawer.openingBalance)}</span> • Dibuka: {new Date(activeDrawer.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  Modal Awal: <span className="font-bold">{formatCurrency(activeDrawer.openingBalance)}</span> • Dibuka: {new Date(activeDrawer.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                 </p>
               </div>
             </div>
@@ -832,7 +832,7 @@ export default function CashierWorkspace() {
                   ) : (
                     <div className="flex flex-wrap gap-2.5">
                       {todaySchedules.map((sched) => {
-                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
                         const studioName = sched.studio?.name || "Studio";
                         const isSelected = selectedSchedule?.id === sched.id;
 
@@ -880,7 +880,7 @@ export default function CashierWorkspace() {
 
                     <div className="flex flex-wrap gap-2.5">
                       {tomorrowSchedules.map((sched) => {
-                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
                         const studioName = sched.studio?.name || "Studio";
                         const isSelected = selectedSchedule?.id === sched.id;
 
@@ -1190,7 +1190,7 @@ export default function CashierWorkspace() {
               <p className="text-xs text-zinc-400 flex items-center gap-1">
                 <span>{selectedSchedule.studio.name} ({selectedSchedule.studio.code})</span>
                 <span>•</span>
-                <span>{new Date(selectedSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                <span>{new Date(selectedSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
               </p>
             )}
           </div>

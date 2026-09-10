@@ -132,7 +132,7 @@ export default function TicketValidation() {
               <div className="flex justify-between">
                 <span className="font-semibold text-zinc-400">{t("tickets.showTime")}</span>
                 <span className="font-bold text-zinc-900 dark:text-zinc-50">
-                  {validationResult.ticket.showtimeSeat?.showtime && new Date(validationResult.ticket.showtimeSeat.showtime.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {validationResult.ticket.showtimeSeat?.showtime && new Date(validationResult.ticket.showtimeSeat.showtime.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                 </span>
               </div>
             </div>

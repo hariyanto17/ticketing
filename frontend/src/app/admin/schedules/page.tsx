@@ -403,9 +403,9 @@ export default function SchedulesManagement() {
       key: "startTime",
       header: t("schedules.showTime"),
       render: (s: Schedule) => {
-        const start = new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const start = new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
         const end = s.endTime
-          ? new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ? new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
           : "-";
         const date = formatDate(s.businessDate || s.startTime);
         return (
@@ -697,9 +697,9 @@ export default function SchedulesManagement() {
                       </thead>
                       <tbody className="divide-y divide-zinc-150/60 dark:divide-zinc-800/60">
                         {group.schedules.map((s) => {
-                          const start = new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                          const start = new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
                           const end = s.endTime
-                            ? new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            ? new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
                             : "-";
                           const date = formatDate(s.businessDate || s.startTime);
 

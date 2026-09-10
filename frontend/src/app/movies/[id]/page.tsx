@@ -271,7 +271,7 @@ export default function PublicMovieDetail() {
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {filteredSchedules.map((schedule) => {
                   const startTime = schedule.startTime
-                    ? new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    ? new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
                     : "-";
                   return (
                     <button
@@ -312,7 +312,7 @@ export default function PublicMovieDetail() {
         movieTitle={movie.title}
         showtime={
           selectedScheduleForApp?.startTime
-            ? new Date(selectedScheduleForApp.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            ? new Date(selectedScheduleForApp.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
             : undefined
         }
         studioName={selectedScheduleForApp?.studio?.name}

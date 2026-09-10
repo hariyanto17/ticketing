@@ -404,7 +404,7 @@ export default function CustomerDisplayPage() {
                   <p className="text-xs sm:text-sm xl:text-base font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 leading-tight">
                     <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                     <span>
-                      {new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                     </span>
                     <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       • {formatDate(schedule.businessDate || schedule.startTime)}

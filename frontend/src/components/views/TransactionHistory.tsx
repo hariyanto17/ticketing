@@ -151,7 +151,7 @@ export default function TransactionHistory() {
       header: t("transactions.showtime"),
       render: (o: Order) => {
         if (!o.schedule) return "-";
-        const time = new Date(o.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const time = new Date(o.schedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
         const date = formatDate(o.schedule.businessDate);
         return `${date} @ ${time}`;
       },

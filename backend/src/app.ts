@@ -11,6 +11,7 @@ import { initSocket } from "./utils/socket";
 import { PORT } from "./config/constant";
 import internalRouter from "./modules/internal/router";
 import { initMovieScheduler } from "./modules/movies/movieScheduler";
+import { initCleanupScheduler } from "./modules/cleanup/cleanupScheduler";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ initSocket(server);
 
 // Boot Cron Schedulers
 initMovieScheduler();
+initCleanupScheduler();
 
 app.use(
   cors({

@@ -125,6 +125,7 @@ export async function seedUat(withMovies: boolean = false) {
     { username: "uat_ticketkasir", name: "UAT Ticketing Kasir", email: "uat.ticketkasir@planetcinema.local", roleId: rolesMap["CASHIER"].id },
     { username: "uat_executive", name: "UAT Executive GM", email: "uat.executive@planetcinema.local", roleId: rolesMap["ADMINISTRATOR"].id },
     { username: "uat_gate_kiosk", name: "UAT Gate Kiosk Operator", email: "uat.gate_kiosk@planetcinema.local", roleId: rolesMap["GATE_VALIDATOR"].id },
+    { username: "uat_projectionist", name: "UAT Projectionist Operator", email: "uat.projectionist@planetcinema.local", roleId: rolesMap["PROJECTIONIST"].id },
   ];
 
   const usersMap: Record<string, any> = {};

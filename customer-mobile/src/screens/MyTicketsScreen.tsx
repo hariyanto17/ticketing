@@ -355,21 +355,45 @@ export const MyTicketsScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* Action: Cetak di Mesin Kiosk */}
+                {/* Action: Cetak di Mesin Kiosk (Hanya 1x, jika sudah dicetak hanya kasir yang bisa reprint) */}
                 {(order.orderStatus === "PAID" || order.paymentStatus === "PAID") && (
-                  <TouchableOpacity
-                    style={[styles.kioskPrintBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => {
-                      setKioskModalOrder(order);
-                      setKioskPrintStatus("idle");
-                      setKioskErrorMessage("");
-                      setCustomKioskId("");
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Printer size={16} color="#ffffff" />
-                    <Text style={styles.kioskPrintBtnText}>Cetak Tiket Fisik di Kiosk</Text>
-                  </TouchableOpacity>
+                  (() => {
+                    const isAlreadyPrinted = order.tickets?.some(
+                      (t) => (t.printCount || 0) > 0 || !!t.printedAt
+                    );
+
+                    if (isAlreadyPrinted) {
+                      return (
+                        <View style={[styles.kioskPrintedNotice, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                          <View style={styles.kioskPrintedBadgeRow}>
+                            <CheckCircle2 size={15} color={colors.success} />
+                            <Text style={[styles.kioskPrintedBadgeText, { color: colors.success }]}>
+                              Tiket Fisik Sudah Dicetak di Kiosk
+                            </Text>
+                          </View>
+                          <Text style={[styles.kioskPrintedNoticeSubtext, { color: colors.textMuted }]}>
+                            Sesuai aturan, tiket kiosk hanya dapat dicetak 1x. Silakan hubungi kasir jika butuh cetak ulang.
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <TouchableOpacity
+                        style={[styles.kioskPrintBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => {
+                          setKioskModalOrder(order);
+                          setKioskPrintStatus("idle");
+                          setKioskErrorMessage("");
+                          setCustomKioskId("");
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Printer size={16} color="#ffffff" />
+                        <Text style={styles.kioskPrintBtnText}>Cetak Tiket Fisik di Kiosk (1x)</Text>
+                      </TouchableOpacity>
+                    );
+                  })()
                 )}
 
                 {/* Individual Seat Tickets & QR Codes */}
@@ -1133,5 +1157,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
+  },
+  kioskPrintedNotice: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  kioskPrintedBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  kioskPrintedBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  kioskPrintedNoticeSubtext: {
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

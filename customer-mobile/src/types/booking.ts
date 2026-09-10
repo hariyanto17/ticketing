@@ -7,6 +7,8 @@ export interface Ticket {
   showtimeSeatId: string;
   qrCode: string;
   status: "ACTIVE" | "PENDING" | "USED" | "CANCELLED";
+  printCount?: number;
+  printedAt?: string | null;
   createdAt: string;
   showtimeSeat?: ShowtimeSeat;
 }

@@ -84,6 +84,9 @@ export interface KioskOrderTicket {
   seatNumber: number;
   seatType: string;
   price: number;
+  printCount?: number;
+  isPrinted?: boolean;
+  printedAt?: string | null;
 }
 
 export interface KioskOrderResult {

@@ -77,6 +77,15 @@ export const reprintTicket = async (ticketId: string, userId: string, reason: st
     throw new AppError("NOT_FOUND", "Ticket not found");
   }
 
+  // Increment print count for ticket
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: {
+      printCount: { increment: 1 },
+      printedAt: new Date(),
+    },
+  });
+
   // Create reprint log
   return prisma.ticketReprint.create({
     data: {
@@ -214,6 +223,17 @@ export const kioskLookupOrder = async (query: string) => {
     throw new AppError("BAD_REQUEST", "Pesanan belum lunas. Harap selesaikan pembayaran terlebih dahulu.");
   }
 
+  // Validation: Each ticket can ONLY be printed 1x at Kiosk (only cashier can reprint > 1x)
+  const isAlreadyPrinted = order.tickets.some(
+    (t) => (t.printCount || 0) > 0 || t.printedAt !== null
+  );
+  if (isAlreadyPrinted) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Tiket untuk pesanan ini sudah pernah dicetak (1x). Cetak ulang hanya dapat dilakukan melalui kasir / petugas."
+    );
+  }
+
   // Check if showtime has passed by more than 2 hours
   if (order.schedule?.startTime) {
     const showtimeStart = new Date(order.schedule.startTime).getTime();
@@ -261,6 +281,9 @@ export const kioskLookupOrder = async (query: string) => {
       ticketNumber: t.ticketNumber,
       qrCode: t.qrCode || t.ticketNumber,
       status: t.status,
+      printCount: t.printCount || 0,
+      isPrinted: (t.printCount || 0) > 0 || !!t.printedAt,
+      printedAt: t.printedAt,
       seatLabel: t.showtimeSeat?.seat?.seatLabel || "-",
       row: t.showtimeSeat?.seat?.row || "-",
       seatNumber: t.showtimeSeat?.seat?.seatNumber || 0,
@@ -283,14 +306,34 @@ export const logKioskPrint = async (orderId: string, operatorId?: string) => {
     throw new AppError("NOT_FOUND", "Pesanan tidak ditemukan");
   }
 
-  // Create reprint log entries if printed again
-  if (operatorId && order.tickets.length > 0) {
+  // If already printed and not an authorized staff operator, block reprint
+  const alreadyPrinted = order.tickets.some(
+    (t) => (t.printCount || 0) > 0 || t.printedAt !== null
+  );
+  if (alreadyPrinted && !operatorId) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Tiket untuk pesanan ini sudah pernah dicetak (1x). Cetak ulang hanya dapat dilakukan melalui kasir / petugas."
+    );
+  }
+
+  // Increment print count and set printedAt timestamp for all tickets in the order
+  await prisma.ticket.updateMany({
+    where: { orderId: order.id },
+    data: {
+      printCount: { increment: 1 },
+      printedAt: new Date(),
+    },
+  });
+
+  // Create reprint log entries
+  if (order.tickets.length > 0) {
     for (const ticket of order.tickets) {
       await prisma.ticketReprint.create({
         data: {
           ticketId: ticket.id,
-          reprintedById: operatorId,
-          reason: "KIOSK_SELF_SERVICE_PRINT",
+          reprintedById: operatorId || null,
+          reason: operatorId ? "CASHIER_PRINT" : "KIOSK_SELF_SERVICE_PRINT",
         },
       }).catch(() => {});
     }

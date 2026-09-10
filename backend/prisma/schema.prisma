@@ -361,6 +361,8 @@ model Ticket {
   showtimeSeatId String   @unique
   qrCode         String
   status         String   @default("ACTIVE") // ACTIVE, USED, CANCELLED
+  printCount     Int      @default(0)
+  printedAt      DateTime?
   createdAt      DateTime @default(now())
 
   order        Order        @relation(fields: [orderId], references: [id])
@@ -471,10 +473,10 @@ model DailyClosing {
 model TicketReprint {
   id             String   @id @default(uuid())
   ticketId       String
-  reprintedById  String
+  reprintedById  String?
   reprintedAt    DateTime @default(now())
   reason         String
 
   ticket      Ticket @relation(fields: [ticketId], references: [id])
-  reprintedBy User   @relation(fields: [reprintedById], references: [id])
+  reprintedBy User?  @relation(fields: [reprintedById], references: [id])
 }

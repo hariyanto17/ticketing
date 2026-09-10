@@ -11,8 +11,8 @@ router.use(catchAsync(authMiddleware));
 router.get("/", catchAsync(controller.getPHsController));
 router.get("/:id", catchAsync(controller.getPHByIdController));
 
-router.post("/", authorize("Admin"), catchAsync(controller.createPHController));
-router.put("/:id", authorize("Admin"), catchAsync(controller.updatePHController));
-router.delete("/:id", authorize("Admin"), catchAsync(controller.deletePHController));
+router.post("/", authorize("Admin", "Projectionist"), catchAsync(controller.createPHController));
+router.put("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.updatePHController));
+router.delete("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.deletePHController));
 
 export default router;

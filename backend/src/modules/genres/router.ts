@@ -11,9 +11,9 @@ router.use(catchAsync(authMiddleware));
 router.get("/", catchAsync(controller.getGenresController));
 router.get("/:id", catchAsync(controller.getGenreByIdController));
 
-// Modifying operations restricted to Admin
-router.post("/", authorize("Admin"), catchAsync(controller.createGenreController));
-router.put("/:id", authorize("Admin"), catchAsync(controller.updateGenreController));
-router.delete("/:id", authorize("Admin"), catchAsync(controller.deleteGenreController));
+// Modifying operations restricted to Admin & Projectionist
+router.post("/", authorize("Admin", "Projectionist"), catchAsync(controller.createGenreController));
+router.put("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.updateGenreController));
+router.delete("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.deleteGenreController));
 
 export default router;

@@ -85,6 +85,8 @@ export async function seedUat(withMovies: boolean = false) {
     { name: "CASHIER", description: "Ticketing Front-desk Cashier" },
     { name: "GATE_VALIDATOR", description: "Gate Validator & Ticket Kiosk Operator" },
     { name: "Gate Validator", description: "Gate Validator & Ticket Kiosk Operator" },
+    { name: "PROJECTIONIST", description: "Projectionist (Dashboard, Studios, Movies, Schedules)" },
+    { name: "Projectionist", description: "Projectionist (Dashboard, Studios, Movies, Schedules)" },
   ];
   const rolesMap: Record<string, any> = {};
   for (const r of rolesDef) {

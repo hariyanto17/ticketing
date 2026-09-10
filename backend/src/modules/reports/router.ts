@@ -8,6 +8,6 @@ const router = Router();
 
 router.use(catchAsync(authMiddleware));
 
-router.get("/", authorize("Admin"), catchAsync(controller.getReportsController));
+router.get("/", authorize("Admin", "Projectionist"), catchAsync(controller.getReportsController));
 
 export default router;

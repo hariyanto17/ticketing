@@ -11,11 +11,11 @@ router.use(catchAsync(authMiddleware));
 router.get("/", catchAsync(controller.getSchedulesController));
 router.get("/:id", catchAsync(controller.getScheduleByIdController));
 
-router.post("/copy-yesterday", authorize("Admin"), catchAsync(controller.copySchedulesController));
-router.post("/copy", authorize("Admin"), catchAsync(controller.copySchedulesController));
-router.post("/", authorize("Admin"), catchAsync(controller.createScheduleController));
-router.put("/:id", authorize("Admin"), catchAsync(controller.updateScheduleController));
-router.delete("/:id", authorize("Admin"), catchAsync(controller.deleteScheduleController));
+router.post("/copy-yesterday", authorize("Admin", "Projectionist"), catchAsync(controller.copySchedulesController));
+router.post("/copy", authorize("Admin", "Projectionist"), catchAsync(controller.copySchedulesController));
+router.post("/", authorize("Admin", "Projectionist"), catchAsync(controller.createScheduleController));
+router.put("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.updateScheduleController));
+router.delete("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.deleteScheduleController));
 
 // Seat availability and reservation lifecycle endpoints
 router.get("/:id/seats", catchAsync(controller.getScheduleSeatsController));

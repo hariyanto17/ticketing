@@ -9,14 +9,14 @@ const router = Router();
 router.use(catchAsync(authMiddleware));
 
 router.get("/", catchAsync(controller.getSeatsController));
-router.post("/", authorize("Admin"), catchAsync(controller.createSeatController));
-router.put("/:id", authorize("Admin"), catchAsync(controller.updateSeatController));
-router.delete("/:id", authorize("Admin"), catchAsync(controller.deleteSeatController));
+router.post("/", authorize("Admin", "Projectionist"), catchAsync(controller.createSeatController));
+router.put("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.updateSeatController));
+router.delete("/:id", authorize("Admin", "Projectionist"), catchAsync(controller.deleteSeatController));
 
 // Batch layout update endpoint
-router.post("/layout", authorize("Admin"), catchAsync(controller.saveLayoutController));
+router.post("/layout", authorize("Admin", "Projectionist"), catchAsync(controller.saveLayoutController));
 
 // Validate removal (row or column)
-router.get("/validate-removal", authorize("Admin"), catchAsync(controller.validateRemovalController));
+router.get("/validate-removal", authorize("Admin", "Projectionist"), catchAsync(controller.validateRemovalController));
 
 export default router;

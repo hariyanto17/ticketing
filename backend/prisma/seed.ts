@@ -247,11 +247,13 @@ async function main() {
   const adminRole = await ensureRole("Admin", "Administrator role");
   const cashierRole = await ensureRole("Cashier", "Cashier role");
   const gateRole = await ensureRole("GATE_VALIDATOR", "Gate Validator & Ticket Kiosk Operator");
+  const projectionistRole = await ensureRole("Projectionist", "Projectionist role (Dashboard, Studios, Movies, Schedules)");
   const branch = await ensureBranch();
 
   await ensureUser(branch.id, adminRole.id, "admin", "Admin", "admin@kasir-ticket.test", "+628000000000");
   await ensureUser(branch.id, cashierRole.id, "cashier", "Cashier User", "cashier@kasir-ticket.test", "+628111111111");
   await ensureUser(branch.id, gateRole.id, "gate_kiosk", "Gate Kiosk Operator", "kiosk@kasir-ticket.test", "+628222222222");
+  await ensureUser(branch.id, projectionistRole.id, "projectionist", "Projectionist User", "projectionist@kasir-ticket.test", "+628333333333");
 
   const genres = [
     ["Action", "High energy, stunts, and chases"],

@@ -3,6 +3,7 @@ import { AppError } from "../utils/errorHandler";
 
 const normalizeRole = (role: string): string => {
   const r = (role || "").toUpperCase().replace(/[_\s-]/g, "");
+  if (r.includes("PROJECTIONIST") || r.includes("PROYEKSIONIS")) return "PROJECTIONIST";
   if (r.includes("ADMIN")) return "ADMIN";
   if (r.includes("CASHIER") || r.includes("KASIR")) return "CASHIER";
   if (r.includes("GATE") || r.includes("KIOSK") || r.includes("VALIDATOR")) return "GATE_VALIDATOR";

@@ -62,12 +62,22 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
           // Strict Role Validation
           const roleCode = platformContext.application.role;
-          if (roleCode !== "TICKETING_ADMINISTRATOR" && roleCode !== "TICKETING_CASHIER") {
+          if (
+            roleCode !== "TICKETING_ADMINISTRATOR" &&
+            roleCode !== "TICKETING_CASHIER" &&
+            roleCode !== "TICKETING_PROJECTIONIST" &&
+            roleCode !== "PROJECTIONIST"
+          ) {
             return next(new AppError("FORBIDDEN", "Access denied: invalid role configuration"));
           }
 
           // Sync role changes if any
-          const roleName = roleCode === "TICKETING_ADMINISTRATOR" ? "Admin" : "Cashier";
+          let roleName = "Admin";
+          if (roleCode === "TICKETING_CASHIER") {
+            roleName = "Cashier";
+          } else if (roleCode === "TICKETING_PROJECTIONIST" || roleCode === "PROJECTIONIST") {
+            roleName = "Projectionist";
+          }
           if (user.role.name !== roleName) {
             const dbRole = await prisma.role.findFirst({ where: { name: roleName } });
             if (dbRole) {

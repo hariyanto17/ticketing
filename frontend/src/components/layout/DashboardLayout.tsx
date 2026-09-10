@@ -100,6 +100,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     (user?.username || "").toLowerCase().includes("cashier")
   );
 
+  const isProjectionistUser = Boolean(
+    (user?.role || "").toUpperCase().includes("PROJECTIONIST") ||
+    (user?.role || "").toUpperCase().includes("PROYEKSIONIS") ||
+    (user?.username || "").toLowerCase().includes("projectionist") ||
+    (user?.username || "").toLowerCase().includes("proyeksionis")
+  );
+
   useEffect(() => {
     if (user && isGateUser && pathname !== "/kiosk-print") {
       router.replace("/kiosk-print");
@@ -113,8 +120,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
         else router.replace("/cashier/dashboard");
       }
+    } else if (user && isProjectionistUser && !isGateUser && !isCashierUser) {
+      const allowedPaths = ["/admin/dashboard", "/admin/studios", "/admin/movies", "/admin/schedules"];
+      const isAllowed = allowedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+      if (!isAllowed) {
+        router.replace("/admin/dashboard");
+      }
     }
-  }, [user, isGateUser, isCashierUser, pathname, router]);
+  }, [user, isGateUser, isCashierUser, isProjectionistUser, pathname, router]);
 
   const handleLogout = async () => {
     try {
@@ -135,6 +148,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.dailyClosing"), href: "/cashier/closing", icon: <Calendar className="w-5 h-5" /> },
   ];
 
+  const projectionistMenuItems = [
+    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" /> },
+    { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" /> },
+    { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" /> },
+  ];
+
   const adminMenuItems = [
     { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" /> },
@@ -152,7 +172,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
   ];
 
-  const menuItems = isCashierUser ? cashierMenuItems : adminMenuItems;
+  const menuItems = isCashierUser
+    ? cashierMenuItems
+    : isProjectionistUser
+    ? projectionistMenuItems
+    : adminMenuItems;
 
   if (authStatus === "initializing" || isSessionLoading) {
     return (

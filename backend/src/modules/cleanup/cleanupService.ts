@@ -85,12 +85,13 @@ export const runDataCleanupJob = async (): Promise<CleanupResult> => {
 
   for (const movie of candidateMovies) {
     try {
-      // Remove genre associations
+      // IMPORTANT: We only remove the relation junction (MovieGenre) for this specific movie.
+      // Master Genre records (in Genre table) are NEVER deleted and remain intact for all other movies.
       await prisma.movieGenre.deleteMany({
         where: { movieId: movie.id },
       });
 
-      // Delete the movie
+      // Delete the movie record (ProductionHouse & Distributor masters are also preserved)
       await prisma.movie.delete({
         where: { id: movie.id },
       });

@@ -118,4 +118,11 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     assert.strictEqual(enTranslations.movieDetail.producer, "Producer");
     assert.strictEqual(enTranslations.movieDetail.productionHouse, "Production House");
   });
+
+  await t.test("7. Splash Screen Display Duration & Navigation Invariant", async () => {
+    const { SPLASH_DURATION_MS, SPLASH_BACKGROUND_COLOR, SPLASH_TAGLINE } = await import("../config/splash");
+    assert.strictEqual(SPLASH_DURATION_MS, 3000, "Splash Screen must display logo for exactly 3000ms (3 seconds)");
+    assert.strictEqual(SPLASH_BACKGROUND_COLOR, "#09090b", "Splash Screen background must match dark theme");
+    assert.ok(SPLASH_TAGLINE.length > 0, "Splash Screen tagline must be present");
+  });
 });

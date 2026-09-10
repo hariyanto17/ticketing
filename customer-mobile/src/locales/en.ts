@@ -165,7 +165,7 @@ export default {
     seat: "Seat",
     date: "Date",
     time: "Time",
-    statusActive: "ACTIVE / READY FOR ENTRY",
+    statusActive: "READY FOR ENTRY",
     statusPending: "AWAITING PAYMENT",
     statusUsed: "ALREADY USED",
     statusCancelled: "CANCELLED",

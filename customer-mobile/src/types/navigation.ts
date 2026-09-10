@@ -2,6 +2,7 @@ import { Movie } from "./movie";
 import { Showtime } from "./schedule";
 
 export type RootStackParamList = {
+  Splash: undefined;
   MainTabs: undefined;
   Movies: { initialFilter?: "NOW_SHOWING" | "COMING_SOON" };
   MovieDetail: { movieId: string };

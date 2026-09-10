@@ -165,7 +165,7 @@ export default {
     seat: "Kursi",
     date: "Tanggal",
     time: "Jam",
-    statusActive: "AKTIF / SIAP DIGUNAKAN",
+    statusActive: "SIAP DIGUNAKAN",
     statusPending: "MENUNGGU PEMBAYARAN",
     statusUsed: "SUDAH DIGUNAKAN",
     statusCancelled: "DIBATALKAN",

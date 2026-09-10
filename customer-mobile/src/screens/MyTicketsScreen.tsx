@@ -328,9 +328,9 @@ export const MyTicketsScreen: React.FC = () => {
                     <Text style={[styles.infoColText, { color: colors.text }]}>
                       {order.schedule?.businessDate
                         ? new Date(order.schedule.businessDate).toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "short",
-                          })
+                          day: "numeric",
+                          month: "short",
+                        })
                         : "-"}
                     </Text>
                   </View>
@@ -340,9 +340,9 @@ export const MyTicketsScreen: React.FC = () => {
                     <Text style={[styles.infoColText, { color: colors.text }]}>
                       {order.schedule?.startTime
                         ? new Date(order.schedule.startTime).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                         : "-"}
                     </Text>
                   </View>
@@ -354,47 +354,6 @@ export const MyTicketsScreen: React.FC = () => {
                     </Text>
                   </View>
                 </View>
-
-                {/* Action: Cetak di Mesin Kiosk (Hanya 1x, jika sudah dicetak hanya kasir yang bisa reprint) */}
-                {(order.orderStatus === "PAID" || order.paymentStatus === "PAID") && (
-                  (() => {
-                    const isAlreadyPrinted = order.tickets?.some(
-                      (t) => (t.printCount || 0) > 0 || !!t.printedAt
-                    );
-
-                    if (isAlreadyPrinted) {
-                      return (
-                        <View style={[styles.kioskPrintedNotice, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-                          <View style={styles.kioskPrintedBadgeRow}>
-                            <CheckCircle2 size={15} color={colors.success} />
-                            <Text style={[styles.kioskPrintedBadgeText, { color: colors.success }]}>
-                              Tiket Fisik Sudah Dicetak di Kiosk
-                            </Text>
-                          </View>
-                          <Text style={[styles.kioskPrintedNoticeSubtext, { color: colors.textMuted }]}>
-                            Sesuai aturan, tiket kiosk hanya dapat dicetak 1x. Silakan hubungi kasir jika butuh cetak ulang.
-                          </Text>
-                        </View>
-                      );
-                    }
-
-                    return (
-                      <TouchableOpacity
-                        style={[styles.kioskPrintBtn, { backgroundColor: colors.primary }]}
-                        onPress={() => {
-                          setKioskModalOrder(order);
-                          setKioskPrintStatus("idle");
-                          setKioskErrorMessage("");
-                          setCustomKioskId("");
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Printer size={16} color="#ffffff" />
-                        <Text style={styles.kioskPrintBtnText}>Cetak Tiket Fisik di Kiosk (1x)</Text>
-                      </TouchableOpacity>
-                    );
-                  })()
-                )}
 
                 {/* Individual Seat Tickets & QR Codes */}
                 <View style={styles.ticketsContainer}>
@@ -443,6 +402,47 @@ export const MyTicketsScreen: React.FC = () => {
                     </TouchableOpacity>
                   ))}
                 </View>
+
+                {/* Action: Cetak di Mesin Kiosk (Hanya 1x, jika sudah dicetak hanya kasir yang bisa reprint) */}
+                {(order.orderStatus === "PAID" || order.paymentStatus === "PAID") && (
+                  (() => {
+                    const isAlreadyPrinted = order.tickets?.some(
+                      (t) => (t.printCount || 0) > 0 || !!t.printedAt
+                    );
+
+                    if (isAlreadyPrinted) {
+                      return (
+                        <View style={[styles.kioskPrintedNotice, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                          <View style={styles.kioskPrintedBadgeRow}>
+                            <CheckCircle2 size={15} color={colors.success} />
+                            <Text style={[styles.kioskPrintedBadgeText, { color: colors.success }]}>
+                              Tiket Fisik Sudah Dicetak di Kiosk
+                            </Text>
+                          </View>
+                          <Text style={[styles.kioskPrintedNoticeSubtext, { color: colors.textMuted }]}>
+                            Sesuai aturan, tiket kiosk hanya dapat dicetak 1x. Silakan hubungi kasir jika butuh cetak ulang.
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <TouchableOpacity
+                        style={[styles.kioskPrintBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => {
+                          setKioskModalOrder(order);
+                          setKioskPrintStatus("idle");
+                          setKioskErrorMessage("");
+                          setCustomKioskId("");
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Printer size={16} color="#ffffff" />
+                        <Text style={styles.kioskPrintBtnText}>Cetak Tiket Fisik di Kiosk (1x)</Text>
+                      </TouchableOpacity>
+                    );
+                  })()
+                )}
               </Card>
             ))}
           </View>
@@ -517,16 +517,16 @@ export const MyTicketsScreen: React.FC = () => {
                     {selectedTicketForModal.order.schedule?.studio?.name || "Studio"} •{" "}
                     {selectedTicketForModal.order.schedule?.businessDate
                       ? new Date(selectedTicketForModal.order.schedule.businessDate).toLocaleDateString("id-ID", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                        })
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      })
                       : ""}{" "}
                     {selectedTicketForModal.order.schedule?.startTime
                       ? new Date(selectedTicketForModal.order.schedule.startTime).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }) + " WIB"
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }) + " WIB"
                       : ""}
                   </Text>
                 </View>

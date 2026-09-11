@@ -36,6 +36,8 @@ import {
   Layers,
   Film,
   Sparkles,
+  Bell,
+  AlertTriangle,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { formatDuration } from "@/lib/formatDuration";
@@ -47,6 +49,31 @@ const scheduleSchema = (t: (key: string, ...args: any[]) => string) => z.object(
   ticketPrice: z.coerce.number().positive(t("schedules.price")),
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]),
 });
+
+const getDingdongConflict = (schedule: Schedule, allSchedulesInStudio: Schedule[]) => {
+  const currentStart = new Date(schedule.startTime).getTime();
+  if (isNaN(currentStart)) return null;
+  const currentDingdong = currentStart - 15 * 60 * 1000;
+
+  for (const prev of allSchedulesInStudio) {
+    if (prev.id === schedule.id) continue;
+    const prevStart = new Date(prev.startTime).getTime();
+    if (isNaN(prevStart) || prevStart >= currentStart) continue;
+
+    let prevEnd = prev.endTime ? new Date(prev.endTime).getTime() : NaN;
+    if (isNaN(prevEnd) && prev.movie?.durationMinutes) {
+      prevEnd = prevStart + prev.movie.durationMinutes * 60 * 1000;
+    }
+
+    if (!isNaN(prevEnd) && currentDingdong < prevEnd && currentDingdong >= prevStart) {
+      return {
+        prevMovie: prev.movie?.title || "Film sebelumnya",
+        prevEndTimeStr: new Date(prevEnd).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+      };
+    }
+  }
+  return null;
+};
 
 export default function SchedulesManagement() {
   const { t, locale, formatDate, formatCurrency } = useTranslation();
@@ -400,6 +427,42 @@ export default function SchedulesManagement() {
       render: (s: Schedule) => `${s.studio?.name} (${s.studio?.code})`,
     },
     {
+      key: "dingdongTime",
+      header: t("schedules.dingdongTime"),
+      render: (s: Schedule) => {
+        const startDate = new Date(s.startTime);
+        const dingdongDate = new Date(startDate.getTime() - 15 * 60 * 1000);
+        const dingdong = !isNaN(dingdongDate.getTime())
+          ? dingdongDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+          : "-";
+        const conflict = getDingdongConflict(s, schedulesResponse?.data?.filter((other) => other.studioId === s.studioId) || []);
+        return conflict ? (
+          <div className="flex flex-col">
+            <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+              <Bell className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              <span>{dingdong}</span>
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-sans font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                -15 mnt
+              </span>
+            </span>
+            <span className="text-[10px] text-rose-500 dark:text-rose-400 font-medium mt-0.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              Selesai sblmnya: {conflict.prevEndTimeStr}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            <span className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <Bell className="w-3.5 h-3.5 text-amber-500 shrink-0" /> {dingdong}
+            </span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+              -15 mnt
+            </span>
+          </div>
+        );
+      },
+    },
+    {
       key: "startTime",
       header: t("schedules.showTime"),
       render: (s: Schedule) => {
@@ -689,6 +752,7 @@ export default function SchedulesManagement() {
                       <thead>
                         <tr className="border-b border-zinc-150/80 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider text-[11px]">
                           <th className="py-2.5 px-5">{t("schedules.movie")}</th>
+                          <th className="py-2.5 px-5">{t("schedules.dingdongTime")}</th>
                           <th className="py-2.5 px-5">{t("schedules.showTime")}</th>
                           <th className="py-2.5 px-5">{t("schedules.price")}</th>
                           <th className="py-2.5 px-5">{t("schedules.status")}</th>
@@ -697,14 +761,22 @@ export default function SchedulesManagement() {
                       </thead>
                       <tbody className="divide-y divide-zinc-150/60 dark:divide-zinc-800/60">
                         {group.schedules.map((s) => {
-                          const start = new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+                          const startDate = new Date(s.startTime);
+                          const dingdongDate = new Date(startDate.getTime() - 15 * 60 * 1000);
+                          const dingdong = !isNaN(dingdongDate.getTime())
+                            ? dingdongDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+                            : "-";
+                          const start = !isNaN(startDate.getTime())
+                            ? startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+                            : "-";
                           const end = s.endTime
                             ? new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
                             : "-";
                           const date = formatDate(s.businessDate || s.startTime);
+                          const dingdongConflict = getDingdongConflict(s, group.schedules);
 
                           return (
-                            <tr key={s.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                            <tr key={s.id} className={`transition-colors ${dingdongConflict ? "bg-rose-500/5 hover:bg-rose-500/10" : "hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30"}`}>
                               {/* Movie */}
                               <td className="py-3 px-5">
                                 <div className="flex items-center gap-3">
@@ -730,6 +802,37 @@ export default function SchedulesManagement() {
                                     ) : null}
                                   </div>
                                 </div>
+                              </td>
+
+                              {/* Jam Dindong */}
+                              <td className="py-3 px-5">
+                                {dingdongConflict ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                                      <Bell className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                      <span>{dingdong}</span>
+                                      <span className="px-1.5 py-0.2 rounded text-[10px] font-sans font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                        -15 mnt
+                                      </span>
+                                    </span>
+                                    <span
+                                      className="text-[10px] text-rose-500 dark:text-rose-400 font-medium mt-0.5 flex items-center gap-1"
+                                      title={`Jam dindong (${dingdong}) bertabrakan dengan "${dingdongConflict.prevMovie}" yang baru selesai pukul ${dingdongConflict.prevEndTimeStr}`}
+                                    >
+                                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                                      Selesai sblmnya: {dingdongConflict.prevEndTimeStr}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                      <Bell className="w-3.5 h-3.5 text-amber-500 shrink-0" /> {dingdong}
+                                    </span>
+                                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                                      -15 mnt
+                                    </span>
+                                  </div>
+                                )}
                               </td>
 
                               {/* Showtime */}

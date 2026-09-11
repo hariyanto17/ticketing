@@ -23,7 +23,7 @@ export const SOCKET_URL = process.env.SOCKET_URL || getHostUrl();
 
 // Public Midtrans Client Key (Safe for client-side embedding)
 // NOTE: MIDTRANS_SERVER_KEY is strictly maintained on the backend and NEVER exposed to mobile.
-export const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "Mid-client-gB11OYFvz5Cb52z-";
+export const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "SB-Mid-client-eiZoROEOouoxM1ro";
 export const MIDTRANS_SNAP_BASE_URL = APP_ENV === "production"
   ? "https://app.midtrans.com/snap/v2/vtweb"
   : "https://app.sandbox.midtrans.com/snap/v2/vtweb";

@@ -35,6 +35,11 @@ android {
                 storePassword PLANETCINEMA_UPLOAD_STORE_PASSWORD
                 keyAlias PLANETCINEMA_UPLOAD_KEY_ALIAS
                 keyPassword PLANETCINEMA_UPLOAD_KEY_PASSWORD
+            } else {
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
             }
         }
     }

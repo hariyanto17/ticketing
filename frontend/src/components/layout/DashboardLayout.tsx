@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Settings,
   Printer,
+  FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -118,6 +119,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         else if (pathname === "/admin/transactions") router.replace("/cashier/transactions");
         else if (pathname === "/admin/closing") router.replace("/cashier/closing");
         else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
+        else if (pathname === "/admin/reports/film-sales") router.replace("/cashier/reports/film-sales");
         else router.replace("/cashier/dashboard");
       }
     } else if (user && isProjectionistUser && !isGateUser && !isCashierUser) {
@@ -144,6 +146,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.dashboard"), href: "/cashier/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.ticketSales"), href: "/cashier/pos", icon: <Ticket className="w-5 h-5" /> },
     { name: t("nav.transactions"), href: "/cashier/transactions", icon: <Receipt className="w-5 h-5" /> },
+    { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/cashier/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
     { name: t("nav.gateValidator"), href: "/cashier/tickets/validate", icon: <ShieldCheck className="w-5 h-5" /> },
     { name: t("nav.dailyClosing"), href: "/cashier/closing", icon: <Calendar className="w-5 h-5" /> },
   ];
@@ -168,6 +171,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" /> },
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
     { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
     { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" /> },
     { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
   ];

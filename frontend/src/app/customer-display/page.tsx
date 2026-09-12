@@ -9,7 +9,9 @@ import {
 import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
-import { Film, Clock, Armchair, Ticket, Sparkles, CheckCircle2 } from "lucide-react";
+import { Film, Clock, Armchair, Ticket, Sparkles, CheckCircle2, Calendar } from "lucide-react";
+import { useGetSchedulesQuery, useGetStudiosQuery, Schedule } from "@/services/studioApi";
+import { formatDuration, getCensorshipBadgeClass } from "@/lib/formatDuration";
 
 export default function CustomerDisplayPage() {
   const { t, formatDate, formatCurrency, setLocale, locale } = useTranslation();
@@ -17,6 +19,58 @@ export default function CustomerDisplayPage() {
 
   const [displayState, setDisplayState] = useState<CustomerDisplayStatePayload | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+
+  // Today's date string in YYYY-MM-DD
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  // Fetch today's schedules & studios for standby schedule board
+  const { data: schedulesResponse, isLoading: schedulesLoading } = useGetSchedulesQuery(
+    { status: "PUBLISHED", startDate: todayStr, endDate: todayStr },
+    { pollingInterval: 15000 }
+  );
+
+  const { data: studiosResponse, isLoading: studiosLoading } = useGetStudiosQuery(
+    { limit: 100 }
+  );
+
+  // Group schedules strictly by studio
+  const groupedStudioSchedules = useMemo(() => {
+    const rawSchedules = schedulesResponse?.data || [];
+    const rawStudios = studiosResponse?.data || [];
+
+    const studioMap: Record<string, { studio: any; schedules: Schedule[] }> = {};
+
+    rawStudios.forEach((st) => {
+      studioMap[st.id] = { studio: st, schedules: [] };
+    });
+
+    rawSchedules.forEach((s) => {
+      if (studioMap[s.studioId]) {
+        studioMap[s.studioId].schedules.push(s);
+      } else {
+        studioMap[s.studioId] = {
+          studio: s.studio || { id: s.studioId, name: "Studio", code: "-", type: "REGULAR" },
+          schedules: [s],
+        };
+      }
+    });
+
+    // Sort showtimes inside each studio chronologically
+    Object.values(studioMap).forEach((group) => {
+      group.schedules.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    });
+
+    // Filter only studios that have active schedules, sorted by studio name
+    return Object.values(studioMap)
+      .filter((group) => group.schedules.length > 0)
+      .sort((a, b) => (a.studio?.name || "").localeCompare(b.studio?.name || "", undefined, { numeric: true }));
+  }, [schedulesResponse?.data, studiosResponse?.data]);
 
   const localeRef = useRef(locale);
   const themeRef = useRef(currentTheme);
@@ -201,25 +255,178 @@ export default function CustomerDisplayPage() {
       </header>
 
       {/* 2. MAIN VIEWPORT (Occupies remaining viewport height, responsive on small/large devices) */}
-      <main className="flex-1 min-h-0 w-full max-w-[1920px] mx-auto p-3 sm:p-4 xl:p-6 flex items-center justify-center overflow-y-auto lg:overflow-hidden">
+      <main className="flex-1 min-h-0 w-full max-w-[1920px] mx-auto p-3 sm:p-4 xl:p-6 flex flex-col items-center justify-start overflow-y-auto">
         {!schedule || !movie ? (
-          /* IDLE / STANDBY STATE */
-          <div className="max-w-xl text-center space-y-4 sm:space-y-5 p-4 animate-in fade-in duration-300">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-3xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center shadow-lg dark:shadow-2xl shadow-indigo-500/10">
-              <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+          /* IDLE / STANDBY STATE - TODAY'S SHOWTIMES BOARD */
+          <div className="w-full h-full flex flex-col space-y-3.5 sm:space-y-4 animate-in fade-in duration-300 overflow-y-auto pr-1">
+            {/* Board Header Banner */}
+            <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-3.5 sm:px-5 sm:py-3.5 shadow-sm backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-xs">
+                  <Film className="w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-base sm:text-lg xl:text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight flex items-center gap-2">
+                    <span>{t("customerDisplay.todayShowtimes")}</span>
+                  </h1>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                    {t("customerDisplay.todayShowtimesSubtitle")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 shadow-2xs">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span>{formatDate(todayStr)}</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold text-emerald-700 dark:text-emerald-400 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span>{t("customerDisplay.standbyMessage")}</span>
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-                {t("customerDisplay.welcome")}
-              </h2>
-              <p className="text-zinc-600 dark:text-zinc-400 text-xs sm:text-sm leading-relaxed max-w-md mx-auto">
-                {t("customerDisplay.standbyMessage")}
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>{t("customerDisplay.liveConnected")}</span>
-            </div>
+
+            {/* Content: Studio Schedule Cards Grid */}
+            {schedulesLoading || studiosLoading ? (
+              <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8">
+                <div className="animate-spin w-8 h-8 border-3 border-indigo-600 dark:border-indigo-400 border-t-transparent rounded-full mb-3" />
+                <p className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                  Memuat jadwal tayang bioskop...
+                </p>
+              </div>
+            ) : groupedStudioSchedules.length === 0 ? (
+              <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center bg-white dark:bg-zinc-900/60 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-3">
+                  <Armchair className="w-8 h-8" />
+                </div>
+                <h3 className="text-base font-bold text-zinc-800 dark:text-zinc-200">
+                  {t("customerDisplay.noActiveShowtimes")}
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+                  {t("customerDisplay.standbyMessage")}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 pb-4">
+                {groupedStudioSchedules.map((group) => {
+                  const typeStyles = {
+                    VIP: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
+                    PREMIERE: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30",
+                    REGULAR: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700",
+                  }[(group.studio?.type || "REGULAR") as "VIP" | "PREMIERE" | "REGULAR"] || "bg-zinc-100 text-zinc-600 border-zinc-200";
+
+                  return (
+                    <div
+                      key={group.studio.id || group.studio.name}
+                      className="bg-white dark:bg-zinc-900/90 border border-zinc-200/80 dark:border-zinc-800/90 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs dark:shadow-xl flex flex-col transition-all duration-200"
+                    >
+                      {/* Studio Header */}
+                      <div className="px-4 sm:px-5 py-3.5 bg-zinc-50/80 dark:bg-zinc-800/40 border-b border-zinc-200/70 dark:border-zinc-800/80 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                            <Armchair className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <h2 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white">
+                                {group.studio.name}
+                              </h2>
+                              {group.studio.code && (
+                                <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                                  ({group.studio.code})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold border uppercase tracking-wider ${typeStyles}`}>
+                            {group.studio.type || "REGULAR"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Studio Schedules Table */}
+                      <div className="overflow-x-auto flex-1">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="border-b border-zinc-150/80 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-800/20 text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider text-[10px]">
+                              <th className="py-2.5 px-3.5 sm:px-4">{t("customerDisplay.movieTitle")}</th>
+                              <th className="py-2.5 px-3 sm:px-3.5 text-center">{t("customerDisplay.showtime")}</th>
+                              <th className="py-2.5 px-3 sm:px-4 text-center">{t("customerDisplay.ageRating")}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                            {group.schedules.map((s) => {
+                              const startDate = new Date(s.startTime);
+                              const start = !isNaN(startDate.getTime())
+                                ? startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+                                : "-";
+                              const rating = s.movie?.censorshipRating || "SU";
+
+                              return (
+                                <tr
+                                  key={s.id}
+                                  className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors"
+                                >
+                                  {/* 1. Judul Film */}
+                                  <td className="py-2.5 px-3.5 sm:px-4">
+                                    <div className="flex items-center gap-2.5">
+                                      {s.movie?.poster ? (
+                                        <img
+                                          src={s.movie.poster}
+                                          alt={s.movie.title}
+                                          className="w-7 h-10 object-cover rounded-md border border-zinc-200 dark:border-zinc-800 shrink-0 shadow-2xs"
+                                        />
+                                      ) : (
+                                        <div className="w-7 h-10 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
+                                          <Film className="w-3.5 h-3.5 opacity-50" />
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm line-clamp-1 leading-snug">
+                                          {s.movie?.title || "-"}
+                                        </p>
+                                        {s.movie?.durationMinutes ? (
+                                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
+                                            {formatDuration(s.movie.durationMinutes, locale)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* 2. Jam Tayang */}
+                                  <td className="py-2.5 px-3 sm:px-3.5 text-center whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/70 dark:border-indigo-500/30 font-extrabold text-indigo-700 dark:text-indigo-300 text-xs font-mono">
+                                      <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                                      {start}
+                                    </span>
+                                  </td>
+
+                                  {/* 3. Batasan Umur */}
+                                  <td className="py-2.5 px-3 sm:px-4 text-center whitespace-nowrap">
+                                    <span
+                                      className={`inline-block px-2 py-0.5 text-[10px] font-black rounded-md border shadow-2xs ${getCensorshipBadgeClass(
+                                        rating
+                                      )}`}
+                                    >
+                                      {rating}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           /* ACTIVE TICKETING SEAT & SUMMARY VIEW */

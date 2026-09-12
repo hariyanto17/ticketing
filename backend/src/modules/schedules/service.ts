@@ -41,8 +41,8 @@ export const getAllSchedules = async (query: {
   const schedules = await prisma.showtime.findMany({
     where,
     include: {
-      movie: { select: { id: true, title: true, durationMinutes: true, poster: true } },
-      studio: { select: { id: true, name: true, code: true } },
+      movie: { select: { id: true, title: true, durationMinutes: true, poster: true, censorshipRating: true } },
+      studio: { select: { id: true, name: true, code: true, type: true } },
     },
     orderBy: { startTime: "asc" },
   });

@@ -174,8 +174,63 @@ export const opsApi = api.injectEndpoints({
       }),
       transformResponse: (response: any) => response.data,
     }),
+    getFilmSalesMovies: builder.query<any[], void>({
+      query: () => "/reports/film-sales/movies",
+      transformResponse: (response: any) => response.data,
+      providesTags: ["Report", "Schedule"],
+    }),
+    getFilmShowingDates: builder.query<string[], string>({
+      query: (movieId) => ({
+        url: "/reports/film-sales/showing-dates",
+        params: { movieId },
+      }),
+      transformResponse: (response: any) => response.data,
+    }),
+    getFilmSalesReport: builder.query<FilmSalesReportData, { movieId: string; showingDate: string }>({
+      query: ({ movieId, showingDate }) => ({
+        url: "/reports/film-sales",
+        params: { movieId, showingDate },
+      }),
+      transformResponse: (response: any) => response.data,
+      providesTags: ["Report"],
+    }),
   }),
 });
+
+export interface ShowtimeSalesItem {
+  index: number;
+  scheduleId: string;
+  time: string;
+  startTime: string;
+  studioName: string;
+  studioCode: string;
+  seatGrade: string;
+  ticketPrice: number;
+  paidTickets: number;
+  freeTickets: number;
+  sales: number;
+}
+
+export interface FilmSalesReportData {
+  reportTitle: string;
+  distributor: string;
+  cinema: string;
+  site: string;
+  showingDate: string;
+  movie: {
+    id: string;
+    title: string;
+    format: string;
+    censorshipRating: string;
+    durationMinutes?: number | null;
+  };
+  showtimes: ShowtimeSalesItem[];
+  totals: {
+    paidTickets: number;
+    freeTickets: number;
+    sales: number;
+  };
+}
 
 export const {
   useGetActiveDrawerQuery,
@@ -188,7 +243,12 @@ export const {
   useGetSettingsQuery,
   useUpdateSettingsMutation,
   useGetReportsQuery,
+  useGetFilmSalesMoviesQuery,
+  useGetFilmShowingDatesQuery,
+  useGetFilmSalesReportQuery,
+  useLazyGetFilmSalesReportQuery,
   useVoidOrderMutation,
   useRefundTicketMutation,
   useReprintTicketMutation,
 } = opsApi;
+

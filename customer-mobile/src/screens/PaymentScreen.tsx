@@ -31,6 +31,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
+import { NonRefundableBanner } from "../components/common/NonRefundableBanner";
 import { useAppDispatch, addRecentBooking } from "../lib/store";
 
 type PaymentScreenRouteProp = RouteProp<RootStackParamList, "Payment">;
@@ -268,6 +269,9 @@ export const PaymentScreen: React.FC = () => {
               </Text>
             </View>
           </Card>
+
+          {/* Non-Refundable Notice */}
+          <NonRefundableBanner style={{ borderRadius: 12, borderWidth: 1, marginBottom: 12 }} />
 
           {/* Guarantee Security Notice */}
           <View style={[styles.securityNotice, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>

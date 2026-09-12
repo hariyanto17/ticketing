@@ -20,6 +20,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
+import { NonRefundableBanner } from "../components/common/NonRefundableBanner";
 import { HoldTimer } from "../components/seat/HoldTimer";
 import { storageService } from "../services/storageService";
 import { useAppDispatch, useAppSelector, addRecentBooking, setLastCustomerInfo } from "../lib/store";
@@ -312,6 +313,9 @@ export const BookingSummaryScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Sticky Non-Refundable Announcement */}
+      <NonRefundableBanner />
 
       {/* Action Footer */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>

@@ -26,6 +26,7 @@ import { SeatItem } from "../components/seat/SeatItem";
 import { SeatLegend } from "../components/seat/SeatLegend";
 import { HoldTimer } from "../components/seat/HoldTimer";
 import { Button } from "../components/common/Button";
+import { NonRefundableBanner } from "../components/common/NonRefundableBanner";
 
 type SeatSelectionRouteProp = RouteProp<RootStackParamList, "SeatSelection">;
 type SeatSelectionNavProp = StackNavigationProp<RootStackParamList>;
@@ -376,6 +377,9 @@ export const SeatSelectionScreen: React.FC = () => {
           <SeatLegend />
         </ScrollView>
       )}
+
+      {/* Sticky Non-Refundable Announcement */}
+      <NonRefundableBanner compact />
 
       {/* Selected Seats summary footer */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.cardBorder }]}>

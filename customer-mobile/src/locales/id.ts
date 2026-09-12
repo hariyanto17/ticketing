@@ -74,6 +74,7 @@ export default {
     zoomIn: "Perbesar (+)",
     zoomOut: "Perkecil (-)",
     zoomReset: "Pas Layar (Fit)",
+    nonRefundableNotice: "Tiket yang sudah dibeli tidak dapat dibatalkan, ditukar, atau dikembalikan.",
   },
   summary: {
     title: "Ringkasan Pesanan",
@@ -111,6 +112,7 @@ export default {
     securePaymentNotice: "Pembayaran Anda dilindungi dengan enkripsi keamanan standar bank.",
     processing: "Memproses Reservasi...",
     fillRequired: "Harap isi nama lengkap dan nomor telepon.",
+    nonRefundableNotice: "Tiket yang sudah dibeli tidak dapat dibatalkan, ditukar, atau dikembalikan.",
   },
   payment: {
     title: "Pembayaran QRIS",

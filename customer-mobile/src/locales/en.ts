@@ -74,6 +74,7 @@ export default {
     zoomIn: "Zoom In (+)",
     zoomOut: "Zoom Out (-)",
     zoomReset: "Fit Screen",
+    nonRefundableNotice: "Tickets once purchased cannot be cancelled, exchanged, or refunded.",
   },
   summary: {
     title: "Booking Summary",
@@ -111,6 +112,7 @@ export default {
     securePaymentNotice: "Your payment is secured with bank-grade encryption.",
     processing: "Reserving Booking...",
     fillRequired: "Please enter your name and phone number.",
+    nonRefundableNotice: "Tickets once purchased cannot be cancelled, exchanged, or refunded.",
   },
   payment: {
     title: "QRIS Payment",

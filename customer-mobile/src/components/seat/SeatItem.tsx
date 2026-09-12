@@ -50,6 +50,10 @@ export const SeatItem: React.FC<SeatItemProps> = ({
     return colors.textMuted;
   };
 
+  const seatMargin = Math.max(1, Math.min(2.5, Math.round(size * 0.08)));
+  const borderRadius = Math.max(3, Math.min(6, Math.round(size * 0.2)));
+  const fontSize = Math.max(7.5, Math.round(size * 0.38));
+
   return (
     <TouchableOpacity
       style={[
@@ -57,6 +61,8 @@ export const SeatItem: React.FC<SeatItemProps> = ({
         {
           width: size,
           height: size,
+          margin: seatMargin,
+          borderRadius: borderRadius,
           backgroundColor: getBackgroundColor(),
           borderColor: getBorderColor(),
           borderWidth: status === "AVAILABLE" ? 1 : 0,
@@ -65,8 +71,9 @@ export const SeatItem: React.FC<SeatItemProps> = ({
       onPress={onPress}
       disabled={!isSelectable && !isSelected}
       activeOpacity={0.7}
+      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
     >
-      <Text style={[styles.label, { color: getTextColor(), fontSize: size * 0.38 }]}>
+      <Text style={[styles.label, { color: getTextColor(), fontSize }]}>
         {showtimeSeat.seat.seatNumber}
       </Text>
     </TouchableOpacity>
@@ -75,12 +82,11 @@ export const SeatItem: React.FC<SeatItemProps> = ({
 
 const styles = StyleSheet.create({
   seat: {
-    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    margin: 2.5,
   },
   label: {
     fontWeight: "700",
   },
 });
+

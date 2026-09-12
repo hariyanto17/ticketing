@@ -7,7 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
+  TouchableOpacity,
 } from "react-native";
+import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react-native";
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../types/navigation";
@@ -46,6 +48,9 @@ export const SeatSelectionScreen: React.FC = () => {
 
   const schedule = route.params.schedule;
 
+  // Zoom scale state (1.0 = auto-fit to screen, up to 2.2x zoom)
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+
   // RTK Query: Seat matrix & Hold/Release mutations
   const {
     data: serverSeats = [],
@@ -68,6 +73,7 @@ export const SeatSelectionScreen: React.FC = () => {
     useCallback(() => {
       clearSelectedSeats();
       setReservedUntil(null);
+      setZoomLevel(1.0);
       loadSeats();
     }, [schedule.id])
   );
@@ -130,7 +136,7 @@ export const SeatSelectionScreen: React.FC = () => {
     ]);
   };
 
-  // Group seats by Row (ordered K -> A from screen down) and preserve column matrix (preserving aisles)
+  // Group seats by Row (ordered K -> A from screen down) and compute auto-fit size + zoom
   const { rowList, maxColumn, seatSize } = useMemo(() => {
     const rowsMap: Record<string, Record<number, ShowtimeSeat>> = {};
     let maxCol = 1;
@@ -154,15 +160,33 @@ export const SeatSelectionScreen: React.FC = () => {
     };
 
     const sortedRows = Object.keys(rowsMap).sort((a, b) => getRowIndex(b) - getRowIndex(a));
-    const padding = 60;
-    const computedSize = Math.max(22, Math.min(32, Math.floor((width - padding) / (maxCol + 1))));
+    
+    // Auto-fit calculation:
+    // Total screen width available = width
+    // Non-seat horizontal offsets: left & right row labels (~44px) + grid margins (~20px) = ~64px
+    // Each seat column has seat width + horizontal margin (~3px)
+    const availableWidthForCols = Math.max(160, width - 64);
+    const fitSize = Math.max(13, Math.min(32, Math.floor(availableWidthForCols / Math.max(1, maxCol)) - 3));
+    const computedSize = Math.round(fitSize * zoomLevel);
 
     return {
       rowList: sortedRows.map((r) => ({ rowName: r, cols: rowsMap[r] })),
       maxColumn: maxCol,
       seatSize: computedSize,
     };
-  }, [seats]);
+  }, [seats, zoomLevel]);
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(2.2, +(prev + 0.3).toFixed(1)));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(1.0, +(prev - 0.3).toFixed(1)));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1.0);
+  };
 
   const handleSeatPress = async (seat: ShowtimeSeat) => {
     const isAlreadySelected = selectedSeats.some(
@@ -224,6 +248,10 @@ export const SeatSelectionScreen: React.FC = () => {
     navigation.navigate("BookingSummary");
   };
 
+  const rowLabelWidth = Math.max(16, Math.min(26, Math.round(seatSize * 0.85)));
+  const rowLabelFontSize = Math.max(9, Math.min(13, Math.round(seatSize * 0.45)));
+  const seatGapMargin = Math.max(1, Math.min(2.5, Math.round(seatSize * 0.08)));
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
@@ -249,18 +277,60 @@ export const SeatSelectionScreen: React.FC = () => {
           {/* Screen Curve representation */}
           <CinemaScreen />
 
+          {/* Zoom In / Out Controls Toolbar */}
+          <View style={styles.zoomControlContainer}>
+            <Text style={[styles.zoomHintText, { color: colors.textMuted }]}>
+              {t("seat.zoomHint")}
+            </Text>
+            <View style={[styles.zoomPill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+              <TouchableOpacity
+                style={[styles.zoomBtn, zoomLevel <= 1.0 && styles.zoomBtnDisabled]}
+                onPress={handleZoomOut}
+                disabled={zoomLevel <= 1.0}
+                activeOpacity={0.7}
+              >
+                <ZoomOut size={16} color={zoomLevel <= 1.0 ? colors.textMuted : colors.text} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.zoomResetBtn, { borderLeftColor: colors.cardBorder, borderRightColor: colors.cardBorder }]}
+                onPress={handleResetZoom}
+                activeOpacity={0.7}
+              >
+                <Maximize2 size={12} color={colors.primary} />
+                <Text style={[styles.zoomPercentText, { color: colors.primary }]}>
+                  {zoomLevel === 1.0 ? t("seat.zoomReset") : `${Math.round(zoomLevel * 100)}%`}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.zoomBtn, zoomLevel >= 2.2 && styles.zoomBtnDisabled]}
+                onPress={handleZoomIn}
+                disabled={zoomLevel >= 2.2}
+                activeOpacity={0.7}
+              >
+                <ZoomIn size={16} color={zoomLevel >= 2.2 ? colors.textMuted : colors.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Seat Layout Grid */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.seatMatrixScroll}
+            contentContainerStyle={[
+              styles.seatMatrixScroll,
+              zoomLevel === 1.0 && styles.seatMatrixScrollFit,
+            ]}
           >
             <View style={styles.seatGrid}>
               {rowList.map(({ rowName, cols }) => (
                 <View key={rowName} style={styles.seatRow}>
                   {/* Row Label Left */}
-                  <View style={[styles.rowLabelBox, { width: 24 }]}>
-                    <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{rowName}</Text>
+                  <View style={[styles.rowLabelBox, { width: rowLabelWidth }]}>
+                    <Text style={[styles.rowLabel, { color: colors.textMuted, fontSize: rowLabelFontSize }]}>
+                      {rowName}
+                    </Text>
                   </View>
 
                   {/* Seat columns spanning 1 -> maxColumn */}
@@ -272,7 +342,7 @@ export const SeatSelectionScreen: React.FC = () => {
                         return (
                           <View
                             key={`aisle-${rowName}-${colNum}`}
-                            style={{ width: seatSize, height: seatSize, marginHorizontal: 2 }}
+                            style={{ width: seatSize, height: seatSize, margin: seatGapMargin }}
                           />
                         );
                       }
@@ -292,8 +362,10 @@ export const SeatSelectionScreen: React.FC = () => {
                   </View>
 
                   {/* Row Label Right */}
-                  <View style={[styles.rowLabelBox, { width: 24 }]}>
-                    <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{rowName}</Text>
+                  <View style={[styles.rowLabelBox, { width: rowLabelWidth }]}>
+                    <Text style={[styles.rowLabel, { color: colors.textMuted, fontSize: rowLabelFontSize }]}>
+                      {rowName}
+                    </Text>
                   </View>
                 </View>
               ))}
@@ -350,11 +422,59 @@ const styles = StyleSheet.create({
   },
   seatMatrixScroll: {
     paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingVertical: 14,
     alignItems: "center",
   },
+  seatMatrixScrollFit: {
+    minWidth: "100%",
+    justifyContent: "center",
+  },
+  zoomControlContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  zoomHintText: {
+    fontSize: 11,
+    fontWeight: "500",
+    flex: 1,
+    marginRight: 10,
+  },
+  zoomPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+  },
+  zoomBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  zoomBtnDisabled: {
+    opacity: 0.35,
+  },
+  zoomResetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    gap: 4,
+  },
+  zoomPercentText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
   seatGrid: {
-    gap: 8,
+    gap: 6,
     alignItems: "center",
   },
   seatRow: {
@@ -366,7 +486,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowLabel: {
-    fontSize: 12,
     fontWeight: "700",
   },
   columnsContainer: {

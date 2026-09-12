@@ -70,6 +70,10 @@ export default {
     timerExpired: "Waktu reservasi habis. Kursi telah dilepaskan.",
     continueToCheckout: "Lanjut ke Pembayaran",
     selectAtLeastOne: "Pilih minimal 1 kursi untuk melanjutkan.",
+    zoomHint: "Perbesar atau geser untuk memilih kursi dengan mudah",
+    zoomIn: "Perbesar (+)",
+    zoomOut: "Perkecil (-)",
+    zoomReset: "Pas Layar (Fit)",
   },
   summary: {
     title: "Ringkasan Pesanan",

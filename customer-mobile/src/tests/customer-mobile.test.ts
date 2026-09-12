@@ -159,4 +159,30 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     const futureShowtime = new Date(now + 2 * 60 * 60 * 1000).toISOString();
     assert.strictEqual(isScheduleExpired(futureShowtime, 1), false);
   });
+
+  test("10. Seat Layout Grid Auto-Fit & Zoom Sizing Invariants", () => {
+    const screenWidth = 390; // Typical mobile viewport width
+    const maxColumn = 14;
+
+    const computeSeatSize = (width: number, maxCol: number, zoomLevel: number) => {
+      const availableWidth = Math.max(160, width - 64);
+      const fitSize = Math.max(13, Math.min(32, Math.floor(availableWidth / Math.max(1, maxCol)) - 3));
+      return Math.round(fitSize * zoomLevel);
+    };
+
+    // At 1.0 zoom (initial fit state), seat size fits within screen width
+    const fitSize = computeSeatSize(screenWidth, maxColumn, 1.0);
+    assert.ok(fitSize >= 13 && fitSize <= 32);
+    // Total columns with margins fit within screen width
+    const totalRowWidth = maxColumn * (fitSize + 3) + 48;
+    assert.ok(totalRowWidth <= screenWidth, `Total row width ${totalRowWidth} must fit in screen width ${screenWidth}`);
+
+    // At zoom in (1.5x and 2.0x), seats are enlarged for easy tapping
+    const zoomed15 = computeSeatSize(screenWidth, maxColumn, 1.5);
+    const zoomed20 = computeSeatSize(screenWidth, maxColumn, 2.0);
+    assert.ok(zoomed15 > fitSize);
+    assert.ok(zoomed20 > zoomed15);
+    assert.strictEqual(zoomed20, fitSize * 2);
+  });
 });
+

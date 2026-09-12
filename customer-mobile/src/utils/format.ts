@@ -79,3 +79,20 @@ export const getYouTubeVideoId = (url?: string | null): string | null => {
   if (/^[\w-]{11}$/.test(trimmed)) return trimmed;
   return null;
 };
+
+/**
+ * Checks if a showtime is expired (past the 1-hour cutoff from showtime start).
+ * Example:
+ * If showtime is 14:00, cutoff is 15:00.
+ * If current time is 15:01, this returns true (ticket sales closed).
+ */
+export const isScheduleExpired = (startTimeIso: string | Date, cutoffHours = 1): boolean => {
+  if (!startTimeIso) return true;
+  const showtimeDate = new Date(startTimeIso);
+  if (isNaN(showtimeDate.getTime())) return false;
+
+  const now = new Date();
+  const cutoffTime = new Date(showtimeDate.getTime() + cutoffHours * 60 * 60 * 1000);
+  return now.getTime() > cutoffTime.getTime();
+};
+

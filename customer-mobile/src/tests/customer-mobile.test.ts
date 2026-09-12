@@ -141,4 +141,22 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     assert.strictEqual(parseKioskIdFromScannedCode(""), null);
     assert.strictEqual(parseKioskIdFromScannedCode("https://google.com/search?q=test"), null);
   });
+
+  await t.test("9. Showtime 1-Hour Cutoff Expiration Invariant", async () => {
+    const { isScheduleExpired } = await import("../utils/format");
+
+    const now = Date.now();
+
+    // 1. Showtime 30 minutes ago -> cutoff is in 30 minutes -> NOT expired
+    const recentPast = new Date(now - 30 * 60 * 1000).toISOString();
+    assert.strictEqual(isScheduleExpired(recentPast, 1), false);
+
+    // 2. Showtime 2 hours ago -> cutoff passed 1 hour ago -> EXPIRED
+    const oldPast = new Date(now - 2 * 60 * 60 * 1000).toISOString();
+    assert.strictEqual(isScheduleExpired(oldPast, 1), true);
+
+    // 3. Showtime in future (e.g. in 2 hours) -> NOT expired
+    const futureShowtime = new Date(now + 2 * 60 * 60 * 1000).toISOString();
+    assert.strictEqual(isScheduleExpired(futureShowtime, 1), false);
+  });
 });

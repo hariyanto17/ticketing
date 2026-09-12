@@ -17,6 +17,7 @@ import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
+import { isScheduleExpired } from "../utils/format";
 
 type ShowtimeScreenRouteProp = RouteProp<RootStackParamList, "Showtime">;
 type ShowtimeScreenNavProp = StackNavigationProp<RootStackParamList>;
@@ -160,18 +161,38 @@ export const ShowtimeScreen: React.FC = () => {
               </View>
 
               <View style={styles.timeGrid}>
-                {studioSchedules.map((schedule) => (
-                  <TouchableOpacity
-                    key={schedule.id}
-                    style={[styles.timeSlot, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}
-                    onPress={() => handleSelectSchedule(schedule)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.timeText, { color: colors.text }]}>
-                      {formatTime(schedule.startTime)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {studioSchedules.map((schedule) => {
+                  const expired = isScheduleExpired(schedule.startTime, 1);
+
+                  return (
+                    <TouchableOpacity
+                      key={schedule.id}
+                      style={[
+                        styles.timeSlot,
+                        {
+                          backgroundColor: expired ? colors.card : colors.surface,
+                          borderColor: expired ? colors.cardBorder : colors.cardBorder,
+                          opacity: expired ? 0.35 : 1,
+                        },
+                      ]}
+                      onPress={() => !expired && handleSelectSchedule(schedule)}
+                      disabled={expired}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          styles.timeText,
+                          {
+                            color: expired ? colors.textMuted : colors.text,
+                            textDecorationLine: expired ? "line-through" : "none",
+                          },
+                        ]}
+                      >
+                        {formatTime(schedule.startTime)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           ))}

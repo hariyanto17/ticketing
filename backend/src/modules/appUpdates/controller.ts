@@ -22,7 +22,7 @@ export const publishOtaReleaseController = async (req: Request, res: Response) =
     throw new AppError("BAD_REQUEST", "platform, appVersion, and bundleVersion are required");
   }
 
-  const file = req.file;
+  const file = (req as any).file;
 
   const result = await service.publishOtaRelease({
     platform: platform.toLowerCase(),

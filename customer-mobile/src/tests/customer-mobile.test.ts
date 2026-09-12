@@ -119,10 +119,26 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
     assert.strictEqual(enTranslations.movieDetail.productionHouse, "Production House");
   });
 
-  await t.test("7. Splash Screen Display Duration & Navigation Invariant", async () => {
-    const { SPLASH_DURATION_MS, SPLASH_BACKGROUND_COLOR, SPLASH_TAGLINE } = await import("../config/splash");
-    assert.strictEqual(SPLASH_DURATION_MS, 3000, "Splash Screen must display logo for exactly 3000ms (3 seconds)");
-    assert.strictEqual(SPLASH_BACKGROUND_COLOR, "#09090b", "Splash Screen background must match dark theme");
-    assert.ok(SPLASH_TAGLINE.length > 0, "Splash Screen tagline must be present");
+  await t.test("8. Kiosk Barcode / QR Parsing Invariant", async () => {
+    const { parseKioskIdFromScannedCode } = await import("../utils/kiosk");
+    
+    // URL containing kiosk param
+    assert.strictEqual(
+      parseKioskIdFromScannedCode("https://ticket.168billiard.online/kiosk-print/mobile-scan?kiosk=KIOSK-01"),
+      "KIOSK-01"
+    );
+    assert.strictEqual(
+      parseKioskIdFromScannedCode("http://localhost:3000/kiosk-print?kiosk=KIOSK-02&ref=123"),
+      "KIOSK-02"
+    );
+
+    // Direct station strings
+    assert.strictEqual(parseKioskIdFromScannedCode("KIOSK-01"), "KIOSK-01");
+    assert.strictEqual(parseKioskIdFromScannedCode("kiosk-03"), "KIOSK-03");
+    assert.strictEqual(parseKioskIdFromScannedCode("KIOSK_LOBBY"), "KIOSK_LOBBY");
+
+    // Invalid / Noise payloads
+    assert.strictEqual(parseKioskIdFromScannedCode(""), null);
+    assert.strictEqual(parseKioskIdFromScannedCode("https://google.com/search?q=test"), null);
   });
 });

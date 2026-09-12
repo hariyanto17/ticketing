@@ -64,6 +64,36 @@ export const getMovieByIdController = async (req: Request, res: Response) => {
   return responseHandler.ok(res, movie, "Movie retrieved");
 };
 
+export const getPublicMoviesController = async (req: Request, res: Response) => {
+  const { page, limit, search, status, genreId, sortBy, sortOrder, hasSchedule, scheduleStartDate, scheduleEndDate, startDate, endDate } = req.query;
+
+  const isExplicitValidStatus = status === "NOW_SHOWING" || status === "COMING_SOON";
+
+  const result = await movieService.getAllMovies({
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+    search: search as string,
+    status: isExplicitValidStatus ? (status as string) : undefined,
+    statusNot: isExplicitValidStatus ? undefined : ["DRAFT", "ARCHIVED"],
+    genreId: genreId as string,
+    sortBy: sortBy as string,
+    sortOrder: sortOrder as any,
+    hasSchedule: hasSchedule === "true",
+    scheduleStartDate: (scheduleStartDate || startDate) as string,
+    scheduleEndDate: (scheduleEndDate || endDate) as string,
+  });
+
+  return responseHandler.ok(res, result.movies, "Movies retrieved", result.meta);
+};
+
+export const getPublicMovieByIdController = async (req: Request, res: Response) => {
+  const movie = await movieService.getMovieById(req.params.id);
+  if (movie.status === "DRAFT" || movie.status === "ARCHIVED") {
+    throw new AppError("NOT_FOUND", "Movie not found or not published");
+  }
+  return responseHandler.ok(res, movie, "Movie retrieved");
+};
+
 export const importMoviesController = async (req: Request, res: Response) => {
   const result = importMoviesSchema.safeParse(req.body);
   if (!result.success) {

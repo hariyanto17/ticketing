@@ -5,10 +5,10 @@ import { authMiddleware } from "../../middleware/authMiddleware";
 import { authorize } from "../../middleware/authorize";
 
 import {
-  getMoviesController,
+  getPublicMoviesController,
   getNowShowingMoviesController,
   getComingSoonMoviesController,
-  getMovieByIdController,
+  getPublicMovieByIdController,
 } from "../movies/controller";
 import { getSchedulesController, getScheduleSeatsController } from "../schedules/controller";
 import * as scheduleService from "../schedules/service";
@@ -41,10 +41,10 @@ router.get(
 );
 
 // 1. Movie Listings (Dedicated endpoints for Now Showing & Coming Soon)
-router.get("/movies", catchAsync(getMoviesController));
+router.get("/movies", catchAsync(getPublicMoviesController));
 router.get("/movies/now-showing", catchAsync(getNowShowingMoviesController));
 router.get("/movies/coming-soon", catchAsync(getComingSoonMoviesController));
-router.get("/movies/:id", catchAsync(getMovieByIdController));
+router.get("/movies/:id", catchAsync(getPublicMovieByIdController));
 
 // 2. Schedules & Seats Map
 router.get("/schedules", catchAsync(getSchedulesController));

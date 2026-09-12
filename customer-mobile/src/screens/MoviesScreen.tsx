@@ -34,13 +34,21 @@ export const MoviesScreen: React.FC = () => {
   );
 
   const {
-    data: movies = [],
+    data: allMovies = [],
     isLoading,
     isFetching,
     refetch,
   } = useGetMoviesQuery({
     status: filter !== "ALL" ? filter : undefined,
     search: search.trim() ? search.trim() : undefined,
+  });
+
+  // Ensure only movies with status NOW_SHOWING or COMING_SOON are shown (exclude DRAFT and ARCHIVED)
+  const movies = allMovies.filter((movie) => {
+    if (movie.status === "DRAFT" || movie.status === "ARCHIVED") return false;
+    if (filter === "NOW_SHOWING") return movie.status === "NOW_SHOWING";
+    if (filter === "COMING_SOON") return movie.status === "COMING_SOON";
+    return movie.status === "NOW_SHOWING" || movie.status === "COMING_SOON";
   });
 
   return (

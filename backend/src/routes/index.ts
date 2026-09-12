@@ -18,6 +18,7 @@ import settingsRouter from "../modules/settings/router";
 import reportsRouter from "../modules/reports/router";
 import bookingsRouter from "../modules/bookings/router";
 import paymentsRouter from "../modules/payments/router";
+import appUpdatesRouter from "../modules/appUpdates/router";
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use("/settings", settingsRouter);
 router.use("/reports", reportsRouter);
 router.use("/bookings", bookingsRouter);
 router.use("/payments", paymentsRouter);
+router.use("/app-updates", appUpdatesRouter);
 
 export default router;

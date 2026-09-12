@@ -13,6 +13,8 @@ import internalRouter from "./modules/internal/router";
 import { initMovieScheduler } from "./modules/movies/movieScheduler";
 import { initCleanupScheduler } from "./modules/cleanup/cleanupScheduler";
 
+import path from "path";
+
 dotenv.config();
 
 const app = express();
@@ -33,8 +35,11 @@ app.use(
 );
 app.use(morgan("dev"));
 app.use(cookieParser());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
+
+// Static uploads serving (for OTA bundles and assets)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date() });

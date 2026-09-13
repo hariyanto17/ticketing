@@ -70,10 +70,10 @@ export default {
     timerExpired: "Waktu reservasi habis. Kursi telah dilepaskan.",
     continueToCheckout: "Lanjut ke Pembayaran",
     selectAtLeastOne: "Pilih minimal 1 kursi untuk melanjutkan.",
-    zoomHint: "Perbesar atau geser untuk memilih kursi dengan mudah",
+    zoomHint: "Cubit layar atau gunakan tombol +/- untuk perbesar kursi",
     zoomIn: "Perbesar (+)",
     zoomOut: "Perkecil (-)",
-    zoomReset: "Pas Layar (Fit)",
+    zoomReset: "Pas Layar",
     nonRefundableNotice: "Tiket yang sudah dibeli tidak dapat dibatalkan, ditukar, atau dikembalikan.",
   },
   summary: {

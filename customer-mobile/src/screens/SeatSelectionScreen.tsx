@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   TouchableOpacity,
 } from "react-native";
+import { PinchGestureHandler, PinchGestureHandlerGestureEvent, HandlerStateChangeEvent, State } from "react-native-gesture-handler";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react-native";
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -51,6 +52,19 @@ export const SeatSelectionScreen: React.FC = () => {
 
   // Zoom scale state (1.0 = auto-fit to screen, up to 2.2x zoom)
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const baseScaleRef = useRef<number>(1.0);
+
+  const handlePinchGestureEvent = (event: PinchGestureHandlerGestureEvent) => {
+    const scale = event.nativeEvent.scale;
+    const nextLevel = Math.max(1.0, Math.min(2.5, +(baseScaleRef.current * scale).toFixed(2)));
+    setZoomLevel(nextLevel);
+  };
+
+  const handlePinchStateChange = (event: HandlerStateChangeEvent) => {
+    if (event.nativeEvent.oldState === State.ACTIVE || event.nativeEvent.state === State.END) {
+      baseScaleRef.current = zoomLevel;
+    }
+  };
 
   // RTK Query: Seat matrix & Hold/Release mutations
   const {
@@ -315,63 +329,70 @@ export const SeatSelectionScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Seat Layout Grid */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.seatMatrixScroll,
-              zoomLevel === 1.0 && styles.seatMatrixScrollFit,
-            ]}
+          {/* Seat Layout Grid with Pinch to Zoom Support */}
+          <PinchGestureHandler
+            onGestureEvent={handlePinchGestureEvent}
+            onHandlerStateChange={handlePinchStateChange}
           >
-            <View style={styles.seatGrid}>
-              {rowList.map(({ rowName, cols }) => (
-                <View key={rowName} style={styles.seatRow}>
-                  {/* Row Label Left */}
-                  <View style={[styles.rowLabelBox, { width: rowLabelWidth }]}>
-                    <Text style={[styles.rowLabel, { color: colors.textMuted, fontSize: rowLabelFontSize }]}>
-                      {rowName}
-                    </Text>
-                  </View>
+            <View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[
+                  styles.seatMatrixScroll,
+                  zoomLevel === 1.0 && styles.seatMatrixScrollFit,
+                ]}
+              >
+                <View style={styles.seatGrid}>
+                  {rowList.map(({ rowName, cols }) => (
+                    <View key={rowName} style={styles.seatRow}>
+                      {/* Row Label Left */}
+                      <View style={[styles.rowLabelBox, { width: rowLabelWidth }]}>
+                        <Text style={[styles.rowLabel, { color: colors.textMuted, fontSize: rowLabelFontSize }]}>
+                          {rowName}
+                        </Text>
+                      </View>
 
-                  {/* Seat columns spanning 1 -> maxColumn */}
-                  <View style={styles.columnsContainer}>
-                    {Array.from({ length: maxColumn }, (_, i) => i + 1).map((colNum) => {
-                      const seat = cols[colNum];
-                      if (!seat) {
-                        // Aisle Gap
-                        return (
-                          <View
-                            key={`aisle-${rowName}-${colNum}`}
-                            style={{ width: seatSize, height: seatSize, margin: seatGapMargin }}
-                          />
-                        );
-                      }
+                      {/* Seat columns spanning 1 -> maxColumn */}
+                      <View style={styles.columnsContainer}>
+                        {Array.from({ length: maxColumn }, (_, i) => i + 1).map((colNum) => {
+                          const seat = cols[colNum];
+                          if (!seat) {
+                            // Aisle Gap
+                            return (
+                              <View
+                                key={`aisle-${rowName}-${colNum}`}
+                                style={{ width: seatSize, height: seatSize, margin: seatGapMargin }}
+                              />
+                            );
+                          }
 
-                      const isSelected = selectedSeats.some((s) => s.seatId === seat.seatId);
+                          const isSelected = selectedSeats.some((s) => s.seatId === seat.seatId);
 
-                      return (
-                        <SeatItem
-                          key={seat.seatId}
-                          showtimeSeat={seat}
-                          isSelected={isSelected}
-                          size={seatSize}
-                          onPress={() => handleSeatPress(seat)}
-                        />
-                      );
-                    })}
-                  </View>
+                          return (
+                            <SeatItem
+                              key={seat.seatId}
+                              showtimeSeat={seat}
+                              isSelected={isSelected}
+                              size={seatSize}
+                              onPress={() => handleSeatPress(seat)}
+                            />
+                          );
+                        })}
+                      </View>
 
-                  {/* Row Label Right */}
-                  <View style={[styles.rowLabelBox, { width: rowLabelWidth }]}>
-                    <Text style={[styles.rowLabel, { color: colors.textMuted, fontSize: rowLabelFontSize }]}>
-                      {rowName}
-                    </Text>
-                  </View>
+                      {/* Row Label Right */}
+                      <View style={[styles.rowLabelBox, { width: rowLabelWidth }]}>
+                        <Text style={[styles.rowLabel, { color: colors.textMuted, fontSize: rowLabelFontSize }]}>
+                          {rowName}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              ))}
+              </ScrollView>
             </View>
-          </ScrollView>
+          </PinchGestureHandler>
 
           {/* Legend */}
           <SeatLegend />

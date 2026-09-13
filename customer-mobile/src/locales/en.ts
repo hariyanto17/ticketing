@@ -70,7 +70,7 @@ export default {
     timerExpired: "Seat hold expired. Seats have been released.",
     continueToCheckout: "Proceed to Checkout",
     selectAtLeastOne: "Select at least 1 seat to continue.",
-    zoomHint: "Zoom in or pan around to easily select seats",
+    zoomHint: "Pinch screen or use +/- buttons to zoom seats",
     zoomIn: "Zoom In (+)",
     zoomOut: "Zoom Out (-)",
     zoomReset: "Fit Screen",

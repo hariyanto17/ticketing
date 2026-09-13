@@ -143,12 +143,12 @@ class OtaUpdateModule(private val reactContext: ReactApplicationContext) :
           app.reactHost.reload("OTA Update Applied")
           promise.resolve(true)
         } else {
-          val activity: Activity? = currentActivity
+          val activity: Activity? = reactContext.currentActivity
           activity?.recreate()
           promise.resolve(true)
         }
       } catch (e: Exception) {
-        val activity: Activity? = currentActivity
+        val activity: Activity? = reactContext.currentActivity
         activity?.recreate()
         promise.resolve(true)
       }

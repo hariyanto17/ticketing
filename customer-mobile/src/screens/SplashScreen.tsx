@@ -116,16 +116,17 @@ export const SplashScreen: React.FC = () => {
             },
           ]}
         >
-          <Text style={styles.tagline}>Experience Cinema Like Never Before</Text>
         </Animated.View>
       </View>
 
       {/* Bottom subtle progress indicator & version */}
       <View style={styles.footerContainer}>
+        <Text style={styles.tagline}>Experience Cinema Like Never Before</Text>
         <View style={styles.progressBarTrack}>
           <Animated.View style={[styles.progressBarFill, { width: progressWidth }]} />
         </View>
         <Text style={styles.footerText}>PLANET CINEMA</Text>
+
       </View>
     </View>
   );
@@ -159,7 +160,6 @@ const styles = StyleSheet.create({
     height: 140,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
   },
   logoImage: {
     width: "100%",
@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     letterSpacing: 0.8,
     textAlign: "center",
+    marginBottom: 20
   },
   footerContainer: {
     position: "absolute",

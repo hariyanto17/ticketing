@@ -7,10 +7,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { Clock, Calendar, ShieldCheck, Ticket, Users, UserCheck, PenTool, Clapperboard, Building2 } from "lucide-react-native";
+import { Clock, Calendar, ShieldCheck, Ticket, Users, UserCheck, PenTool, Clapperboard, Building2, Play } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
 import { useGetMovieByIdQuery } from "../lib/api/movieApi";
 import { useTheme } from "../context/ThemeContext";
@@ -18,6 +19,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { Header } from "../components/common/Header";
 import { Badge } from "../components/common/Badge";
 import { Button } from "../components/common/Button";
+import { FullscreenTrailerModal } from "../components/movie/FullscreenTrailerModal";
 // @ts-ignore
 import Video from "react-native-video";
 
@@ -34,6 +36,7 @@ export const MovieDetailScreen: React.FC = () => {
   const { colors } = useTheme();
   const { t, locale } = useLanguage();
   const [videoError, setVideoError] = useState(false);
+  const [isFullscreenTrailer, setIsFullscreenTrailer] = useState(false);
 
   const movieId = route.params.movieId;
   const { data: movie, isLoading, error } = useGetMovieByIdQuery(movieId);
@@ -65,7 +68,7 @@ export const MovieDetailScreen: React.FC = () => {
               resizeMode="cover"
               repeat={true}
               muted={true}
-              paused={false}
+              paused={isFullscreenTrailer}
               playInBackground={false}
               playWhenInactive={false}
               ignoreSilentSwitch="obey"
@@ -80,12 +83,40 @@ export const MovieDetailScreen: React.FC = () => {
           )}
           <View style={styles.backdropGradient} pointerEvents="none" />
 
+          {/* Floating Watch Fullscreen Trailer Pill on Backdrop */}
+          {movie.trailerUrl && (
+            <TouchableOpacity
+              style={styles.backdropTrailerButton}
+              onPress={() => setIsFullscreenTrailer(true)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.playIconCircle}>
+                <Play size={14} color="#ffffff" fill="#ffffff" />
+              </View>
+              <Text style={styles.backdropTrailerText}>{t("movieDetail.watchTrailer")}</Text>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.floatingPosterContainer}>
-            <Image
-              source={{ uri: movie.poster || "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80" }}
-              style={[styles.floatingPoster, { borderColor: colors.cardBorder }]}
-              resizeMode="cover"
-            />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => {
+                if (movie.trailerUrl) setIsFullscreenTrailer(true);
+              }}
+              style={styles.posterWrapper}
+            >
+              <Image
+                source={{ uri: movie.poster || "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80" }}
+                style={[styles.floatingPoster, { borderColor: colors.cardBorder }]}
+                resizeMode="cover"
+              />
+              {movie.trailerUrl && (
+                <View style={styles.posterPlayOverlay}>
+                  <Play size={20} color="#ffffff" fill="#ffffff" />
+                </View>
+              )}
+            </TouchableOpacity>
+
             <View style={styles.metaColumn}>
               <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
                 {movie.title}
@@ -97,6 +128,17 @@ export const MovieDetailScreen: React.FC = () => {
                   variant={getCensorshipVariant(movie.censorshipRating)}
                 />
               </View>
+
+              {movie.trailerUrl && (
+                <TouchableOpacity
+                  style={[styles.metaTrailerBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => setIsFullscreenTrailer(true)}
+                  activeOpacity={0.8}
+                >
+                  <Play size={13} color="#ffffff" fill="#ffffff" />
+                  <Text style={styles.metaTrailerText}>{t("movieDetail.watchTrailer")}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -201,6 +243,14 @@ export const MovieDetailScreen: React.FC = () => {
           size="large"
         />
       </View>
+
+      {/* Fullscreen Video Trailer Player Modal */}
+      <FullscreenTrailerModal
+        visible={isFullscreenTrailer}
+        movieTitle={movie.title}
+        trailerUrl={movie.trailerUrl}
+        onClose={() => setIsFullscreenTrailer(false)}
+      />
     </View>
   );
 };
@@ -230,6 +280,33 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.4)",
   },
+  backdropTrailerButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    gap: 6,
+  },
+  playIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#e11d48",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backdropTrailerText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   floatingPosterContainer: {
     position: "absolute",
     bottom: 0,
@@ -239,11 +316,30 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 14,
   },
+  posterWrapper: {
+    position: "relative",
+  },
   floatingPoster: {
     width: 110,
     height: 155,
     borderRadius: 14,
     borderWidth: 2,
+  },
+  posterPlayOverlay: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#e11d48",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
   },
   metaColumn: {
     flex: 1,
@@ -262,6 +358,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap",
+  },
+  metaTrailerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginTop: 2,
+  },
+  metaTrailerText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
   },
   infoRow: {
     flexDirection: "row",

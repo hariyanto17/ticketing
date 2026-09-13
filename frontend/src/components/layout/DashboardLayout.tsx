@@ -24,7 +24,6 @@ import {
   Ticket,
   Receipt,
   ShieldCheck,
-  Settings,
   Printer,
   FileSpreadsheet,
 } from "lucide-react";
@@ -172,8 +171,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
     { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
-    { name: t("nav.printerSetup"), href: "/admin/settings/printer", icon: <Settings className="w-5 h-5" /> },
-    { name: t("nav.settings"), href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
   ];
 
   const menuItems = isCashierUser

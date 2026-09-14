@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
-import { useGetPublicMoviesQuery } from "@/services/bookingApi";
+import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { useLazyGetPublicMoviesQuery } from "@/services/bookingApi";
 import { Movie } from "@/lib/api/movieApi";
 import {
   Film,
@@ -21,7 +21,6 @@ import {
   Play,
   Layers,
 } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
 import { formatDuration, getCensorshipBadgeClass } from "@/lib/formatDuration";
@@ -32,9 +31,9 @@ interface MovieCarouselProps {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
-  badge?: string;
-  movies: Movie[];
-  isLoading: boolean;
+  status: "NOW_SHOWING" | "COMING_SOON";
+  hasSchedule?: boolean;
+  startDate?: string;
   emptyText: string;
   isComingSoon?: boolean;
 }
@@ -43,9 +42,9 @@ function MovieCarousel({
   title,
   subtitle,
   icon,
-  badge,
-  movies,
-  isLoading,
+  status,
+  hasSchedule,
+  startDate,
   emptyText,
   isComingSoon = false,
 }: MovieCarouselProps) {
@@ -54,12 +53,78 @@ function MovieCarousel({
   const [canScrollRight, setCanScrollRight] = useState(false);
   const { t, locale } = useTranslation();
 
-  const checkScroll = () => {
+  const [triggerGetMovies] = useLazyGetPublicMoviesQuery();
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [meta, setMeta] = useState<{ total: number; page: number; limit: number; totalPages: number } | null>(null);
+  const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
+  // Initial fetch
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingInitial(true);
+    triggerGetMovies({ status, hasSchedule, startDate, page: 1, limit: 10 }, false)
+      .unwrap()
+      .then((res) => {
+        if (!isMounted) return;
+        setMovies(res.data || []);
+        setPage(1);
+        setMeta(res.meta || null);
+      })
+      .catch((err) => {
+        console.error("Failed to load movies:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingInitial(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [status, hasSchedule, startDate, triggerGetMovies]);
+
+  // Load more function for infinite scroll
+  const loadMoreMovies = useCallback(async () => {
+    if (isLoadingMore || isLoadingInitial) return;
+    const totalPages = meta?.totalPages ?? 1;
+    if (page >= totalPages) return;
+
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    try {
+      const res = await triggerGetMovies(
+        { status, hasSchedule, startDate, page: nextPage, limit: 10 },
+        false
+      ).unwrap();
+      if (res.data && res.data.length > 0) {
+        setMovies((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const uniqueNew = res.data.filter((m) => !existingIds.has(m.id));
+          return [...prev, ...uniqueNew];
+        });
+        setPage(nextPage);
+        if (res.meta) {
+          setMeta(res.meta);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load more movies:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, isLoadingInitial, meta, page, status, hasSchedule, startDate, triggerGetMovies]);
+
+  const checkScroll = useCallback(() => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
     setCanScrollLeft(scrollLeft > 10);
     setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
-  };
+
+    // Trigger infinite load when scrolled near the end
+    if (scrollLeft + clientWidth >= scrollWidth - 250) {
+      loadMoreMovies();
+    }
+  }, [loadMoreMovies]);
 
   useEffect(() => {
     checkScroll();
@@ -71,7 +136,7 @@ function MovieCarousel({
       el.removeEventListener("scroll", checkScroll);
       window.removeEventListener("resize", checkScroll);
     };
-  }, [movies]);
+  }, [movies, checkScroll]);
 
   const handleScroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return;
@@ -80,7 +145,15 @@ function MovieCarousel({
       left: direction === "left" ? -scrollAmount : scrollAmount,
       behavior: "smooth",
     });
+    if (direction === "right") {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      if (scrollLeft + scrollAmount + clientWidth >= scrollWidth - 300) {
+        loadMoreMovies();
+      }
+    }
   };
+
+  const totalBadge = meta?.total ? `${meta.total} Film` : movies.length > 0 ? `${movies.length} Film` : undefined;
 
   return (
     <section className="space-y-4">
@@ -93,9 +166,9 @@ function MovieCarousel({
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
               {title}
-              {badge && (
+              {totalBadge && (
                 <span className="text-[11px] px-2 py-0.5 font-bold rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80">
-                  {badge}
+                  {totalBadge}
                 </span>
               )}
             </h2>
@@ -118,7 +191,7 @@ function MovieCarousel({
             </button>
             <button
               onClick={() => handleScroll("right")}
-              disabled={!canScrollRight}
+              disabled={!canScrollRight && !isLoadingMore}
               aria-label={t("home.next") || "Next"}
               className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs active:scale-95 cursor-pointer"
             >
@@ -129,7 +202,7 @@ function MovieCarousel({
       </div>
 
       {/* Carousel Track */}
-      {isLoading ? (
+      {isLoadingInitial ? (
         <div className="flex gap-4 overflow-hidden py-2">
           {[1, 2, 3, 4, 5, 6].map((idx) => (
             <div
@@ -243,6 +316,19 @@ function MovieCarousel({
               </Link>
             );
           })}
+
+          {/* Skeleton cards shown while loading more in infinite scroll */}
+          {isLoadingMore &&
+            [1, 2, 3].map((idx) => (
+              <div
+                key={`skeleton-${idx}`}
+                className="w-[160px] sm:w-[185px] md:w-[200px] shrink-0 rounded-2xl bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 p-3 space-y-3 animate-pulse"
+              >
+                <div className="aspect-[2/3] bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+                <div className="h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4" />
+                <div className="h-2.5 bg-zinc-200 dark:bg-zinc-800 rounded w-1/2" />
+              </div>
+            ))}
         </div>
       )}
     </section>
@@ -250,7 +336,7 @@ function MovieCarousel({
 }
 
 export default function PublicHome() {
-  const todayStr = React.useMemo(() => {
+  const todayStr = useMemo(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -258,29 +344,7 @@ export default function PublicHome() {
     return `${year}-${month}-${day}`;
   }, []);
 
-  // Fetch Now Showing (with schedules)
-  const { data: nowShowingResponse, isLoading: nowShowingLoading } = useGetPublicMoviesQuery({
-    status: "NOW_SHOWING",
-    hasSchedule: true,
-    startDate: todayStr,
-  });
-
-  // Fetch Coming Soon
-  const { data: comingSoonResponse, isLoading: comingSoonLoading } = useGetPublicMoviesQuery({
-    status: "COMING_SOON",
-  });
-
   const { t } = useTranslation();
-
-  const nowShowingMovies = nowShowingResponse?.data || [];
-  const comingSoonMovies = comingSoonResponse?.data || [];
-
-  const scrollToMovies = () => {
-    const el = document.getElementById("movies-section");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-100">
@@ -309,9 +373,6 @@ export default function PublicHome() {
         </div>
       </header>
 
-
-
-
       {/* Main Carousels Container */}
       <main id="movies-section" className="max-w-7xl mx-auto px-6 py-14 space-y-16">
         {/* CAROUSEL 1: SEDANG TAYANG (NOW SHOWING) */}
@@ -319,9 +380,9 @@ export default function PublicHome() {
           title={t("home.nowShowing")}
           subtitle={t("home.nowShowingSubtitle")}
           icon={<Flame className="w-5 h-5" />}
-          badge={nowShowingMovies.length > 0 ? `${nowShowingMovies.length} Film` : undefined}
-          movies={nowShowingMovies}
-          isLoading={nowShowingLoading}
+          status="NOW_SHOWING"
+          hasSchedule={true}
+          startDate={todayStr}
           emptyText={t("home.noNowShowing")}
           isComingSoon={false}
         />
@@ -331,9 +392,7 @@ export default function PublicHome() {
           title={t("home.comingSoon")}
           subtitle={t("home.comingSoonSubtitle")}
           icon={<Sparkles className="w-5 h-5" />}
-          badge={comingSoonMovies.length > 0 ? `${comingSoonMovies.length} Film` : undefined}
-          movies={comingSoonMovies}
-          isLoading={comingSoonLoading}
+          status="COMING_SOON"
           emptyText={t("home.noComingSoon")}
           isComingSoon={true}
         />
@@ -407,7 +466,6 @@ export default function PublicHome() {
           </div>
 
           <div className="flex items-center gap-6 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-
             <Link href="/login" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
               {t("home.staffLogin")}
             </Link>

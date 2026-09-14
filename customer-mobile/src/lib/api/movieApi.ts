@@ -1,6 +1,13 @@
 import { baseApi } from "./baseApi";
 import { Movie } from "../../types/movie";
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface GetMoviesParams {
   status?: string;
   search?: string;

@@ -10,12 +10,29 @@ export interface BookingResponse {
 
 export const bookingApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getPublicMovies: builder.query<{ success: boolean; data: Movie[] }, { status?: string; startDate?: string; hasSchedule?: boolean } | void>({
+    getPublicMovies: builder.query<
+      {
+        success: boolean;
+        data: Movie[];
+        meta?: { total: number; page: number; limit: number; totalPages: number };
+      },
+      {
+        status?: string;
+        startDate?: string;
+        hasSchedule?: boolean;
+        search?: string;
+        page?: number;
+        limit?: number;
+      } | void
+    >({
       query: (params) => {
         const queryParams = new URLSearchParams();
         if (params?.status) queryParams.append("status", params.status);
         if (params?.startDate) queryParams.append("startDate", params.startDate);
         if (params?.hasSchedule !== undefined) queryParams.append("hasSchedule", String(params.hasSchedule));
+        if (params?.search) queryParams.append("search", params.search);
+        if (params?.page) queryParams.append("page", String(params.page));
+        if (params?.limit) queryParams.append("limit", String(params.limit));
         const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
         return `/bookings/movies${queryStr}`;
       },
@@ -100,6 +117,7 @@ export const bookingApi = api.injectEndpoints({
 export const {
   useGetPublicConfigQuery,
   useGetPublicMoviesQuery,
+  useLazyGetPublicMoviesQuery,
   useGetPublicMovieByIdQuery,
   useGetPublicSchedulesQuery,
   useGetPublicSeatsQuery,

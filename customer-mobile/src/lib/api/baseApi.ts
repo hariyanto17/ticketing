@@ -21,7 +21,14 @@ const baseQueryWithUnwrap: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 
   // Automatically unwrap backend response envelope { success: true, message: "...", data: [...] }
   if (result.data && typeof result.data === "object" && "data" in result.data) {
-    return { ...result, data: (result.data as any).data };
+    const rawData = result.data as any;
+    const resData = rawData.data;
+    if (rawData.meta !== undefined && rawData.meta !== null && typeof resData === "object" && resData !== null) {
+      try {
+        (resData as any).meta = rawData.meta;
+      } catch (e) {}
+    }
+    return { ...result, data: resData };
   }
 
   return result;

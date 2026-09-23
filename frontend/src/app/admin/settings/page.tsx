@@ -231,7 +231,7 @@ export default function SettingsPage() {
               <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t("settings.onlineServiceFee")}</label>
               <input
                 type="number"
-                value={formData.onlineServiceFee || "40"}
+                value={formData.onlineServiceFee || "4000"}
                 onChange={(e) => handleChange("onlineServiceFee", e.target.value)}
                 className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
                 required

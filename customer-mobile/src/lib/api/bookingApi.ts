@@ -55,6 +55,10 @@ export const bookingApi = baseApi.injectEndpoints({
         body,
       }),
     }),
+
+    getPublicConfig: builder.query<{ onlineServiceFee: number; currency: string; cinemaName: string }, void>({
+      query: () => "/bookings/config",
+    }),
   }),
 });
 
@@ -65,4 +69,5 @@ export const {
   useLookupBookingsQuery,
   useLazyLookupBookingsQuery,
   useTriggerKioskPrintMutation,
+  useGetPublicConfigQuery,
 } = bookingApi;

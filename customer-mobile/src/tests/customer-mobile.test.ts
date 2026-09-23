@@ -89,14 +89,19 @@ test("Phase 8C: React Native Customer Mobile App Logic & Invariants", async (t) 
   });
 
   await t.test("4. Price Calculation and Currency Formatting", () => {
-    const ticketPrice = 60000;
-    const selectedCount = 3;
-    const total = ticketPrice * selectedCount;
+    const ticketPrice = 45000;
+    const selectedCount = 2;
+    const ticketSubtotal = ticketPrice * selectedCount;
+    const feePerTicket = 4000;
+    const totalServiceFee = selectedCount * feePerTicket;
+    const grandTotal = ticketSubtotal + totalServiceFee;
 
-    assert.strictEqual(total, 180000);
+    assert.strictEqual(ticketSubtotal, 90000);
+    assert.strictEqual(totalServiceFee, 8000);
+    assert.strictEqual(grandTotal, 98000);
 
-    const formatted = `Rp ${total.toLocaleString("id-ID")}`;
-    assert.strictEqual(formatted, "Rp 180.000");
+    const formatted = `Rp ${grandTotal.toLocaleString("id-ID")}`;
+    assert.strictEqual(formatted, "Rp 98.000");
   });
 
   await t.test("5. Turnstile QR Code Payload Format Invariant", () => {

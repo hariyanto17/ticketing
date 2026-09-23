@@ -39,6 +39,7 @@ export const BookingSummaryScreen: React.FC = () => {
     reservedUntil,
     clearSelectedSeats,
     ticketSubtotal,
+    feePerTicket,
     serviceFee,
     estimatedTotal,
   } = useBooking();
@@ -288,7 +289,9 @@ export const BookingSummaryScreen: React.FC = () => {
             </View>
 
             <View style={styles.priceRow}>
-              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>{t("summary.serviceFee")}</Text>
+              <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
+                {t("summary.serviceFee")} ({selectedSeats.length}x @ {formatCurrency(feePerTicket)})
+              </Text>
               <Text style={[styles.metaValue, { color: colors.text }]}>
                 {serviceFee > 0 ? formatCurrency(serviceFee) : t("summary.free")}
               </Text>

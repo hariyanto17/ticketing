@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
 import { Showtime, ShowtimeSeat } from "../types/schedule";
+import { useGetPublicConfigQuery } from "../lib/api/bookingApi";
 
 interface CustomerInfo {
   name: string;
@@ -20,6 +21,7 @@ interface BookingContextType {
   setReservedUntil: (date: Date | null) => void;
   resetBooking: () => void;
   ticketSubtotal: number;
+  feePerTicket: number;
   serviceFee: number;
   estimatedTotal: number;
 }
@@ -27,6 +29,7 @@ interface BookingContextType {
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { data: configData } = useGetPublicConfigQuery();
   const [selectedSchedule, setSelectedSchedule] = useState<Showtime | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<ShowtimeSeat[]>([]);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -62,8 +65,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setReservedUntil(null);
   };
 
+  const feePerTicket = configData?.onlineServiceFee !== undefined ? Number(configData.onlineServiceFee) : 4000;
   const ticketSubtotal = (selectedSchedule?.ticketPrice || 0) * selectedSeats.length;
-  const serviceFee = selectedSeats.length > 0 ? 40 : 0;
+  const serviceFee = selectedSeats.length * feePerTicket;
   const estimatedTotal = selectedSeats.length > 0 ? ticketSubtotal + serviceFee : 0;
 
   return (
@@ -81,6 +85,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setReservedUntil,
         resetBooking,
         ticketSubtotal,
+        feePerTicket,
         serviceFee,
         estimatedTotal,
       }}

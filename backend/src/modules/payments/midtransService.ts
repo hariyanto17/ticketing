@@ -71,7 +71,7 @@ export const buildMidtransItemDetails = (order: {
       id: "SERVICE-FEE",
       price: difference,
       quantity: 1,
-      name: "Biaya Layanan Online",
+      name: `Biaya Layanan Online (${order.tickets.length} Tiket)`.substring(0, 50),
     });
   } else if (difference < 0) {
     itemDetails.push({

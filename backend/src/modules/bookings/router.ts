@@ -31,7 +31,7 @@ router.get(
     return responseHandler.ok(
       res,
       {
-        onlineServiceFee: Number(settings.onlineServiceFee || 40),
+        onlineServiceFee: Number(settings.onlineServiceFee || 4000),
         currency: settings.currency || "IDR",
         cinemaName: settings.cinemaName || "Planet Cinema",
       },

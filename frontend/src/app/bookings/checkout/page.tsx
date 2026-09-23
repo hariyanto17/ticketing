@@ -65,7 +65,7 @@ function GuestCheckout() {
   }, [schedulesResponse?.data, scheduleId]);
 
   const ticketPrice = activeSchedule?.ticketPrice || 0;
-  const onlineFee = configResponse?.onlineServiceFee !== undefined ? Number(configResponse.onlineServiceFee) : 40;
+  const onlineFeePerTicket = configResponse?.onlineServiceFee !== undefined ? Number(configResponse.onlineServiceFee) : 4000;
 
   // Selected seats state
   const [selectedSeats, setSelectedSeats] = useState<ShowtimeSeat[]>([]);
@@ -265,7 +265,8 @@ function GuestCheckout() {
   }
 
   const subtotalTickets = ticketPrice * selectedSeats.length;
-  const totalAmount = subtotalTickets + (selectedSeats.length > 0 ? onlineFee : 0);
+  const totalOnlineFee = selectedSeats.length * onlineFeePerTicket;
+  const totalAmount = subtotalTickets + totalOnlineFee;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans pb-20">
@@ -667,9 +668,11 @@ function GuestCheckout() {
                   </span>
                 </div>
                 <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                  <span>Biaya Layanan</span>
+                  <span>
+                    Biaya Layanan ({selectedSeats.length}x{selectedSeats.length > 0 ? ` @ ${formatCurrency(onlineFeePerTicket)}` : ""})
+                  </span>
                   <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {selectedSeats.length > 0 ? formatCurrency(onlineFee) : formatCurrency(onlineFee)}
+                    {formatCurrency(totalOnlineFee)}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-800 pt-3 text-sm">

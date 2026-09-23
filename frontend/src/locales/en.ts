@@ -260,7 +260,7 @@ export default {
     operationalBusinessDate: "Operational Business Date",
     currencySymbol: "Currency Symbol",
     taxPercentage: "Tax Percentage (%)",
-    onlineServiceFee: "Online Service Fee (IDR)",
+    onlineServiceFee: "Online Service Fee per Ticket (IDR)",
     applyTaxes: "Apply Taxes on Ticket Invoice Checkouts",
     saveSuccess: "Settings saved successfully!",
     saveFailed: "Failed to save settings",

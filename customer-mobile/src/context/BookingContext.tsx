@@ -29,7 +29,11 @@ interface BookingContextType {
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { data: configData } = useGetPublicConfigQuery();
+  const { data: configData } = useGetPublicConfigQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
   const [selectedSchedule, setSelectedSchedule] = useState<Showtime | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<ShowtimeSeat[]>([]);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({

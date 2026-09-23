@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  Alert,
   StyleSheet,
   ActivityIndicator,
   Dimensions,
@@ -21,6 +20,7 @@ import { initSocket } from "../services/socketService";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useAlert } from "../context/AlertContext";
 import { Header } from "../components/common/Header";
 import { CinemaScreen } from "../components/seat/CinemaScreen";
 import { SeatItem } from "../components/seat/SeatItem";
@@ -43,10 +43,11 @@ export const SeatSelectionScreen: React.FC = () => {
     clearSelectedSeats,
     reservedUntil,
     setReservedUntil,
-    estimatedTotal,
+    ticketSubtotal,
   } = useBooking();
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
+  const { showAlert } = useAlert();
 
   const schedule = route.params.schedule;
 
@@ -84,14 +85,34 @@ export const SeatSelectionScreen: React.FC = () => {
     }
   }, [serverSeats]);
 
+  const isProceedingRef = useRef(false);
+  const selectedSeatsRef = useRef(selectedSeats);
+  selectedSeatsRef.current = selectedSeats;
+
   useFocusEffect(
     useCallback(() => {
-      clearSelectedSeats();
-      setReservedUntil(null);
+      isProceedingRef.current = false;
       setZoomLevel(1.0);
       loadSeats();
     }, [schedule.id])
   );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", () => {
+      if (isProceedingRef.current) {
+        return;
+      }
+
+      const currentSeats = selectedSeatsRef.current;
+      if (currentSeats.length > 0) {
+        const seatIds = currentSeats.map((s) => s.seatId || s.seat?.id || s.id);
+        releaseSeatsMutation({ scheduleId: schedule.id, seatIds }).catch(() => {});
+        clearSelectedSeats();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, schedule.id, releaseSeatsMutation, clearSelectedSeats]);
 
   useEffect(() => {
     // Initialize Socket.IO Real-time Synchronization
@@ -140,15 +161,14 @@ export const SeatSelectionScreen: React.FC = () => {
 
   // Handle Hold Expiry
   const handleHoldExpired = () => {
-    Alert.alert(t("seat.timerExpired"), t("seat.timerExpired"), [
-      {
-        text: "OK",
-        onPress: () => {
-          clearSelectedSeats();
-          loadSeats();
-        },
-      },
-    ]);
+    const currentSeats = selectedSeatsRef.current;
+    if (currentSeats.length > 0) {
+      const seatIds = currentSeats.map((s) => s.seatId || s.seat?.id || s.id);
+      releaseSeatsMutation({ scheduleId: schedule.id, seatIds }).catch(() => {});
+      clearSelectedSeats();
+    }
+    loadSeats();
+    showAlert(t("seat.timerExpired"), t("seat.timerExpired"), [{ text: "OK" }], "warning");
   };
 
   // Group seats by Row (ordered K -> A from screen down) and compute auto-fit size + zoom
@@ -210,9 +230,9 @@ export const SeatSelectionScreen: React.FC = () => {
 
     if (seat.status !== "AVAILABLE" && !isAlreadySelected) {
       if (seat.status === "HOLD") {
-        Alert.alert(t("seat.held"), t("seat.heldWarning"));
+        showAlert(t("seat.held"), t("seat.heldWarning"), [{ text: "OK" }], "warning");
       } else if (seat.status === "SOLD") {
-        Alert.alert(t("seat.sold"), t("seat.soldWarning"));
+        showAlert(t("seat.sold"), t("seat.soldWarning"), [{ text: "OK" }], "error");
       }
       return;
     }
@@ -225,7 +245,7 @@ export const SeatSelectionScreen: React.FC = () => {
         await releaseSeatsMutation({ scheduleId: schedule.id, seatIds: [seatIdToHold] }).unwrap();
       } else {
         if (selectedSeats.length >= 8) {
-          Alert.alert(t("seat.title"), "Maksimal 8 kursi dalam satu transaksi.");
+          showAlert(t("seat.title"), "Maksimal 8 kursi dalam satu transaksi.", [{ text: "OK" }], "warning");
           return;
         }
         const res = await holdSeatsMutation({ scheduleId: schedule.id, seatIds: [seatIdToHold] }).unwrap();
@@ -235,31 +255,26 @@ export const SeatSelectionScreen: React.FC = () => {
         toggleSeat(seat);
       }
     } catch (err: any) {
-      Alert.alert(
+      showAlert(
         t("common.error"),
         err?.data?.message || err?.message || "Kursi yang Anda pilih baru saja dipesan oleh kasir atau pengguna lain. Silakan pilih kursi lain.",
-        [{ text: "OK", onPress: () => loadSeats() }]
+        [{ text: "OK", onPress: () => loadSeats() }],
+        "error"
       );
     }
   };
 
-  const handleBack = async () => {
-    if (selectedSeats.length > 0) {
-      const seatIds = selectedSeats.map((s) => s.seatId || s.seat?.id || s.id);
-      try {
-        await releaseSeatsMutation({ scheduleId: schedule.id, seatIds }).unwrap();
-      } catch (e) {}
-      clearSelectedSeats();
-    }
+  const handleBack = () => {
     navigation.goBack();
   };
 
   const handleHoldAndProceed = async () => {
     if (selectedSeats.length === 0) {
-      Alert.alert(t("seat.title"), t("seat.selectAtLeastOne"));
+      showAlert(t("seat.title"), t("seat.selectAtLeastOne"), [{ text: "OK" }], "warning");
       return;
     }
 
+    isProceedingRef.current = true;
     navigation.navigate("BookingSummary");
   };
 
@@ -412,7 +427,7 @@ export const SeatSelectionScreen: React.FC = () => {
                 : t("seat.noSeatsSelected")}
             </Text>
             <Text style={[styles.summaryPrice, { color: colors.primary }]}>
-              {formatCurrency(estimatedTotal)}
+              {formatCurrency(ticketSubtotal)}
             </Text>
           </View>
 

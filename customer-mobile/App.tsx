@@ -10,6 +10,8 @@ import { BookingProvider } from "./src/context/BookingContext";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { otaService, OtaCheckResult } from "./src/services/otaService";
 import { OtaUpdateModal } from "./src/components/common/OtaUpdateModal";
+import { ToastProvider } from "./src/context/ToastContext";
+import { AlertProvider } from "./src/context/AlertContext";
 
 const MainApp: React.FC = () => {
   const { isDark, colors } = useTheme();
@@ -37,16 +39,20 @@ const MainApp: React.FC = () => {
 
   return (
     <SafeAreaProvider style={{ backgroundColor: colors.background }}>
-      <StatusBar
-        barStyle={isDark ? "light-content" : "dark-content"}
-        backgroundColor={colors.background}
-      />
-      <RootNavigator />
-      <OtaUpdateModal
-        visible={showModal}
-        updateInfo={updateInfo}
-        onDismiss={() => setShowModal(false)}
-      />
+      <ToastProvider>
+        <AlertProvider>
+          <StatusBar
+            barStyle={isDark ? "light-content" : "dark-content"}
+            backgroundColor={colors.background}
+          />
+          <RootNavigator />
+          <OtaUpdateModal
+            visible={showModal}
+            updateInfo={updateInfo}
+            onDismiss={() => setShowModal(false)}
+          />
+        </AlertProvider>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 };

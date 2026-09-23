@@ -5,7 +5,6 @@ import {
   Image,
   ActivityIndicator,
   StyleSheet,
-  Alert,
   ScrollView,
   TouchableOpacity,
 } from "react-native";
@@ -28,6 +27,7 @@ import { storageService } from "../services/storageService";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useAlert } from "../context/AlertContext";
 import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
@@ -44,6 +44,7 @@ export const PaymentScreen: React.FC = () => {
   const { resetBooking, selectedSchedule, selectedSeats, customerInfo, estimatedTotal } = useBooking();
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
+  const { showAlert } = useAlert();
 
   const { orderId, qrUrl, qrString, amount, expiredAt: rawExpiredAt } = route.params;
 
@@ -143,9 +144,11 @@ export const PaymentScreen: React.FC = () => {
       }
 
       if (isManualTap) {
-        Alert.alert(
+        showAlert(
           "Status Pembayaran",
-          "Pembayaran Anda sedang diverifikasi. Jika sudah melakukan transfer/scan, mohon tunggu beberapa detik."
+          "Pembayaran Anda sedang diverifikasi. Jika sudah melakukan transfer/scan, mohon tunggu beberapa detik.",
+          [{ text: "OK" }],
+          "info"
         );
       }
       return false;
@@ -167,7 +170,7 @@ export const PaymentScreen: React.FC = () => {
   }, [orderId, paymentState]);
 
   const handleCancelPayment = () => {
-    Alert.alert(
+    showAlert(
       "Batalkan Pembayaran",
       "Apakah Anda yakin ingin membatalkan transaksi QRIS ini?",
       [
@@ -183,7 +186,8 @@ export const PaymentScreen: React.FC = () => {
             });
           },
         },
-      ]
+      ],
+      "confirm"
     );
   };
 

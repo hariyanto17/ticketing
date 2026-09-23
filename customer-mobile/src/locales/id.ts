@@ -49,6 +49,7 @@ export default {
     price: "Harga",
     standardStudio: "Studio Reguler",
     premiereStudio: "Studio Premiere",
+    noScheduleForDate: "Tidak ada jadwal untuk tanggal yang dipilih",
   },
   seat: {
     title: "Pilih Kursi",

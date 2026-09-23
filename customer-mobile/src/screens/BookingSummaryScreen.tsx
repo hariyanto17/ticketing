@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TextInput,
-  Alert,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
@@ -12,11 +11,12 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Film, User, Phone, Mail, CreditCard, ShieldCheck } from "lucide-react-native";
 import { RootStackParamList } from "../types/navigation";
-import { useCreateBookingMutation } from "../lib/api/bookingApi";
+import { useCreateBookingMutation, useReleaseSeatsMutation } from "../lib/api/bookingApi";
 import { useCreateQrisPaymentMutation } from "../lib/api/paymentApi";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useAlert } from "../context/AlertContext";
 import { Header } from "../components/common/Header";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
@@ -45,9 +45,11 @@ export const BookingSummaryScreen: React.FC = () => {
   } = useBooking();
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
+  const { showAlert } = useAlert();
 
   const [createBookingMutation, { isLoading: creatingBooking }] = useCreateBookingMutation();
   const [createQrisPaymentMutation, { isLoading: creatingQrisPayment }] = useCreateQrisPaymentMutation();
+  const [releaseSeatsMutation] = useReleaseSeatsMutation();
 
   const submitting = creatingBooking || creatingQrisPayment;
 
@@ -66,20 +68,29 @@ export const BookingSummaryScreen: React.FC = () => {
   }
 
   const handleHoldExpired = () => {
-    Alert.alert(t("seat.timerExpired"), t("seat.timerExpired"), [
-      {
-        text: "OK",
-        onPress: () => {
-          clearSelectedSeats();
-          navigation.goBack();
+    if (selectedSeats.length > 0 && selectedSchedule) {
+      const seatIds = selectedSeats.map((s) => s.seatId || s.seat?.id || s.id);
+      releaseSeatsMutation({ scheduleId: selectedSchedule.id, seatIds }).catch(() => {});
+    }
+    clearSelectedSeats();
+    showAlert(
+      t("seat.timerExpired"),
+      t("seat.timerExpired"),
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            navigation.goBack();
+          },
         },
-      },
-    ]);
+      ],
+      "warning"
+    );
   };
 
   const handleProceedToPayment = async () => {
     if (!customerInfo.name.trim() || !customerInfo.phone.trim()) {
-      Alert.alert(t("common.error"), t("summary.fillRequired"));
+      showAlert(t("common.error"), t("summary.fillRequired"), [{ text: "OK" }], "warning");
       return;
     }
 
@@ -131,9 +142,11 @@ export const BookingSummaryScreen: React.FC = () => {
         expiredAt: qrisRes.expiredAt,
       });
     } catch (err: any) {
-      Alert.alert(
+      showAlert(
         t("common.error"),
-        err?.data?.message || err?.message || "Gagal memproses pembayaran QRIS. Silakan periksa kembali data Anda."
+        err?.data?.message || err?.message || "Gagal memproses pembayaran QRIS. Silakan periksa kembali data Anda.",
+        [{ text: "OK" }],
+        "error"
       );
     }
   };

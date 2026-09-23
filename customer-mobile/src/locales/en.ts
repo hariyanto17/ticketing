@@ -49,6 +49,7 @@ export default {
     price: "Price",
     standardStudio: "Standard Studio",
     premiereStudio: "Premiere Studio",
+    noScheduleForDate: "No schedules available for the selected date",
   },
   seat: {
     title: "Select Seats",

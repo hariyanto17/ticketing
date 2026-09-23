@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useGetSchedulesQuery } from "../lib/api/scheduleApi";
 import { useBooking } from "../context/BookingContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useToast } from "../context/ToastContext";
 import { Header } from "../components/common/Header";
 import { isScheduleExpired } from "../utils/format";
 
@@ -28,39 +29,96 @@ export const ShowtimeScreen: React.FC = () => {
   const { setSelectedSchedule, resetBooking } = useBooking();
   const { colors } = useTheme();
   const { t, formatCurrency } = useLanguage();
+  const { showWarning } = useToast();
 
   const movie = route.params.movie;
 
   // Generate next 5 dates for date selector
-  const dates = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const dates = useMemo(() => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, []);
 
   const [selectedDate, setSelectedDate] = useState<Date>(dates[0]);
-  const dateStr = selectedDate.toISOString().split("T")[0];
+
+  const formatYYYYMMDD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = useMemo(() => formatYYYYMMDD(dates[0]), [dates]);
 
   const {
     data: allSchedules = [],
     isLoading: loading,
   } = useGetSchedulesQuery({
     movieId: movie.id,
-    startDate: dateStr,
+    startDate: todayStr,
   });
 
   // Filter only PUBLISHED schedules
-  const schedules = allSchedules.filter((s) => s.status === "PUBLISHED");
+  const publishedSchedules = useMemo(() => {
+    return allSchedules.filter((s) => s.status === "PUBLISHED");
+  }, [allSchedules]);
+
+  const isScheduleOnDate = useCallback((schedule: Showtime, targetDate: Date) => {
+    const targetStr = formatYYYYMMDD(targetDate);
+    if (schedule.businessDate) {
+      const bDateStr = schedule.businessDate.split("T")[0];
+      if (bDateStr === targetStr) return true;
+    }
+    if (schedule.startTime) {
+      const stDate = new Date(schedule.startTime);
+      if (formatYYYYMMDD(stDate) === targetStr) return true;
+    }
+    return false;
+  }, []);
+
+  const getSchedulesForDate = useCallback(
+    (targetDate: Date) => {
+      return publishedSchedules.filter((s) => isScheduleOnDate(s, targetDate));
+    },
+    [publishedSchedules, isScheduleOnDate]
+  );
+
+  // Auto-select first available date if today has no schedules but another date does
+  useEffect(() => {
+    if (!loading && publishedSchedules.length > 0) {
+      const currentHasSchedules = publishedSchedules.some((s) =>
+        isScheduleOnDate(s, selectedDate)
+      );
+      if (!currentHasSchedules) {
+        const firstAvailableDate = dates.find((d) =>
+          publishedSchedules.some((s) => isScheduleOnDate(s, d))
+        );
+        if (firstAvailableDate) {
+          setSelectedDate(firstAvailableDate);
+        }
+      }
+    }
+  }, [loading, publishedSchedules, dates, isScheduleOnDate, selectedDate]);
+
+  // Current schedules for selected date
+  const currentDaySchedules = useMemo(() => {
+    return getSchedulesForDate(selectedDate);
+  }, [getSchedulesForDate, selectedDate]);
 
   // Group schedules by Studio
-  const groupedByStudio = schedules.reduce((acc, schedule) => {
-    const studioName = schedule.studio?.name || "Studio 1";
-    if (!acc[studioName]) {
-      acc[studioName] = [];
-    }
-    acc[studioName].push(schedule);
-    return acc;
-  }, {} as Record<string, Showtime[]>);
+  const groupedByStudio = useMemo(() => {
+    return currentDaySchedules.reduce((acc, schedule) => {
+      const studioName = schedule.studio?.name || "Studio 1";
+      if (!acc[studioName]) {
+        acc[studioName] = [];
+      }
+      acc[studioName].push(schedule);
+      return acc;
+    }, {} as Record<string, Showtime[]>);
+  }, [currentDaySchedules]);
 
   const formatTime = (isoString: string) => {
     const d = new Date(isoString);
@@ -73,6 +131,16 @@ export const ShowtimeScreen: React.FC = () => {
     navigation.navigate("SeatSelection", { schedule });
   };
 
+  const handleDatePress = (date: Date, hasSchedules: boolean) => {
+    if (!hasSchedules) {
+      showWarning(
+        t("showtimes.noScheduleForDate") || "Tidak ada jadwal untuk tanggal yang dipilih"
+      );
+      return;
+    }
+    setSelectedDate(date);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title={movie.title} showBack onBack={() => navigation.goBack()} />
@@ -82,6 +150,10 @@ export const ShowtimeScreen: React.FC = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
           {dates.map((date, index) => {
             const isSelected = date.toDateString() === selectedDate.toDateString();
+            const dateSchedules = getSchedulesForDate(date);
+            const hasSchedules = dateSchedules.length > 0;
+            const isDisabled = !loading && !hasSchedules;
+
             const dayName =
               index === 0
                 ? t("common.today")
@@ -97,17 +169,32 @@ export const ShowtimeScreen: React.FC = () => {
                 style={[
                   styles.datePill,
                   {
-                    backgroundColor: isSelected ? colors.primary : colors.card,
-                    borderColor: isSelected ? colors.primary : colors.cardBorder,
+                    backgroundColor: isSelected
+                      ? colors.primary
+                      : isDisabled
+                      ? colors.surface
+                      : colors.card,
+                    borderColor: isSelected
+                      ? colors.primary
+                      : isDisabled
+                      ? colors.cardBorder
+                      : colors.cardBorder,
+                    opacity: isDisabled ? 0.45 : 1,
                   },
                 ]}
-                onPress={() => setSelectedDate(date)}
-                activeOpacity={0.8}
+                onPress={() => handleDatePress(date, hasSchedules)}
+                activeOpacity={isDisabled ? 0.6 : 0.8}
               >
                 <Text
                   style={[
                     styles.dayName,
-                    { color: isSelected ? "rgba(255,255,255,0.8)" : colors.textMuted },
+                    {
+                      color: isSelected
+                        ? "rgba(255,255,255,0.8)"
+                        : isDisabled
+                        ? colors.textMuted
+                        : colors.textMuted,
+                    },
                   ]}
                 >
                   {dayName}
@@ -115,7 +202,14 @@ export const ShowtimeScreen: React.FC = () => {
                 <Text
                   style={[
                     styles.dayNumber,
-                    { color: isSelected ? "#ffffff" : colors.text },
+                    {
+                      color: isSelected
+                        ? "#ffffff"
+                        : isDisabled
+                        ? colors.textMuted
+                        : colors.text,
+                      textDecorationLine: isDisabled ? "line-through" : "none",
+                    },
                   ]}
                 >
                   {dayNum} {monthName}

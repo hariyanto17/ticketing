@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Printer,
   FileSpreadsheet,
+  Tag,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -166,8 +167,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.ticketSales"), href: "/admin/cashier", icon: <Ticket className="w-5 h-5" /> },
     { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" /> },
     { name: "Kiosk Cetak Tiket", href: "/kiosk-print", icon: <Printer className="w-5 h-5" /> },
-    { name: t("nav.gateValidator"), href: "/admin/tickets/validate", icon: <ShieldCheck className="w-5 h-5" /> },
     { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" /> },
+    { name: t("nav.promotions") || "Promosi & Diskon", href: "/admin/promotions", icon: <Tag className="w-5 h-5" /> },
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
     { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },

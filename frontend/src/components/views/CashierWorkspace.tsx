@@ -4,11 +4,12 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useGetMoviesQuery, Movie } from "@/services/movieApi";
 import { useGetSchedulesQuery, useGetScheduleSeatsQuery, useHoldSeatsMutation, useReleaseSeatsMutation, Schedule, ShowtimeSeat } from "@/services/studioApi";
 import { useCheckoutOrderMutation } from "@/services/orderApi";
+import { useGetActivePromotionsQuery, Promotion } from "@/services/promotionApi";
 import { useToast } from "@/components/ui/toast";
-import { Button, SearchableSelect } from "@/components/ui/form-controls";
+import { Button, SearchableSelect, Select } from "@/components/ui/form-controls";
 import { Spinner } from "@/components/ui/spinner";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
-import { Film, Clock, Armchair, Ticket, Check, Receipt, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast, ZoomIn, ZoomOut, RotateCcw, Sparkles } from "lucide-react";
+import { Film, Clock, Armchair, Ticket, Check, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast, ZoomIn, ZoomOut, RotateCcw, Sparkles, Tag, Gift, Percent } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
 import { io } from "socket.io-client";
@@ -73,7 +74,6 @@ export default function CashierWorkspace() {
   const [lastSelectedSeats, setLastSelectedSeats] = useState<ShowtimeSeat[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
   const [amountReceived, setAmountReceived] = useState<number | "">("");
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [checkoutResult, setCheckoutResult] = useState<any | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -275,6 +275,7 @@ export default function CashierWorkspace() {
     setSelectedMovie(movie);
     setSelectedSchedule(null);
     setSelectedSeats([]);
+    setSelectedPromo(null);
   };
 
   // When schedule changes, release previously held seats and reset seat selections
@@ -344,10 +345,69 @@ export default function CashierWorkspace() {
   const [isCustomerDisplayConnected, setIsCustomerDisplayConnected] = useState(false);
   const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
 
+  // Promotions State & Queries
+  const [selectedPromo, setSelectedPromo] = useState<Promotion | null>(null);
+  const { data: activePromosResponse } = useGetActivePromotionsQuery(
+    { movieId: selectedMovie?.id },
+    { skip: !selectedMovie }
+  );
+  const activePromos = useMemo(() => activePromosResponse?.data || [], [activePromosResponse?.data]);
+
   // Calculations
   const ticketPrice = selectedSchedule?.ticketPrice || 0;
   const quantity = selectedSeats.length;
-  const totalAmount = quantity * ticketPrice;
+  const subtotal = quantity * ticketPrice;
+
+  const { promoDiscount, freeTicketsCount, totalAmount } = useMemo(() => {
+    if (!selectedPromo || quantity === 0 || ticketPrice === 0) {
+      return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
+    }
+
+    if (quantity < selectedPromo.minTickets) {
+      return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
+    }
+
+    const remainingQuota = Math.max(0, selectedPromo.quota - selectedPromo.usedQuota);
+    if (remainingQuota <= 0) {
+      return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
+    }
+
+    if (selectedPromo.promoType === "BUY_X_GET_Y") {
+      const buyQty = selectedPromo.buyQty || 1;
+      const getQty = selectedPromo.getQty || 1;
+      const bundleSize = buyQty + getQty;
+      const bundles = Math.floor(quantity / bundleSize);
+      let free = bundles * getQty;
+      if (selectedPromo.maxUsagePerOrder && free > selectedPromo.maxUsagePerOrder) {
+        free = selectedPromo.maxUsagePerOrder;
+      }
+      const actualFree = Math.min(free, remainingQuota);
+      const discount = actualFree * ticketPrice;
+      return {
+        promoDiscount: discount,
+        freeTicketsCount: actualFree,
+        totalAmount: Math.max(0, subtotal - discount),
+      };
+    } else if (selectedPromo.promoType === "PERCENTAGE") {
+      const percent = selectedPromo.discountPercent || 0;
+      let eligibleTickets = Math.min(quantity, remainingQuota);
+      if (selectedPromo.maxUsagePerOrder && eligibleTickets > selectedPromo.maxUsagePerOrder) {
+        eligibleTickets = selectedPromo.maxUsagePerOrder;
+      }
+      let rawDiscount = eligibleTickets * ticketPrice * (percent / 100);
+      if (selectedPromo.maxDiscount && rawDiscount > selectedPromo.maxDiscount) {
+        rawDiscount = selectedPromo.maxDiscount;
+      }
+      return {
+        promoDiscount: rawDiscount,
+        freeTicketsCount: 0,
+        totalAmount: Math.max(0, subtotal - rawDiscount),
+      };
+    }
+
+    return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
+  }, [selectedPromo, quantity, ticketPrice, subtotal]);
+
   const change = amountReceived !== "" && Number(amountReceived) >= totalAmount ? Number(amountReceived) - totalAmount : 0;
 
   // Seat grid organization & dimensions
@@ -549,6 +609,7 @@ export default function CashierWorkspace() {
         seatIds: selectedSeats.map((s) => s.seatId),
         paymentMethod,
         amountReceived: paymentMethod === "CASH" ? Number(amountReceived) : null,
+        promotionId: selectedPromo ? selectedPromo.id : null,
       }).unwrap();
 
       // Ensure ticket showtimeSeat relation is always present with seat and row details
@@ -578,25 +639,43 @@ export default function CashierWorkspace() {
         };
       });
 
-      setCheckoutResult({
+      const finalResult = {
         ...response.data,
         tickets: enrichedTickets,
-      });
-      setIsSuccessModalOpen(true);
+      };
+
+      setCheckoutResult(finalResult);
       toastSuccess(t("cashier.transactionSuccess"));
 
       // Clear selections
       setSelectedSeats([]);
+      setSelectedPromo(null);
       setAmountReceived("");
+
+      // Langsung print tiket setelah transaksi berhasil
+      void handlePrintTickets({
+        order: finalResult.order,
+        tickets: enrichedTickets,
+        schedule: selectedSchedule,
+        seats: seatsSnapshot,
+      });
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
     }
   };
 
-  const handlePrintTickets = async () => {
-    const order = checkoutResult?.order;
-    const tickets = checkoutResult?.tickets;
-    if (!order || !selectedSchedule || !tickets?.length) {
+  const handlePrintTickets = async (payload?: {
+    order?: any;
+    tickets?: any[];
+    schedule?: Schedule | null;
+    seats?: ShowtimeSeat[];
+  }) => {
+    const order = payload?.order || checkoutResult?.order;
+    const tickets = payload?.tickets || checkoutResult?.tickets;
+    const schedule = payload?.schedule || selectedSchedule;
+    const seatsToUse = payload?.seats || lastSelectedSeats;
+
+    if (!order || !schedule || !tickets?.length) {
       toastError("Data tiket belum tersedia untuk dicetak.");
       return;
     }
@@ -609,23 +688,23 @@ export default function CashierWorkspace() {
     try {
       setIsPrinting(true);
       const client = createPrinterAgentClient();
-      const startTime = new Date(selectedSchedule.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-      const showDate = new Date(selectedSchedule.businessDate).toLocaleDateString("en-CA");
+      const startTime = new Date(schedule.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const showDate = new Date(schedule.businessDate).toLocaleDateString("en-CA");
       const price = order.totalAmount / tickets.length;
 
       for (let idx = 0; idx < tickets.length; idx++) {
         const ticket = tickets[idx];
         const seatObj =
           ticket.showtimeSeat?.seat ||
-          lastSelectedSeats.find((s) => s.id === ticket.showtimeSeatId || s.seatId === ticket.showtimeSeatId)?.seat ||
-          lastSelectedSeats[idx]?.seat;
+          seatsToUse.find((s) => s.id === ticket.showtimeSeatId || s.seatId === ticket.showtimeSeatId)?.seat ||
+          seatsToUse[idx]?.seat;
 
         await client.printTicket({
           mode: "print",
           ticketNumber: ticket.ticketNumber,
           orderNumber: order.orderNumber,
-          movie: selectedSchedule.movie.title,
-          studio: selectedSchedule.studio.name,
+          movie: schedule.movie.title,
+          studio: schedule.studio.name,
           showDate,
           showTime: startTime,
           seat: seatObj?.seatLabel || ticket.showtimeSeat?.seat?.seatLabel || "-",
@@ -1224,6 +1303,67 @@ export default function CashierWorkspace() {
           )}
         </div>
 
+        {/* Promotion Selector */}
+        {selectedMovie && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-400">
+              <span className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-indigo-500" />
+                {t("cashier.promo")}
+              </span>
+              {selectedPromo && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPromo(null)}
+                  className="text-rose-500 hover:underline cursor-pointer"
+                >
+                  {t("cashier.clearPromo")}
+                </button>
+              )}
+            </div>
+
+            <Select
+              value={selectedPromo?.id || ""}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                const promo = activePromos.find((p: Promotion) => p.id === e.target.value);
+                setSelectedPromo(promo || null);
+              }}
+              options={[
+                { value: "", label: t("cashier.noPromoSelected") },
+                ...activePromos.map((p: Promotion) => {
+                  const remainingQuota = Math.max(0, p.quota - p.usedQuota);
+                  const typeLabel =
+                    p.promoType === "BUY_X_GET_Y"
+                      ? `BOGO ${p.buyQty}+${p.getQty}`
+                      : `${p.discountPercent}%`;
+                  return {
+                    value: p.id,
+                    label: `${p.name} [${p.code}] - ${typeLabel} (${t("promotions.quota")}: ${remainingQuota})`,
+                  };
+                }),
+              ]}
+            />
+
+            {selectedPromo && quantity > 0 && quantity < selectedPromo.minTickets && (
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
+                {t("cashier.promoMinTickets", { count: selectedPromo.minTickets })}
+              </div>
+            )}
+
+            {selectedPromo && promoDiscount > 0 && (
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Gift className="w-3.5 h-3.5" />
+                  {selectedPromo.promoType === "BUY_X_GET_Y"
+                    ? `${t("cashier.freeTickets")}: ${freeTicketsCount}`
+                    : `${t("promotions.discountPercent")}: ${selectedPromo.discountPercent}%`}
+                </span>
+                <span className="font-bold">-Rp {promoDiscount.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Pricing Math */}
         <div className="border-t border-b border-zinc-100 dark:border-zinc-800 py-4 space-y-2">
           <div className="flex justify-between text-sm text-zinc-500">
@@ -1234,6 +1374,14 @@ export default function CashierWorkspace() {
             <span>{t("cashier.quantity")}</span>
             <span>x{quantity}</span>
           </div>
+          {promoDiscount > 0 && (
+            <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+              <span>
+                {t("cashier.promoDiscount")} ({selectedPromo?.name})
+              </span>
+              <span>-Rp {promoDiscount.toLocaleString()}</span>
+            </div>
+          )}
           <div className="flex justify-between text-base font-bold text-zinc-900 dark:text-zinc-50 pt-1">
             <span>{t("cashier.total")}</span>
             <span>Rp {totalAmount.toLocaleString()}</span>
@@ -1314,40 +1462,6 @@ export default function CashierWorkspace() {
           </div>
         )}
       </div>
-
-      {/* Transaction Complete Modal */}
-      <Modal isOpen={isSuccessModalOpen} onClose={() => setIsSuccessModalOpen(false)} title={t("cashier.completed")}>
-        <div className="space-y-6 text-center py-4">
-          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100 dark:border-emerald-950/40">
-            <Receipt className="w-8 h-8" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{t("cashier.confirmed")}</h3>
-            <p className="text-zinc-500 text-sm mt-1">
-              Order **{checkoutResult?.order?.orderNumber}** generated successfully.
-            </p>
-          </div>
-
-          <div className="flex gap-3 justify-center">
-            {checkoutResult?.order?.id && (
-              <button
-                type="button"
-                onClick={() => void handlePrintTickets()}
-                disabled={isPrinting}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-300 text-white rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" /> {isPrinting ? "Printing..." : t("cashier.print")}
-              </button>
-            )}
-            <button
-              onClick={() => setIsSuccessModalOpen(false)}
-              className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold cursor-pointer"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Open Cash Drawer Modal */}
       <Modal isOpen={isOpenDrawerModalOpen} onClose={() => setIsOpenDrawerModalOpen(false)} title="Buka Sesi Laci Kas (Open Cash Drawer)">

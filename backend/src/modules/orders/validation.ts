@@ -5,6 +5,8 @@ export const checkoutSchema = z.object({
   seatIds: z.array(z.string().uuid("Invalid seat ID")).min(1, "Select at least one seat"),
   paymentMethod: z.enum(["CASH", "QRIS"]),
   amountReceived: z.number().nonnegative().optional().nullable(),
+  promotionId: z.string().uuid().optional().nullable(),
+  promoCode: z.string().trim().toUpperCase().optional().nullable(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

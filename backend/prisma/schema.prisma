@@ -24,6 +24,7 @@ model Branch {
   studios   Studio[]
   ticketPrices TicketPrice[]
   orders  Order[]
+  promotions Promotion[]
 }
 
 model User {
@@ -145,6 +146,7 @@ model Movie {
   
   genres           MovieGenre[]
   showtimes        Showtime[]
+  promotions       PromotionMovie[]
 }
 
 model MovieGenre {
@@ -298,16 +300,48 @@ model Customer {
   member Member? @relation(fields: [memberId], references: [id])
 }
 
+enum PromoType {
+  BUY_X_GET_Y
+  PERCENTAGE
+}
+
 model Promotion {
-  id            String   @id @default(uuid())
-  title         String
-  type          String
-  discountType  String
-  discountValue Float
-  startDate     DateTime
-  endDate       DateTime
-  status        String
-  vouchers      Voucher[]
+  id               String      @id @default(uuid())
+  branchId         String?
+  name             String
+  code             String?     @unique
+  promoType        PromoType   @default(PERCENTAGE)
+  discountPercent  Float?
+  maxDiscount      Float?
+  buyQty           Int?        @default(1)
+  getQty           Int?        @default(1)
+  quota            Int
+  usedQuota        Int         @default(0)
+  minTickets       Int         @default(1)
+  maxUsagePerOrder Int?
+  startDate        DateTime
+  endDate          DateTime
+  isActive         Boolean     @default(true)
+  status           String      @default("ACTIVE")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  branch           Branch?     @relation(fields: [branchId], references: [id])
+  orders           Order[]
+  vouchers         Voucher[]
+  movies           PromotionMovie[]
+
+  @@index([startDate, endDate, status])
+}
+
+model PromotionMovie {
+  promotionId String
+  movieId     String
+
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  movie       Movie     @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, movieId])
 }
 
 model Voucher {
@@ -326,27 +360,32 @@ model Voucher {
 }
 
 model Order {
-  id            String   @id @default(uuid())
-  orderNumber   String   @unique
-  bookingNumber String?  @unique
-  cashierId     String?
-  scheduleId    String
-  branchId      String
-  channel       String   @default("POS") // POS, ONLINE, MOBILE, KIOSK
-  totalAmount   Float
-  paymentMethod String   // CASH, QRIS
-  paymentStatus String   // PENDING, PAID, FAILED, REFUNDED
-  orderStatus   String   // PENDING, PAID, CANCELLED, REFUNDED
-  customerName  String?
-  customerPhone String?
-  customerEmail String?
-  createdAt     DateTime @default(now())
+  id               String      @id @default(uuid())
+  orderNumber      String      @unique
+  bookingNumber    String?     @unique
+  cashierId        String?
+  scheduleId       String
+  branchId         String
+  channel          String      @default("POS") // POS, ONLINE, MOBILE, KIOSK
+  subtotal         Float       @default(0.0)
+  discountAmount   Float       @default(0.0)
+  totalAmount      Float
+  paymentMethod    String      // CASH, QRIS
+  paymentStatus    String      // PENDING, PAID, FAILED, REFUNDED
+  orderStatus      String      // PENDING, PAID, CANCELLED, REFUNDED
+  promotionId      String?
+  promoSnapshot    Json?
+  customerName     String?
+  customerPhone    String?
+  customerEmail    String?
+  createdAt        DateTime    @default(now())
 
-  cashier  User?    @relation("CashierOrders", fields: [cashierId], references: [id])
-  schedule Showtime @relation(fields: [scheduleId], references: [id])
-  branch   Branch   @relation(fields: [branchId], references: [id])
-  tickets  Ticket[]
-  payments Payment[]
+  cashier   User?      @relation("CashierOrders", fields: [cashierId], references: [id])
+  schedule  Showtime   @relation(fields: [scheduleId], references: [id])
+  branch    Branch     @relation(fields: [branchId], references: [id])
+  promotion Promotion? @relation(fields: [promotionId], references: [id])
+  tickets   Ticket[]
+  payments  Payment[]
 
   @@index([scheduleId])
   @@index([branchId, createdAt])
@@ -355,15 +394,18 @@ model Order {
 }
 
 model Ticket {
-  id             String   @id @default(uuid())
-  ticketNumber   String   @unique
+  id             String        @id @default(uuid())
+  ticketNumber   String        @unique
   orderId        String
-  showtimeSeatId String   @unique
+  showtimeSeatId String        @unique
+  price          Float         @default(0.0)
+  discountAmount Float         @default(0.0)
+  isFree         Boolean       @default(false)
   qrCode         String
-  status         String   @default("ACTIVE") // ACTIVE, USED, CANCELLED
-  printCount     Int      @default(0)
+  status         String        @default("ACTIVE") // ACTIVE, USED, CANCELLED
+  printCount     Int           @default(0)
   printedAt      DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 
   order        Order        @relation(fields: [orderId], references: [id])
   showtimeSeat ShowtimeSeat @relation(fields: [showtimeSeatId], references: [id])

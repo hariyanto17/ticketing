@@ -1,24 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { useGetOrdersQuery, Order, Ticket } from "@/services/orderApi";
+import { useGetOrdersQuery, Order } from "@/services/orderApi";
 import { useGetUsersQuery } from "@/services/userApi";
-import { useToast } from "@/components/ui/toast";
 import { DataTable } from "@/components/ui/data-table";
-import { Input, Select, Button } from "@/components/ui/form-controls";
+import { Input, Select } from "@/components/ui/form-controls";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
-import { Receipt, Search, Calendar, User as UserIcon, Printer, Trash2, RotateCcw, AlertTriangle } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
-import { Spinner } from "@/components/ui/spinner";
-import Link from "next/link";
-import {
-  useVoidOrderMutation,
-  useRefundTicketMutation,
-  useReprintTicketMutation
-} from "@/services/opsApi";
 import { useTranslation } from "@/lib/i18n";
-
-import { ConfirmationDialog } from "@/components/ui/dialogs";
 import { useAppSelector } from "@/store/hooks";
 
 export default function TransactionHistory() {
@@ -35,9 +23,8 @@ export default function TransactionHistory() {
   const [channelFilter, setChannelFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
 
-  const { data: ordersResponse, isLoading, refetch } = useGetOrdersQuery({
+  const { data: ordersResponse, isLoading } = useGetOrdersQuery({
     search: searchQuery || undefined,
     cashierId: isCashier ? user?.id : (cashierFilter || undefined),
     channel: isCashier ? "POS" : (channelFilter || undefined),
@@ -46,19 +33,6 @@ export default function TransactionHistory() {
   });
 
   const { data: usersResponse } = useGetUsersQuery();
-  const { success: toastSuccess, error: toastError } = useToast();
-
-  // Mutation Hooks
-  const [voidOrder, { isLoading: isVoiding }] = useVoidOrderMutation();
-  const [refundTicket, { isLoading: isRefunding }] = useRefundTicketMutation();
-  const [reprintTicket] = useReprintTicketMutation();
-
-  // Modals Local State
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [activeTicketForRefund, setActiveTicketForRefund] = useState<Ticket | null>(null);
-  const [activeTicketForReprint, setActiveTicketForReprint] = useState<Ticket | null>(null);
-  const [refundReason, setRefundReason] = useState("Customer Request");
-  const [reprintReason, setReprintReason] = useState("Thermal Print Defect");
 
   const cashierOptions = [
     { value: "", label: t("transactions.allCashiers") },
@@ -70,52 +44,6 @@ export default function TransactionHistory() {
     { value: "POS", label: "POS / Loket Kasir" },
     { value: "ONLINE", label: "Mobile / Online Booking" },
   ];
-
-  const handleVoidOrder = async (orderId: string) => {
-    try {
-      await voidOrder(orderId).unwrap();
-      toastSuccess(t("transactions.voidSuccess"));
-      setIsVoidConfirmOpen(false);
-      setSelectedOrder(null);
-      refetch();
-    } catch (err: any) {
-      toastError(err?.data?.message || t("transactions.failed"));
-    }
-  };
-
-  const handleRefundSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeTicketForRefund) return;
-    try {
-      await refundTicket({ ticketId: activeTicketForRefund.id, reason: refundReason }).unwrap();
-      toastSuccess(t("transactions.refundSuccess"));
-      setActiveTicketForRefund(null);
-      setSelectedOrder(null);
-      refetch();
-    } catch (err: any) {
-      toastError(err?.data?.message || t("transactions.failed"));
-    }
-  };
-
-  const handleReprintSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeTicketForReprint) return;
-    try {
-      await reprintTicket({ ticketId: activeTicketForReprint.id, reason: reprintReason }).unwrap();
-      toastSuccess(t("transactions.reprintSuccess"));
-      
-      // Open the printable view
-      if (selectedOrder) {
-        const printUrl = isCashier
-          ? `/cashier/tickets/${selectedOrder.id}/print`
-          : `/admin/tickets/${selectedOrder.id}/print`;
-        window.open(printUrl, "_blank");
-      }
-      setActiveTicketForReprint(null);
-    } catch (err: any) {
-      toastError(err?.data?.message || t("transactions.failed"));
-    }
-  };
 
   const tableColumns = [
     { key: "orderNumber", header: t("transactions.order") },
@@ -195,32 +123,6 @@ export default function TransactionHistory() {
           },
         ]
       : []),
-    {
-      key: "actions",
-      header: t("transactions.actions"),
-      render: (o: Order) => {
-        const printUrl = isCashier
-          ? `/cashier/tickets/${o.id}/print`
-          : `/admin/tickets/${o.id}/print`;
-        return (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSelectedOrder(o)}
-              className="px-3 py-1 bg-zinc-50 hover:bg-zinc-150 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[11px] font-bold cursor-pointer"
-            >
-              {t("transactions.manage")}
-            </button>
-            <Link
-              href={printUrl}
-              target="_blank"
-              className="p-1.5 text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center justify-center cursor-pointer"
-            >
-              <Printer className="w-4 h-4" />
-            </Link>
-          </div>
-        );
-      },
-    },
   ];
 
   return (
@@ -283,172 +185,6 @@ export default function TransactionHistory() {
       <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm">
         <DataTable columns={tableColumns} data={ordersResponse?.data || []} isLoading={isLoading} />
       </div>
-
-      {/* Manage Transaction Detail Modal */}
-      <Modal isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} title={t("transactions.details")}>
-        {selectedOrder && (
-          <div className="space-y-6 py-4">
-            <div className="flex justify-between items-start border-b border-zinc-100 dark:border-zinc-800 pb-4">
-              <div>
-                <h3 className="font-bold text-zinc-900 dark:text-zinc-50">{selectedOrder.orderNumber}</h3>
-                <p className="text-xs text-zinc-400 mt-0.5">{t("transactions.total")}: {formatCurrency(selectedOrder.totalAmount)}</p>
-              </div>
-              {selectedOrder.orderStatus === "PAID" && (
-                <button
-                  type="button"
-                  onClick={() => setIsVoidConfirmOpen(true)}
-                  disabled={isVoiding}
-                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> {t("transactions.void")}
-                </button>
-              )}
-            </div>
-
-            {/* Tickets List */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t("transactions.issued")}</h4>
-              <div className="space-y-2">
-                {selectedOrder.tickets.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    className="p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl flex items-center justify-between gap-4"
-                  >
-                    <div>
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        {t("transactions.seats")} {ticket.showtimeSeat?.seat?.seatLabel || "-"}
-                      </span>
-                      <p className="text-[10px] text-zinc-400">{ticket.ticketNumber}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        ticket.status === "ACTIVE"
-                          ? "bg-emerald-50 text-emerald-600"
-                          : ticket.status === "USED"
-                          ? "bg-blue-50 text-blue-600"
-                          : "bg-rose-50 text-rose-500"
-                      }`}>
-                        {ticket.status}
-                      </span>
-                      
-                      {ticket.status === "ACTIVE" && (
-                        <button
-                          onClick={() => setActiveTicketForRefund(ticket)}
-                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold cursor-pointer"
-                        >
-                          {t("transactions.refund")}
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => setActiveTicketForReprint(ticket)}
-                        className="p-1 text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg cursor-pointer"
-                        title={t("transactions.reprint")}
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Ticket Refund Modal */}
-      <Modal isOpen={!!activeTicketForRefund} onClose={() => setActiveTicketForRefund(null)} title={t("transactions.refundTitle")}>
-        <form onSubmit={handleRefundSubmit} className="space-y-6 py-4">
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-950/30 rounded-2xl flex gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <h4 className="text-xs font-bold text-amber-900 dark:text-amber-300">{t("transactions.seatRelease")}</h4>
-              <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
-                {t("transactions.refundNotice")}
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{t("transactions.refundReason")}</label>
-            <select
-              value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
-              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            >
-              <option value="Customer Request">Customer Request</option>
-              <option value="Payment Error">Payment Error</option>
-              <option value="Schedule Cancelled">Schedule Cancelled</option>
-              <option value="Technical Issue">Technical Issue</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => setActiveTicketForRefund(null)}
-              className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold cursor-pointer"
-            >
-              {t("transactions.cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={isRefunding}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-zinc-305 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-1.5"
-            >
-              {isRefunding ? <Spinner className="w-4 h-4" /> : t("transactions.confirmRefund")}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Ticket Reprint Modal */}
-      <Modal isOpen={!!activeTicketForReprint} onClose={() => setActiveTicketForReprint(null)} title={t("transactions.reprintTitle")}>
-        <form onSubmit={handleReprintSubmit} className="space-y-6 py-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{t("transactions.reprintReason")}</label>
-            <input
-              type="text"
-              value={reprintReason}
-              onChange={(e) => setReprintReason(e.target.value)}
-              placeholder="e.g. Paper jammed, ink faded"
-              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm"
-              required
-            />
-          </div>
-
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => setActiveTicketForReprint(null)}
-              className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold cursor-pointer"
-            >
-              {t("transactions.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-1.5"
-            >
-              {t("transactions.logReprint")}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Custom Confirmation Modal for VOID */}
-      <ConfirmationDialog
-        isOpen={isVoidConfirmOpen}
-        onClose={() => setIsVoidConfirmOpen(false)}
-        onConfirm={() => selectedOrder && handleVoidOrder(selectedOrder.id)}
-        title="Konfirmasi Void Transaksi"
-        message="Apakah Anda yakin ingin membatalkan (VOID) seluruh transaksi ini? Semua kursi terkait akan langsung dilepaskan ke publik."
-        confirmText="Void Transaksi"
-        cancelText="Batal"
-        isLoading={isVoiding}
-        variant="danger"
-      />
     </div>
   );
 }

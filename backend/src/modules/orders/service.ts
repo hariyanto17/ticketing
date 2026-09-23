@@ -2,6 +2,7 @@ import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { CheckoutInput } from "./validation";
 import { emitSeatUpdate } from "../../utils/socket";
+import { calculatePromotionDiscount } from "../promotions/service";
 
 interface GetOrdersQuery {
   page?: number;
@@ -55,6 +56,7 @@ export const getAllOrders = async (query: GetOrdersQuery) => {
       where,
       include: {
         cashier: { select: { id: true, name: true, username: true } },
+        promotion: true,
         schedule: {
           include: {
             movie: { select: { id: true, title: true } },
@@ -94,6 +96,7 @@ export const getOrderById = async (id: string) => {
     where: { id },
     include: {
       cashier: { select: { id: true, name: true, username: true } },
+      promotion: true,
       schedule: {
         include: {
           movie: { select: { id: true, title: true } },
@@ -175,14 +178,58 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
     if (sSeat.status === "SOLD") {
       throw new AppError("BAD_REQUEST", `Seat ${sSeat.seat.seatLabel} is already sold`);
     }
-    // If seat is on hold, check if hold is still active by another session
-    if (sSeat.status === "HOLD" && sSeat.reservedUntil && sSeat.reservedUntil > now) {
-      // For simplicity in cashiers MVP, cashier is allowed to proceed if they initiated it
-      // In strict environment, we'd check session, but we will allow the sale to go through
+  }
+
+  // Promotions logic
+  let promotion: any = null;
+  if (input.promotionId || input.promoCode) {
+    promotion = await prisma.promotion.findFirst({
+      where: input.promotionId
+        ? { id: input.promotionId }
+        : { code: input.promoCode },
+      include: {
+        movies: true,
+      },
+    });
+
+    if (!promotion) {
+      throw new AppError("NOT_FOUND", "Promo tidak ditemukan");
+    }
+
+    if (promotion.branchId && promotion.branchId !== branchId) {
+      throw new AppError("BAD_REQUEST", "Promo tidak berlaku untuk cabang ini");
     }
   }
 
-  const totalAmount = showtimeSeats.length * schedule.ticketPrice;
+  const subtotal = showtimeSeats.length * schedule.ticketPrice;
+  let discountAmount = 0;
+  let totalAmount = subtotal;
+  let freeTicketsCount = 0;
+  let usedQuotaIncrement = 0;
+  let promoSnapshot: any = null;
+
+  if (promotion) {
+    const promoCalc = calculatePromotionDiscount(
+      promotion,
+      showtimeSeats.length,
+      schedule.ticketPrice,
+      schedule.movieId
+    );
+    discountAmount = promoCalc.discountAmount;
+    totalAmount = promoCalc.finalAmount;
+    freeTicketsCount = promoCalc.freeTicketsCount;
+    usedQuotaIncrement = promoCalc.usedQuotaIncrement;
+    promoSnapshot = {
+      promotionId: promotion.id,
+      name: promotion.name,
+      code: promotion.code,
+      promoType: promotion.promoType,
+      discountPercent: promotion.discountPercent,
+      discountAmount,
+      freeTicketsCount,
+      details: promoCalc.details,
+    };
+  }
 
   let amountReceived = input.amountReceived || totalAmount;
   let change = 0;
@@ -199,6 +246,33 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
 
   // Execute database transaction
   return prisma.$transaction(async (tx) => {
+    // Atomic quota validation and consumption
+    if (promotion && usedQuotaIncrement > 0) {
+      const currentPromo = await tx.promotion.findUnique({
+        where: { id: promotion.id },
+        include: { movies: true },
+      });
+      if (!currentPromo || !currentPromo.isActive) {
+        throw new AppError("BAD_REQUEST", "Promo sudah tidak aktif");
+      }
+      if (currentPromo.movies && currentPromo.movies.length > 0) {
+        const isAllowed = currentPromo.movies.some((pm) => pm.movieId === schedule.movieId);
+        if (!isAllowed) {
+          throw new AppError("BAD_REQUEST", `Promo '${currentPromo.name}' tidak berlaku untuk film ini`);
+        }
+      }
+      if (currentPromo.quota - currentPromo.usedQuota < usedQuotaIncrement) {
+        throw new AppError("BAD_REQUEST", "Sisa kuota tiket promo tidak mencukupi");
+      }
+
+      await tx.promotion.update({
+        where: { id: promotion.id },
+        data: {
+          usedQuota: { increment: usedQuotaIncrement },
+        },
+      });
+    }
+
     // Generate order number ORD-YYYYMMDD-serial
     const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const count = await tx.order.count({
@@ -233,10 +307,17 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
         scheduleId: input.scheduleId,
         branchId,
         channel: "POS",
+        subtotal,
+        discountAmount,
         totalAmount,
+        promotionId: promotion ? promotion.id : null,
+        promoSnapshot,
         paymentMethod: input.paymentMethod,
         paymentStatus: "PAID",
         orderStatus: "PAID",
+      },
+      include: {
+        promotion: true,
       },
     });
 
@@ -275,11 +356,28 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
         }
       }
 
+      let isFree = false;
+      let ticketDiscount = 0;
+      if (promotion) {
+        if (promotion.promoType === "BUY_X_GET_Y") {
+          // Free tickets applied to the last freeTicketsCount tickets
+          if (idx >= showtimeSeats.length - freeTicketsCount) {
+            isFree = true;
+            ticketDiscount = schedule.ticketPrice;
+          }
+        } else if (promotion.promoType === "PERCENTAGE") {
+          ticketDiscount = discountAmount / showtimeSeats.length;
+        }
+      }
+
       const ticket = await tx.ticket.create({
         data: {
           ticketNumber,
           orderId: order.id,
           showtimeSeatId: sSeat.id,
+          price: schedule.ticketPrice,
+          discountAmount: ticketDiscount,
+          isFree,
           qrCode: ticketNumber,
           status: "ACTIVE",
         },
@@ -332,7 +430,22 @@ export const voidOrder = async (orderId: string) => {
   }
 
   return prisma.$transaction(async (tx) => {
-    // 1. Update Order status
+    // 1. Restore Promotion Quota if applicable
+    if (order.promotionId && order.promoSnapshot) {
+      const snap: any = order.promoSnapshot;
+      const promoType = snap.promoType;
+      const usedIncrement = snap.freeTicketsCount ?? (promoType === "PERCENTAGE" ? order.tickets.length : 0);
+      if (usedIncrement > 0) {
+        await tx.promotion.update({
+          where: { id: order.promotionId },
+          data: {
+            usedQuota: { decrement: usedIncrement },
+          },
+        }).catch(() => {});
+      }
+    }
+
+    // 2. Update Order status
     const updatedOrder = await tx.order.update({
       where: { id: orderId },
       data: {
@@ -341,19 +454,19 @@ export const voidOrder = async (orderId: string) => {
       },
     });
 
-    // 2. Update Payments
+    // 3. Update Payments
     await tx.payment.updateMany({
       where: { orderId },
       data: { status: "FAILED" },
     });
 
-    // 3. Cancel Tickets
+    // 4. Cancel Tickets
     await tx.ticket.updateMany({
       where: { orderId },
       data: { status: "CANCELLED" },
     });
 
-    // 4. Release Showtime Seats
+    // 5. Release Showtime Seats
     const seatIds = order.tickets.map((t) => t.showtimeSeatId);
     await tx.showtimeSeat.updateMany({
       where: { id: { in: seatIds } },

@@ -19,6 +19,7 @@ import reportsRouter from "../modules/reports/router";
 import bookingsRouter from "../modules/bookings/router";
 import paymentsRouter from "../modules/payments/router";
 import appUpdatesRouter from "../modules/appUpdates/router";
+import promotionsRouter from "../modules/promotions/router";
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.use("/seats", seatsRouter);
 router.use("/schedules", schedulesRouter);
 router.use("/orders", ordersRouter);
 router.use("/tickets", ticketsRouter);
+router.use("/promotions", promotionsRouter);
 router.use("/cash-drawers", cashDrawersRouter);
 router.use("/daily-closings", dailyClosingsRouter);
 router.use("/settings", settingsRouter);

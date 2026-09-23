@@ -136,13 +136,13 @@ export const orderApi = api.injectEndpoints({
     getOrderById: builder.query<ApiResponse<Order>, string>({
       query: (id) => `/orders/${id}`,
     }),
-    checkoutOrder: builder.mutation<ApiResponse<CheckoutResult>, { scheduleId: string; seatIds: string[]; paymentMethod: "CASH" | "QRIS"; amountReceived?: number | null }>({
+    checkoutOrder: builder.mutation<ApiResponse<CheckoutResult>, { scheduleId: string; seatIds: string[]; paymentMethod: "CASH" | "QRIS"; amountReceived?: number | null; promotionId?: string | null; promoCode?: string | null }>({
       query: (body) => ({
         url: "/orders/checkout",
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Seat", "Studio", "Schedule"],
+      invalidatesTags: ["Seat", "Studio", "Schedule", "Promotion", "Order"],
     }),
     validateTicket: builder.mutation<ApiResponse<{ status: "VALID" | "USED" | "CANCELLED" | "NOT_FOUND"; ticket: Ticket | null }>, string>({
       query: (ticketNumber) => ({

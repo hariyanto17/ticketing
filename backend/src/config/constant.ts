@@ -17,3 +17,7 @@ export const MIDTRANS_SNAP_BASE_URL = MIDTRANS_IS_PRODUCTION
 export const MIDTRANS_API_BASE_URL = MIDTRANS_IS_PRODUCTION
   ? "https://api.midtrans.com/v2"
   : "https://api.sandbox.midtrans.com/v2";
+
+export const PLATFORM_URL = process.env.PLATFORM_URL || "http://127.0.0.1:4000";
+export const PLATFORM_INTERNAL_API_KEY =
+  process.env.PLATFORM_INTERNAL_API_KEY || "sec_internal_planet_cinema_uat_key_99x";

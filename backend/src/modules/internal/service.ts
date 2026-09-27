@@ -260,3 +260,37 @@ export const getTransactionsList = async (filters: {
     },
   };
 };
+
+export const findOrderByIdentifier = async (identifier: string) => {
+  return prisma.order.findFirst({
+    where: {
+      OR: [
+        { id: identifier },
+        { orderNumber: identifier },
+        { bookingNumber: identifier },
+      ],
+    },
+    include: {
+      tickets: true,
+      payments: true,
+    },
+  });
+};
+
+export const confirmOrderPayment = async (
+  orderId: string,
+  paymentData?: {
+    providerTransactionId?: string;
+    paymentType?: string;
+    provider?: string;
+    rawResponse?: any;
+  }
+) => {
+  const { confirmBookingPayment } = await import("../bookings/service");
+  return confirmBookingPayment(orderId, paymentData);
+};
+
+export const cancelOrderBooking = async (orderId: string) => {
+  const { cancelBooking } = await import("../bookings/service");
+  return cancelBooking(orderId);
+};

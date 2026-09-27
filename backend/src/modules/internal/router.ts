@@ -33,6 +33,7 @@ router.get("/summary", catchAsync(controller.getOperationalSummaryHandler));
 router.get("/analytics", catchAsync(controller.getAnalyticsDataHandler));
 router.get("/activity", catchAsync(controller.getActivityListHandler));
 router.get("/transactions", catchAsync(controller.getTransactionsListHandler));
+router.post("/payments/notification", catchAsync(controller.handlePlatformPaymentNotificationHandler));
 router.use("/reports", reportsRouter);
 
 export default router;

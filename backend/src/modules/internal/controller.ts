@@ -48,3 +48,54 @@ export const getTransactionsListHandler = async (req: Request, res: Response) =>
 
   return responseHandler.ok(res, result, "Ticketing transactions retrieved successfully");
 };
+
+export const handlePlatformPaymentNotificationHandler = async (req: Request, res: Response) => {
+  const payload = req.body;
+  const targetId = payload.targetOrderId || payload.externalOrderId;
+
+  if (!targetId) {
+    throw new AppError("BAD_REQUEST", "targetOrderId or externalOrderId is required");
+  }
+
+  const order = await internalService.findOrderByIdentifier(targetId);
+  if (!order) {
+    throw new AppError("NOT_FOUND", `Order not found for identifier: ${targetId}`);
+  }
+
+  const status = (payload.status || "").toUpperCase();
+
+  if (status === "SETTLEMENT") {
+    if (order.orderStatus !== "PAID") {
+      await internalService.confirmOrderPayment(order.id, {
+        provider: payload.provider || "MIDTRANS",
+        paymentType: payload.paymentType || "QRIS",
+        providerTransactionId: payload.providerTransactionId || payload.masterTransactionNumber,
+        rawResponse: payload.rawPayload || payload,
+      });
+    }
+
+    return responseHandler.ok(
+      res,
+      { orderId: order.id, orderNumber: order.orderNumber, status: "PAID" },
+      "Payment confirmed and tickets issued successfully"
+    );
+  }
+
+  if (["CANCELLED", "EXPIRED", "FAILED", "EXPIRE", "CANCEL"].includes(status)) {
+    if (order.orderStatus === "PENDING") {
+      await internalService.cancelOrderBooking(order.id);
+    }
+
+    return responseHandler.ok(
+      res,
+      { orderId: order.id, orderNumber: order.orderNumber, status: "CANCELLED" },
+      "Booking cancelled and seats released"
+    );
+  }
+
+  return responseHandler.ok(
+    res,
+    { orderId: order.id, orderNumber: order.orderNumber, status: order.orderStatus },
+    `Notification received with status ${status}`
+  );
+};

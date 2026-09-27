@@ -47,6 +47,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api", routes);
 app.use("/api/internal", internalRouter);
+app.use("/internal", internalRouter);
 
 app.use(errorHandler);
 

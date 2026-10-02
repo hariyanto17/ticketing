@@ -211,7 +211,13 @@ export default function PublicMovieDetail() {
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
                   <Building2 className="w-4 h-4 text-indigo-500" /> {t("movieDetail.productionHouse")}
                 </div>
-                <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{movie.productionHouse?.name || t("movieDetail.unavailable")}</p>
+                <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  {movie.productionHouse?.name && movie.productionHouse.name.trim() !== "-"
+                    ? movie.productionHouse.name
+                    : (movie.distributor?.name && movie.distributor.name.trim() !== "-"
+                      ? movie.distributor.name
+                      : t("movieDetail.unavailable"))}
+                </p>
               </div>
             </div>
 

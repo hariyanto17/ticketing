@@ -13,6 +13,11 @@ export interface ProductionHouse {
   name: string;
 }
 
+export interface Distributor {
+  id: string;
+  name: string;
+}
+
 export interface Movie {
   id: string;
   title: string;
@@ -35,4 +40,5 @@ export interface Movie {
   slug: string;
   genres?: MovieGenre[];
   productionHouse?: ProductionHouse;
+  distributor?: Distributor | null;
 }

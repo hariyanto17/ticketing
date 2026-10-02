@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { createMovieSchema, importMoviesSchema, updateMovieSchema } from "./validation";
 import * as movieService from "./service";
 import * as movieImportService from "./importService";
 import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
+import { JWT_SECRET, COOKIE_NAME } from "../../config/constant";
 
 export const getMoviesController = async (req: Request, res: Response) => {
   const { page, limit, search, status, genreId, sortBy, sortOrder, hasSchedule, scheduleStartDate, scheduleEndDate, startDate, endDate } = req.query;
@@ -88,8 +90,22 @@ export const getPublicMoviesController = async (req: Request, res: Response) => 
 
 export const getPublicMovieByIdController = async (req: Request, res: Response) => {
   const movie = await movieService.getMovieById(req.params.id);
-  if (movie.status === "DRAFT" || movie.status === "ARCHIVED") {
-    throw new AppError("NOT_FOUND", "Movie not found or not published");
+
+  const token = req.cookies?.[COOKIE_NAME] || req.headers["authorization"]?.toString().replace("Bearer ", "");
+  let isStaff = false;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role?: string };
+      if (decoded?.userId) {
+        isStaff = true;
+      }
+    } catch {}
+  }
+
+  // Admin dan Staff dapat melihat semua film termasuk yang di-archive.
+  // Pengunjung publik umum hanya dibatasi jika film di-archive.
+  if (!isStaff && movie.status === "ARCHIVED") {
+    throw new AppError("NOT_FOUND", "Movie not found or archived");
   }
   return responseHandler.ok(res, movie, "Movie retrieved");
 };

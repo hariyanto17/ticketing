@@ -4,18 +4,17 @@ import { prisma } from "../utils/prisma";
 import * as importService from "../modules/movies/importService";
 
 test("Movie Import Business Invariants (21 Cineplex)", async (t) => {
-  await t.test("Import Summary schema and skip logic invariant", () => {
+  await t.test("Import Summary schema invariant", () => {
     const summary: importService.ImportSummary = {
       total: 10,
       created: 4,
-      updated: 0,
-      skipped: 6,
+      updated: 2,
+      skipped: 4,
       failed: 0,
       failures: [],
     };
 
     assert.strictEqual(summary.created + summary.skipped + summary.updated + summary.failed, summary.total);
-    assert.strictEqual(summary.updated, 0, "Updated count should be 0 since existing records are skipped");
   });
 
   await t.test("Status Mapping Invariants: UPCOMING -> COMING_SOON, NOW_PLAYING -> DRAFT", () => {

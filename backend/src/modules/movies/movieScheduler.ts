@@ -12,7 +12,7 @@ export const runMovieImportJob = async () => {
     const summary = await importMovies({
       source: "21CINEPLEX",
       type: "BOTH",
-      cityId: process.env.DEFAULT_IMPORT_CITY_ID || "10",
+      cityId: process.env.DEFAULT_IMPORT_CITY_ID || "72",
     });
 
     console.log(

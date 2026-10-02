@@ -221,15 +221,23 @@ export const MovieDetailScreen: React.FC = () => {
               </View>
             ) : null}
 
-            {movie.productionHouse?.name ? (
-              <View style={[styles.crewCardHalf, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-                <View style={styles.crewHeader}>
-                  <Building2 size={15} color={colors.primary} />
-                  <Text style={[styles.crewLabel, { color: colors.textMuted }]}>{t("movieDetail.productionHouse")}</Text>
+            {(() => {
+              const phName = (movie.productionHouse?.name && movie.productionHouse.name.trim() !== "-")
+                ? movie.productionHouse.name
+                : (movie.distributor?.name && movie.distributor.name.trim() !== "-" ? movie.distributor.name : null);
+
+              if (!phName) return null;
+
+              return (
+                <View style={[styles.crewCardHalf, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                  <View style={styles.crewHeader}>
+                    <Building2 size={15} color={colors.primary} />
+                    <Text style={[styles.crewLabel, { color: colors.textMuted }]}>{t("movieDetail.productionHouse")}</Text>
+                  </View>
+                  <Text style={[styles.crewValue, { color: colors.text }]}>{phName}</Text>
                 </View>
-                <Text style={[styles.crewValue, { color: colors.text }]}>{movie.productionHouse.name}</Text>
-              </View>
-            ) : null}
+              );
+            })()}
           </View>
         </View>
       </ScrollView>

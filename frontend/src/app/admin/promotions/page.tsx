@@ -9,30 +9,19 @@ import {
   Promotion,
 } from "@/services/promotionApi";
 import { useGetMoviesQuery } from "@/services/movieApi";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/components/ui/toast";
 import { DataTable } from "@/components/ui/data-table";
-import { Modal } from "@/components/ui/modal";
 import { DeleteDialog } from "@/components/ui/dialogs";
-import { Input, Select, Button } from "@/components/ui/form-controls";
-import {
-  Tag,
-  Plus,
-  Edit,
-  Trash,
-  Ticket,
-  Percent,
-  Gift,
-  Film,
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertCircle,
-} from "lucide-react";
+import { Button } from "@/components/ui/form-controls";
+import { Tag, Plus, Edit, Trash, Percent, Gift, Film, CheckCircle2, Clock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+
+// Modular Subcomponents
+import { PromotionFormModal } from "@/components/admin/promotions/PromotionFormModal";
+import { PromotionsFilterBar } from "@/components/admin/promotions/PromotionsFilterBar";
 
 const promoFormSchema = z.object({
   name: z.string().min(1, "Nama promo wajib diisi"),
@@ -78,7 +67,7 @@ export default function PromotionsAdminPage() {
   const { t } = useTranslation();
   const { success: toastSuccess, error: toastError } = useToast();
 
-  const [search, setSearch] = useState("");
+  const [search] = useState("");
   const [filterType, setFilterType] = useState("");
   const [page, setPage] = useState(1);
 
@@ -101,15 +90,7 @@ export default function PromotionsAdminPage() {
   const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
   const [deletingPromo, setDeletingPromo] = useState<Promotion | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    control,
-    formState: { errors },
-  } = useForm<PromoFormValues>({
+  const form = useForm<PromoFormValues>({
     resolver: zodResolver(promoFormSchema),
     defaultValues: {
       name: "",
@@ -129,16 +110,13 @@ export default function PromotionsAdminPage() {
     },
   });
 
-  const selectedPromoType = watch("promoType");
-  const selectedMovieIds = watch("movieIds") || [];
-
   const handleOpenCreate = () => {
     setEditingPromo(null);
     const start = new Date();
     const end = new Date();
     end.setDate(end.getDate() + 30);
 
-    reset({
+    form.reset({
       name: "",
       code: "",
       promoType: "BUY_X_GET_Y",
@@ -159,43 +137,58 @@ export default function PromotionsAdminPage() {
 
   const handleOpenEdit = (promo: Promotion) => {
     setEditingPromo(promo);
-    const start = new Date(promo.startDate).toISOString().slice(0, 16);
-    const end = new Date(promo.endDate).toISOString().slice(0, 16);
-
-    reset({
+    form.reset({
       name: promo.name,
       code: promo.code || "",
       promoType: promo.promoType,
-      buyQty: promo.buyQty ?? 1,
-      getQty: promo.getQty ?? 1,
-      discountPercent: promo.discountPercent ?? null,
-      maxDiscount: promo.maxDiscount ?? null,
+      buyQty: promo.buyQty || 1,
+      getQty: promo.getQty || 1,
+      discountPercent: promo.discountPercent || 0,
+      maxDiscount: promo.maxDiscount || null,
       quota: promo.quota,
-      minTickets: promo.minTickets ?? 1,
-      maxUsagePerOrder: promo.maxUsagePerOrder ?? null,
-      startDate: start,
-      endDate: end,
+      minTickets: promo.minTickets || 1,
+      maxUsagePerOrder: promo.maxUsagePerOrder || null,
+      startDate: new Date(promo.startDate).toISOString().slice(0, 16),
+      endDate: new Date(promo.endDate).toISOString().slice(0, 16),
       isActive: promo.isActive,
-      movieIds: promo.movies ? promo.movies.map((m) => m.movieId) : [],
+      movieIds: promo.movies?.map((m) => m.movieId) || [],
     });
     setIsModalOpen(true);
   };
 
   const onSubmit = async (values: PromoFormValues) => {
     try {
-      const payload = {
-        ...values,
-        code: values.code?.trim() || null,
+      const payload: any = {
+        name: values.name.trim(),
+        code: values.code ? values.code.trim().toUpperCase() : null,
+        promoType: values.promoType,
+        quota: Number(values.quota),
+        minTickets: Number(values.minTickets) || 1,
+        maxUsagePerOrder: values.maxUsagePerOrder ? Number(values.maxUsagePerOrder) : null,
         startDate: new Date(values.startDate).toISOString(),
         endDate: new Date(values.endDate).toISOString(),
+        isActive: values.isActive,
+        movieIds: values.movieIds || [],
       };
+
+      if (values.promoType === "BUY_X_GET_Y") {
+        payload.buyQty = Number(values.buyQty) || 1;
+        payload.getQty = Number(values.getQty) || 1;
+        payload.discountPercent = null;
+        payload.maxDiscount = null;
+      } else {
+        payload.discountPercent = Number(values.discountPercent) || 0;
+        payload.maxDiscount = values.maxDiscount ? Number(values.maxDiscount) : null;
+        payload.buyQty = null;
+        payload.getQty = null;
+      }
 
       if (editingPromo) {
         await updatePromotion({ id: editingPromo.id, data: payload }).unwrap();
         toastSuccess(t("promotions.updated") || "Promo berhasil diperbarui");
       } else {
         await createPromotion(payload).unwrap();
-        toastSuccess(t("promotions.created") || "Promo berhasil dibuat");
+        toastSuccess(t("promotions.created") || "Promo berhasil ditambahkan");
       }
       setIsModalOpen(false);
     } catch (err: any) {
@@ -211,15 +204,6 @@ export default function PromotionsAdminPage() {
       setDeletingPromo(null);
     } catch (err: any) {
       toastError(err?.data?.message || t("promotions.deleteFailed") || "Gagal menghapus promo");
-    }
-  };
-
-  const toggleMovieSelection = (movieId: string) => {
-    const current = selectedMovieIds;
-    if (current.includes(movieId)) {
-      setValue("movieIds", current.filter((id) => id !== movieId));
-    } else {
-      setValue("movieIds", [...current, movieId]);
     }
   };
 
@@ -334,7 +318,11 @@ export default function PromotionsAdminPage() {
             <div className="text-zinc-700 dark:text-zinc-300 font-medium">
               {start.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
             </div>
-            <div className={`flex items-center gap-1 font-semibold ${isExpired ? "text-rose-500" : "text-zinc-500 dark:text-zinc-400"}`}>
+            <div
+              className={`flex items-center gap-1 font-semibold ${
+                isExpired ? "text-rose-500" : "text-zinc-500 dark:text-zinc-400"
+              }`}
+            >
               <Clock className="w-3 h-3" />
               <span>s/d {end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</span>
             </div>
@@ -408,7 +396,7 @@ export default function PromotionsAdminPage() {
   const totalPages = promotionsResponse?.meta?.totalPages || 1;
 
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto font-sans">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -428,282 +416,46 @@ export default function PromotionsAdminPage() {
       </div>
 
       {/* Filter Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <select
-            value={filterType}
-            onChange={(e) => {
-              setFilterType(e.target.value);
-              setPage(1);
-            }}
-            className="px-3.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="">{t("promotions.allTypes") || "Semua Tipe"}</option>
-            <option value="BUY_X_GET_Y">{t("promotions.typeBogo") || "Buy 1 Get 1 (BOGO)"}</option>
-            <option value="PERCENTAGE">{t("promotions.typePercentage") || "Potongan Persen (%)"}</option>
-          </select>
-        </div>
-      </div>
+      <PromotionsFilterBar filterType={filterType} setFilterType={setFilterType} setPage={setPage} />
 
       {/* Promotions Table */}
       <DataTable
         columns={columns}
         data={promotionsList}
         isLoading={isLoading}
-        searchPlaceholder={t("promotions.searchPlaceholder") || "Cari promo berdasarkan nama atau kode..."}
-        onSearch={(query) => {
-          setSearch(query);
-          setPage(1);
-        }}
-        pagination={{
-          currentPage: page,
-          totalPages,
-          onPageChange: setPage,
-        }}
+        pagination={
+          totalPages > 1
+            ? {
+                currentPage: page,
+                totalPages,
+                onPageChange: setPage,
+              }
+            : undefined
+        }
       />
 
-      {/* CREATE / EDIT MODAL */}
-      <Modal
+      {/* Promotion Form Modal */}
+      <PromotionFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingPromo ? t("promotions.editTitle") || "Edit Promo" : t("promotions.addTitle") || "Tambah Promo Baru"}
-        size="lg"
-      >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Promo Name */}
-            <Input
-              label={t("promotions.name") || "Nama Promo"}
-              placeholder="cth: Promo Buy 1 Get 1 Opening"
-              {...register("name")}
-              error={errors.name?.message}
-            />
+        editingPromo={editingPromo}
+        form={form}
+        onSubmit={onSubmit}
+        isSaving={editingPromo ? isUpdating : isCreating}
+        movies={moviesResponse?.data}
+      />
 
-            {/* Promo Code */}
-            <Input
-              label={t("promotions.code") || "Kode Promo (Opsional)"}
-              placeholder="cth: BOGO100"
-              {...register("code")}
-              error={errors.code?.message}
-            />
-          </div>
-
-          {/* Promo Type Selector */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              {t("promotions.type") || "Tipe Promo"}
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setValue("promoType", "BUY_X_GET_Y")}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                  selectedPromoType === "BUY_X_GET_Y"
-                    ? "border-amber-500 bg-amber-50/40 dark:bg-amber-950/30 ring-2 ring-amber-500/20"
-                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700"
-                }`}
-              >
-                <Gift className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-bold text-sm text-zinc-900 dark:text-zinc-50">Buy 1 Get 1 (BOGO)</div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Beli X tiket gratis Y tiket</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setValue("promoType", "PERCENTAGE")}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                  selectedPromoType === "PERCENTAGE"
-                    ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 ring-2 ring-indigo-500/20"
-                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700"
-                }`}
-              >
-                <Percent className="w-5 h-5 text-indigo-500 mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-bold text-sm text-zinc-900 dark:text-zinc-50">Diskon Persen (%)</div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Potongan persen dari harga tiket</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Conditional Fields based on Type */}
-          {selectedPromoType === "BUY_X_GET_Y" ? (
-            <div className="grid grid-cols-2 gap-4 p-4 bg-amber-50/30 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-2xl">
-              <Input
-                type="number"
-                min="1"
-                label={t("promotions.buyQty") || "Beli Berapa Tiket (Buy Qty)"}
-                {...register("buyQty")}
-                error={errors.buyQty?.message}
-              />
-              <Input
-                type="number"
-                min="1"
-                label={t("promotions.getQty") || "Gratis Berapa Tiket (Get Qty)"}
-                {...register("getQty")}
-                error={errors.getQty?.message}
-              />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-indigo-50/30 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl">
-              <Input
-                type="number"
-                min="1"
-                max="100"
-                label={t("promotions.discountPercent") || "Diskon (%)"}
-                placeholder="20"
-                {...register("discountPercent")}
-                error={errors.discountPercent?.message}
-              />
-              <Input
-                type="number"
-                min="0"
-                label={t("promotions.maxDiscount") || "Maksimal Potongan Diskon (Rp) (Opsional)"}
-                placeholder="cth: 50000"
-                {...register("maxDiscount")}
-                error={errors.maxDiscount?.message}
-              />
-            </div>
-          )}
-
-          {/* Quota and Minimum Tickets */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              type="number"
-              min="1"
-              label={t("promotions.quota") || "Total Kuota Tiket Promo"}
-              placeholder="100"
-              {...register("quota")}
-              error={errors.quota?.message}
-            />
-            <Input
-              type="number"
-              min="1"
-              label={t("promotions.minTickets") || "Minimal Pembelian Tiket"}
-              placeholder="1"
-              {...register("minTickets")}
-              error={errors.minTickets?.message}
-            />
-          </div>
-
-          {/* Start & End Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              type="datetime-local"
-              label={t("promotions.startDate") || "Tanggal Mulai Berlaku"}
-              {...register("startDate")}
-              error={errors.startDate?.message}
-            />
-            <Input
-              type="datetime-local"
-              label={t("promotions.endDate") || "Tanggal Expired / Berakhir"}
-              {...register("endDate")}
-              error={errors.endDate?.message}
-            />
-          </div>
-
-          {/* Movie Assignment */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                <Film className="w-4 h-4 text-indigo-500" />
-                {t("promotions.applicableMovies") || "Pilih Film yang Berlaku"}
-              </label>
-              {selectedMovieIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setValue("movieIds", [])}
-                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                >
-                  Pilih Semua Film ({selectedMovieIds.length} dipilih)
-                </button>
-              )}
-            </div>
-
-            <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-h-48 overflow-y-auto space-y-1.5">
-              {moviesResponse?.data?.map((movie) => {
-                const isSelected = selectedMovieIds.includes(movie.id);
-                return (
-                  <label
-                    key={movie.id}
-                    onClick={() => toggleMovieSelection(movie.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"
-                        : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}} // Handled by container
-                        className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span>{movie.title}</span>
-                    </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
-                      {movie.censorshipRating}
-                    </span>
-                  </label>
-                );
-              })}
-              {(!moviesResponse?.data || moviesResponse.data.length === 0) && (
-                <p className="text-xs text-zinc-400 italic p-2">Tidak ada data film.</p>
-              )}
-            </div>
-            <p className="text-xs text-zinc-400">
-              * Jika tidak ada film yang dipilih, promo akan berlaku untuk <strong>semua film</strong>.
-            </p>
-          </div>
-
-          {/* Active Status Switch */}
-          <div className="flex items-center gap-3 pt-2">
-            <Controller
-              control={control}
-              name="isActive"
-              render={({ field }) => (
-                <label className="flex items-center gap-2.5 cursor-pointer text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                  <input
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={(e) => field.onChange(e.target.checked)}
-                    className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>Aktifkan promo ini sekarang</span>
-                </label>
-              )}
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsModalOpen(false)}
-            >
-              {t("common.cancel") || "Batal"}
-            </Button>
-            <Button
-              type="submit"
-              isLoading={isCreating || isUpdating}
-            >
-              {t("common.save") || "Simpan Promo"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* DELETE DIALOG */}
+      {/* Delete Confirmation Dialog */}
       <DeleteDialog
         isOpen={Boolean(deletingPromo)}
         onClose={() => setDeletingPromo(null)}
         onConfirm={handleDeleteConfirm}
-        title={t("promotions.deleteTitle") || "Hapus Promo"}
-        message={`${t("promotions.deleteConfirm") || "Apakah Anda yakin ingin menghapus promo"} "${deletingPromo?.name}"?`}
+        title={t("promotions.deleteTitle") || "Hapus Promosi"}
+        message={
+          deletingPromo
+            ? `Apakah Anda yakin ingin menghapus promo "${deletingPromo.name}"? Tindakan ini tidak dapat dibatalkan.`
+            : ""
+        }
         isLoading={isDeleting}
       />
     </div>

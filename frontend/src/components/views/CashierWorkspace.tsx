@@ -1,42 +1,44 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useGetMoviesQuery, Movie } from "@/services/movieApi";
-import { useGetSchedulesQuery, useGetScheduleSeatsQuery, useHoldSeatsMutation, useReleaseSeatsMutation, Schedule, ShowtimeSeat } from "@/services/studioApi";
+import {
+  useGetSchedulesQuery,
+  useGetScheduleSeatsQuery,
+  useHoldSeatsMutation,
+  useReleaseSeatsMutation,
+  Schedule,
+  ShowtimeSeat,
+} from "@/services/studioApi";
 import { useCheckoutOrderMutation } from "@/services/orderApi";
 import { useGetActivePromotionsQuery, Promotion } from "@/services/promotionApi";
 import { useToast } from "@/components/ui/toast";
-import { Button, SearchableSelect, Select } from "@/components/ui/form-controls";
-import { Spinner } from "@/components/ui/spinner";
-import { CurrencyInput } from "@/components/ui/CurrencyInput";
-import { Film, Clock, Armchair, Ticket, Check, Printer, X, Eye, EyeOff, Calendar, Monitor, Tv, Cast, ZoomIn, ZoomOut, RotateCcw, Sparkles, Tag, Gift, Percent } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
-import { getVisualRowOrder, groupSeatsByRow } from "@/lib/seatLayout";
 import { io } from "socket.io-client";
 import { API_BASE_URL, SOCKET_BASE_URL } from "@/lib/api/api";
-import Link from "next/link";
-import { useGetActiveDrawerQuery, useOpenDrawerMutation, useCloseDrawerMutation } from "@/services/opsApi";
-import { createPrinterAgentClient, getPrinterAgentDeviceId } from "@/services/printerAgentClient";
+import {
+  useGetActiveDrawerQuery,
+  useOpenDrawerMutation,
+  useCloseDrawerMutation,
+} from "@/services/opsApi";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
-import {
-  openCustomerDisplayWindow,
-  CUSTOMER_DISPLAY_CHANNEL_NAME,
-  CustomerDisplayMessage,
-  CustomerDisplayStatePayload,
-} from "@/lib/customerDisplay";
 
-const getRowIndex = (row: string): number => {
-  let index = 0;
-  for (let i = 0; i < row.length; i++) {
-    index = index * 26 + (row.charCodeAt(i) - 64);
-  }
-  return index - 1;
-};
+// Sub-components & Helpers
+import { CashierTopBar } from "@/components/pos/CashierTopBar";
+import { DrawerSessionBanner } from "@/components/pos/DrawerSessionBanner";
+import { CashierMovieSelector } from "@/components/pos/CashierMovieSelector";
+import { CashierScheduleSelector } from "@/components/pos/CashierScheduleSelector";
+import { CashierSeatMatrix } from "@/components/pos/CashierSeatMatrix";
+import { CashierOrderSummary } from "@/components/pos/CashierOrderSummary";
+import { CashierDrawerModals } from "@/components/pos/CashierDrawerModals";
+import { filterTodayTomorrowSchedules, calculatePromoDiscount } from "@/components/pos/cashierPromoCalculations";
+import { printTicketsViaAgent } from "@/components/pos/cashierPrintHelper";
+import { useCustomerDisplaySync } from "@/components/pos/useCustomerDisplaySync";
 
 export default function CashierWorkspace() {
   const { success: toastSuccess, error: toastError } = useToast();
-  const { t, formatDate, formatCurrency, locale } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { theme } = useTheme();
 
   // Cash drawer hooks & local state
   const { data: activeDrawer, isLoading: drawerLoading, refetch: refetchActiveDrawer } = useGetActiveDrawerQuery();
@@ -46,8 +48,8 @@ export default function CashierWorkspace() {
   const [drawerActualBalance, setDrawerActualBalance] = useState<number>(0);
   const [isOpenDrawerModalOpen, setIsOpenDrawerModalOpen] = useState(false);
   const [isCloseDrawerModalOpen, setIsCloseDrawerModalOpen] = useState(false);
-  const [drawerSummary, setDrawerSummary] = useState<any | null>(null);
-  const hasPromptedDrawerRef = React.useRef(false);
+  const [, setDrawerSummary] = useState<any | null>(null);
+  const hasPromptedDrawerRef = useRef(false);
 
   // Auto-prompt to open cash drawer once if there is no active session
   useEffect(() => {
@@ -57,7 +59,6 @@ export default function CashierWorkspace() {
     }
   }, [drawerLoading, activeDrawer]);
 
-  // Ensure modal closes when activeDrawer session is detected
   useEffect(() => {
     if (activeDrawer) {
       setIsOpenDrawerModalOpen(false);
@@ -71,11 +72,10 @@ export default function CashierWorkspace() {
   const [showTomorrow, setShowTomorrow] = useState<boolean>(false);
 
   // Checkout states
-  const [lastSelectedSeats, setLastSelectedSeats] = useState<ShowtimeSeat[]>([]);
+  const [, setLastSelectedSeats] = useState<ShowtimeSeat[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
   const [amountReceived, setAmountReceived] = useState<number | "">("");
-  const [checkoutResult, setCheckoutResult] = useState<any | null>(null);
-  const [isPrinting, setIsPrinting] = useState(false);
+  const [, setCheckoutResult] = useState<any | null>(null);
 
   // Today's date string in YYYY-MM-DD
   const todayStr = useMemo(() => {
@@ -86,7 +86,7 @@ export default function CashierWorkspace() {
     return `${year}-${month}-${day}`;
   }, []);
 
-  // Queries (only fetch movies with active schedules from today onwards)
+  // Queries
   const { data: moviesResponse, isLoading: moviesLoading, error: moviesError } = useGetMoviesQuery({
     status: "NOW_SHOWING",
     hasSchedule: true,
@@ -99,48 +99,10 @@ export default function CashierWorkspace() {
     { skip: !selectedMovie }
   );
 
-  // Filter schedules to only include Today and Tomorrow (exclude yesterday / past days)
-  const { todaySchedules, tomorrowSchedules } = useMemo(() => {
-    if (!schedulesResponse?.data) {
-      return { todaySchedules: [], tomorrowSchedules: [] };
-    }
-
-    const now = new Date();
-    const formatYMD = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
-
-    const todayStr = formatYMD(now);
-    const tomorrowObj = new Date(now);
-    tomorrowObj.setDate(tomorrowObj.getDate() + 1);
-    const tomorrowStr = formatYMD(tomorrowObj);
-
-    const getScheduleYMD = (sched: Schedule) => {
-      const d = new Date(sched.businessDate || sched.startTime);
-      return formatYMD(d);
-    };
-
-    const todayList: Schedule[] = [];
-    const tomorrowList: Schedule[] = [];
-
-    for (const s of schedulesResponse.data) {
-      const sYMD = getScheduleYMD(s);
-      if (sYMD === todayStr) {
-        todayList.push(s);
-      } else if (sYMD === tomorrowStr) {
-        tomorrowList.push(s);
-      }
-    }
-
-    // Sort by startTime ascending
-    todayList.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    tomorrowList.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-    return { todaySchedules: todayList, tomorrowSchedules: tomorrowList };
-  }, [schedulesResponse?.data]);
+  const { todaySchedules, tomorrowSchedules } = useMemo(
+    () => filterTodayTomorrowSchedules(schedulesResponse?.data),
+    [schedulesResponse?.data]
+  );
 
   const { data: seatsResponse, isLoading: seatsLoading, refetch: refetchSeats } = useGetScheduleSeatsQuery(
     selectedSchedule?.id || "",
@@ -152,9 +114,8 @@ export default function CashierWorkspace() {
   const [releaseSeats] = useReleaseSeatsMutation();
   const [checkoutOrder, { isLoading: isCheckingOut }] = useCheckoutOrderMutation();
 
-  // Refs to track active selections for reliable unmount/navigation cleanup
-  const selectedScheduleRef = React.useRef<Schedule | null>(null);
-  const selectedSeatsRef = React.useRef<ShowtimeSeat[]>([]);
+  const selectedScheduleRef = useRef<Schedule | null>(null);
+  const selectedSeatsRef = useRef<ShowtimeSeat[]>([]);
 
   useEffect(() => {
     selectedScheduleRef.current = selectedSchedule;
@@ -164,7 +125,6 @@ export default function CashierWorkspace() {
     selectedSeatsRef.current = selectedSeats;
   }, [selectedSeats]);
 
-  // Safely release held seats on backend
   const releaseHeldSeatsSafely = async (scheduleId?: string, seatsToRelease?: ShowtimeSeat[]) => {
     const targetScheduleId = scheduleId || selectedScheduleRef.current?.id;
     const targetSeats = seatsToRelease || selectedSeatsRef.current;
@@ -192,35 +152,17 @@ export default function CashierWorkspace() {
 
     socket.emit("join_showtime", selectedSchedule.id);
 
-    socket.on("seat_update", (data: any) => {
-      if (data?.showtimeId === selectedSchedule.id) {
+    const handleSeatEvent = (data: any) => {
+      if (data?.showtimeId === selectedSchedule.id || data?.scheduleId === selectedSchedule.id) {
         refetchSeats();
       }
-    });
+    };
 
-    socket.on("seats_held", (data: any) => {
-      if (data?.showtimeId === selectedSchedule.id) {
-        refetchSeats();
-      }
-    });
-
-    socket.on("seats_released", (data: any) => {
-      if (data?.showtimeId === selectedSchedule.id) {
-        refetchSeats();
-      }
-    });
-
-    socket.on("seats_sold", (data: any) => {
-      if (data?.showtimeId === selectedSchedule.id) {
-        refetchSeats();
-      }
-    });
-
-    socket.on("order_updated", (data: any) => {
-      if (data?.scheduleId === selectedSchedule.id) {
-        refetchSeats();
-      }
-    });
+    socket.on("seat_update", handleSeatEvent);
+    socket.on("seats_held", handleSeatEvent);
+    socket.on("seats_released", handleSeatEvent);
+    socket.on("seats_sold", handleSeatEvent);
+    socket.on("order_updated", handleSeatEvent);
 
     return () => {
       socket.emit("leave_showtime", selectedSchedule.id);
@@ -228,7 +170,7 @@ export default function CashierWorkspace() {
     };
   }, [selectedSchedule?.id, refetchSeats]);
 
-  // Clean up and release held seats when navigating away from the cashier page
+  // Clean up seats on unmount & page unload
   useEffect(() => {
     return () => {
       const targetScheduleId = selectedScheduleRef.current?.id;
@@ -242,14 +184,16 @@ export default function CashierWorkspace() {
     };
   }, [releaseSeats]);
 
-  // Clean up and release held seats on window close or refresh
   useEffect(() => {
     const handlePageUnload = () => {
       const targetScheduleId = selectedScheduleRef.current?.id;
       const targetSeats = selectedSeatsRef.current;
       if (targetScheduleId && targetSeats && targetSeats.length > 0) {
         const payload = JSON.stringify({ seatIds: targetSeats.map((s) => s.seatId) });
-        navigator.sendBeacon(`${API_BASE_URL}/schedules/${targetScheduleId}/release`, new Blob([payload], { type: "application/json" }));
+        navigator.sendBeacon(
+          `${API_BASE_URL}/schedules/${targetScheduleId}/release`,
+          new Blob([payload], { type: "application/json" })
+        );
       }
     };
 
@@ -265,9 +209,8 @@ export default function CashierWorkspace() {
     if (moviesError) {
       toastError(t("cashier.loadFailed"));
     }
-  }, [moviesError, toastError]);
+  }, [moviesError, toastError, t]);
 
-  // When movie changes, release previously held seats and reset downstream selections
   const handleMovieSelect = async (movie: Movie | null) => {
     if (selectedSchedule && selectedSeats.length > 0) {
       await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
@@ -278,7 +221,6 @@ export default function CashierWorkspace() {
     setSelectedPromo(null);
   };
 
-  // When schedule changes, release previously held seats and reset seat selections
   const handleScheduleSelect = async (sched: Schedule) => {
     if (selectedSchedule && selectedSeats.length > 0 && selectedSchedule.id !== sched.id) {
       await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
@@ -287,7 +229,6 @@ export default function CashierWorkspace() {
     setSelectedSeats([]);
   };
 
-  // Toggle seat selection
   const handleSeatClick = async (seat: ShowtimeSeat) => {
     if (seat.status === "SOLD" || seat.status === "DISABLED") return;
 
@@ -295,11 +236,9 @@ export default function CashierWorkspace() {
 
     try {
       if (isAlreadySelected) {
-        // Release hold on backend
         await releaseSeats({ scheduleId: selectedSchedule!.id, seatIds: [seat.seatId] }).unwrap();
         setSelectedSeats((prev) => prev.filter((s) => s.id !== seat.id));
       } else {
-        // Hold seat on backend
         await holdSeats({ scheduleId: selectedSchedule!.id, seatIds: [seat.seatId] }).unwrap();
         setSelectedSeats((prev) => [...prev, seat]);
       }
@@ -308,7 +247,6 @@ export default function CashierWorkspace() {
     }
   };
 
-  // Clear all selections and release held seats on backend
   const handleClearSelection = async () => {
     if (selectedSchedule && selectedSeats.length > 0) {
       await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
@@ -340,11 +278,6 @@ export default function CashierWorkspace() {
     }
   };
 
-  const { theme } = useTheme();
-  const customerWindowRef = React.useRef<Window | null>(null);
-  const [isCustomerDisplayConnected, setIsCustomerDisplayConnected] = useState(false);
-  const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
-
   // Promotions State & Queries
   const [selectedPromo, setSelectedPromo] = useState<Promotion | null>(null);
   const { data: activePromosResponse } = useGetActivePromotionsQuery(
@@ -358,231 +291,31 @@ export default function CashierWorkspace() {
   const quantity = selectedSeats.length;
   const subtotal = quantity * ticketPrice;
 
-  const { promoDiscount, freeTicketsCount, totalAmount } = useMemo(() => {
-    if (!selectedPromo || quantity === 0 || ticketPrice === 0) {
-      return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
-    }
+  const { promoDiscount, freeTicketsCount, totalAmount } = useMemo(
+    () => calculatePromoDiscount({ selectedPromo, quantity, ticketPrice, subtotal }),
+    [selectedPromo, quantity, ticketPrice, subtotal]
+  );
 
-    if (quantity < selectedPromo.minTickets) {
-      return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
-    }
+  const change =
+    amountReceived !== "" && Number(amountReceived) >= totalAmount ? Number(amountReceived) - totalAmount : 0;
 
-    const remainingQuota = Math.max(0, selectedPromo.quota - selectedPromo.usedQuota);
-    if (remainingQuota <= 0) {
-      return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
-    }
-
-    if (selectedPromo.promoType === "BUY_X_GET_Y") {
-      const buyQty = selectedPromo.buyQty || 1;
-      const getQty = selectedPromo.getQty || 1;
-      const bundleSize = buyQty + getQty;
-      const bundles = Math.floor(quantity / bundleSize);
-      let free = bundles * getQty;
-      if (selectedPromo.maxUsagePerOrder && free > selectedPromo.maxUsagePerOrder) {
-        free = selectedPromo.maxUsagePerOrder;
-      }
-      const actualFree = Math.min(free, remainingQuota);
-      const discount = actualFree * ticketPrice;
-      return {
-        promoDiscount: discount,
-        freeTicketsCount: actualFree,
-        totalAmount: Math.max(0, subtotal - discount),
-      };
-    } else if (selectedPromo.promoType === "PERCENTAGE") {
-      const percent = selectedPromo.discountPercent || 0;
-      let eligibleTickets = Math.min(quantity, remainingQuota);
-      if (selectedPromo.maxUsagePerOrder && eligibleTickets > selectedPromo.maxUsagePerOrder) {
-        eligibleTickets = selectedPromo.maxUsagePerOrder;
-      }
-      let rawDiscount = eligibleTickets * ticketPrice * (percent / 100);
-      if (selectedPromo.maxDiscount && rawDiscount > selectedPromo.maxDiscount) {
-        rawDiscount = selectedPromo.maxDiscount;
-      }
-      return {
-        promoDiscount: rawDiscount,
-        freeTicketsCount: 0,
-        totalAmount: Math.max(0, subtotal - rawDiscount),
-      };
-    }
-
-    return { promoDiscount: 0, freeTicketsCount: 0, totalAmount: subtotal };
-  }, [selectedPromo, quantity, ticketPrice, subtotal]);
-
-  const change = amountReceived !== "" && Number(amountReceived) >= totalAmount ? Number(amountReceived) - totalAmount : 0;
-
-  // Seat grid organization & dimensions
   const showtimeSeats = useMemo(() => seatsResponse?.data || [], [seatsResponse?.data]);
-  const { rows, cols, seatsByRow } = useMemo(() => {
-    if (!showtimeSeats || showtimeSeats.length === 0) {
-      return { rows: [] as string[], cols: [] as number[], seatsByRow: {} as Record<string, ShowtimeSeat[]> };
-    }
 
-    const grouped = groupSeatsByRow(showtimeSeats.map((s) => ({ ...s, row: s.seat.row })));
-    const visualRows = getVisualRowOrder(Object.keys(grouped));
-    const maxColumn = Math.max(...showtimeSeats.map((s) => s.seat.column), 12);
-    const columns = Array.from({ length: maxColumn }, (_, i) => i + 1);
-
-    return { rows: visualRows, cols: columns, seatsByRow: grouped };
-  }, [showtimeSeats]);
-
-  // Natural matrix dimensions for auto-scaling
-  const SEAT_SIZE = 38;
-  const SEAT_GAP = 6;
-  const ROW_LABEL_WIDTH = 24;
-  const SCREEN_BAR_HEIGHT = 44;
-  const MATRIX_PADDING = 20;
-
-  const naturalWidth = useMemo(() => {
-    const numCols = cols.length || 1;
-    return numCols * SEAT_SIZE + Math.max(0, numCols - 1) * SEAT_GAP + ROW_LABEL_WIDTH * 2 + MATRIX_PADDING;
-  }, [cols.length]);
-
-  const naturalHeight = useMemo(() => {
-    const numRows = rows.length || 1;
-    return SCREEN_BAR_HEIGHT + numRows * SEAT_SIZE + Math.max(0, numRows - 1) * SEAT_GAP + MATRIX_PADDING;
-  }, [rows.length]);
-
-  const seatViewportRef = React.useRef<HTMLDivElement>(null);
-  const [seatScale, setSeatScale] = useState<number>(1);
-  const [manualZoom, setManualZoom] = useState<number>(1);
-
-  // Dynamically calculate scale factor to fit container dimensions
-  const updateScale = React.useCallback(() => {
-    if (!seatViewportRef.current || naturalWidth <= 0 || naturalHeight <= 0) return;
-    const container = seatViewportRef.current;
-    const availableWidth = container.clientWidth - 24; // 12px padding buffer
-    const availableHeight = container.clientHeight - 24; // 12px padding buffer
-
-    if (availableWidth > 0 && availableHeight > 0) {
-      const scaleX = availableWidth / naturalWidth;
-      const scaleY = availableHeight / naturalHeight;
-      const fit = Math.min(scaleX, scaleY);
-      setSeatScale(Math.max(0.25, Math.min(fit, 1.35)));
-    }
-  }, [naturalWidth, naturalHeight]);
-
-  useEffect(() => {
-    updateScale();
-    const el = seatViewportRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver(() => {
-      updateScale();
-    });
-    observer.observe(el);
-    window.addEventListener("resize", updateScale);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateScale);
-    };
-  }, [updateScale]);
-
-  // Build clean customer-facing state payload
-  const getCustomerDisplayPayload = (): CustomerDisplayStatePayload => {
-    return {
-      movie: selectedMovie
-        ? {
-            id: selectedMovie.id,
-            title: selectedMovie.title,
-            poster: selectedMovie.poster,
-            censorshipRating: selectedMovie.censorshipRating,
-            durationMinutes: selectedMovie.durationMinutes,
-          }
-        : null,
-      schedule: selectedSchedule
-        ? {
-            id: selectedSchedule.id,
-            studioName: selectedSchedule.studio?.name || "Studio",
-            studioCode: selectedSchedule.studio?.code,
-            startTime: selectedSchedule.startTime,
-            businessDate: selectedSchedule.businessDate || selectedSchedule.startTime,
-            ticketPrice: selectedSchedule.ticketPrice || 0,
-          }
-        : null,
-      seats: showtimeSeats,
-      selectedSeats: selectedSeats,
-      quantity,
-      ticketPrice,
-      totalAmount,
-      theme: (theme as any) || "system",
-      locale: (locale as any) || "id",
-      lastUpdated: Date.now(),
-    };
-  };
-
-  // BroadcastChannel setup & message listener
-  useEffect(() => {
-    if (typeof window === "undefined" || !("BroadcastChannel" in window)) return;
-
-    const channel = new BroadcastChannel(CUSTOMER_DISPLAY_CHANNEL_NAME);
-    broadcastChannelRef.current = channel;
-
-    const handleMessage = (event: MessageEvent<CustomerDisplayMessage>) => {
-      const data = event.data;
-      if (!data || !data.type) return;
-
-      if (data.type === "CUSTOMER_DISPLAY_REQUEST_STATE") {
-        setIsCustomerDisplayConnected(true);
-        channel.postMessage({
-          type: "CUSTOMER_DISPLAY_STATE",
-          payload: getCustomerDisplayPayload(),
-        });
-      } else if (data.type === "CUSTOMER_DISPLAY_PING") {
-        setIsCustomerDisplayConnected(true);
-        channel.postMessage({ type: "CUSTOMER_DISPLAY_PONG" });
-      } else if (data.type === "CUSTOMER_DISPLAY_PONG") {
-        setIsCustomerDisplayConnected(true);
-      } else if (data.type === "CUSTOMER_DISPLAY_CLOSED") {
-        setIsCustomerDisplayConnected(false);
-        customerWindowRef.current = null;
-      }
-    };
-
-    channel.addEventListener("message", handleMessage);
-
-    return () => {
-      channel.removeEventListener("message", handleMessage);
-      channel.close();
-      broadcastChannelRef.current = null;
-    };
-  }, [selectedMovie, selectedSchedule, seatsResponse?.data, selectedSeats, ticketPrice, totalAmount, theme, locale]);
-
-  // Broadcast state updates immediately on any state change
-  useEffect(() => {
-    if (broadcastChannelRef.current) {
-      broadcastChannelRef.current.postMessage({
-        type: "CUSTOMER_DISPLAY_STATE",
-        payload: getCustomerDisplayPayload(),
-      });
-    }
-  }, [selectedMovie, selectedSchedule, seatsResponse?.data, selectedSeats, ticketPrice, totalAmount, theme, locale]);
-
-  // Open / Focus Customer Display Window
-  const handleOpenCustomerDisplay = async () => {
-    const result = await openCustomerDisplayWindow(customerWindowRef.current);
-    if (result.windowRef) {
-      customerWindowRef.current = result.windowRef;
-    }
-
-    if (result.status === "opened_secondary") {
-      toastSuccess(t("cashier.customerDisplayOpened"));
-      setIsCustomerDisplayConnected(true);
-    } else if (result.status === "opened_single_monitor" || result.status === "opened_fallback") {
-      toastSuccess(t("cashier.customerDisplayFallbackOpened"));
-      setIsCustomerDisplayConnected(true);
-    } else if (result.status === "already_open") {
-      setIsCustomerDisplayConnected(true);
-      if (broadcastChannelRef.current) {
-        broadcastChannelRef.current.postMessage({
-          type: "CUSTOMER_DISPLAY_STATE",
-          payload: getCustomerDisplayPayload(),
-        });
-      }
-    } else if (result.status === "blocked") {
-      toastError(t("cashier.popupBlocked"));
-    }
-  };
+  // Secondary Customer Display
+  const { isCustomerDisplayConnected, handleOpenCustomerDisplay } = useCustomerDisplaySync({
+    selectedMovie,
+    selectedSchedule,
+    showtimeSeats,
+    selectedSeats,
+    quantity,
+    ticketPrice,
+    totalAmount,
+    theme: (theme as any) || "system",
+    locale: (locale as any) || "id",
+    toastSuccess,
+    toastError,
+    t,
+  });
 
   const handleCheckoutSubmit = async () => {
     if (!selectedSchedule || selectedSeats.length === 0) return;
@@ -612,7 +345,6 @@ export default function CashierWorkspace() {
         promotionId: selectedPromo ? selectedPromo.id : null,
       }).unwrap();
 
-      // Ensure ticket showtimeSeat relation is always present with seat and row details
       const seatsMap = new Map(seatsSnapshot.map((s) => [s.id, s]));
       const seatIdMap = new Map(seatsSnapshot.map((s) => [s.seatId, s]));
 
@@ -647,893 +379,117 @@ export default function CashierWorkspace() {
       setCheckoutResult(finalResult);
       toastSuccess(t("cashier.transactionSuccess"));
 
-      // Clear selections
       setSelectedSeats([]);
       setSelectedPromo(null);
       setAmountReceived("");
 
-      // Langsung print tiket setelah transaksi berhasil
-      void handlePrintTickets({
+      void printTicketsViaAgent({
         order: finalResult.order,
         tickets: enrichedTickets,
         schedule: selectedSchedule,
-        seats: seatsSnapshot,
+        seatsToUse: seatsSnapshot,
+        toastSuccess,
+        toastError,
       });
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
     }
   };
 
-  const handlePrintTickets = async (payload?: {
-    order?: any;
-    tickets?: any[];
-    schedule?: Schedule | null;
-    seats?: ShowtimeSeat[];
-  }) => {
-    const order = payload?.order || checkoutResult?.order;
-    const tickets = payload?.tickets || checkoutResult?.tickets;
-    const schedule = payload?.schedule || selectedSchedule;
-    const seatsToUse = payload?.seats || lastSelectedSeats;
-
-    if (!order || !schedule || !tickets?.length) {
-      toastError("Data tiket belum tersedia untuk dicetak.");
-      return;
-    }
-
-    if (!getPrinterAgentDeviceId()) {
-      toastError("Printer agent belum terhubung ke perangkat ini.");
-      return;
-    }
-
-    try {
-      setIsPrinting(true);
-      const client = createPrinterAgentClient();
-      const startTime = new Date(schedule.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-      const showDate = new Date(schedule.businessDate).toLocaleDateString("en-CA");
-      const price = order.totalAmount / tickets.length;
-
-      for (let idx = 0; idx < tickets.length; idx++) {
-        const ticket = tickets[idx];
-        const seatObj =
-          ticket.showtimeSeat?.seat ||
-          seatsToUse.find((s) => s.id === ticket.showtimeSeatId || s.seatId === ticket.showtimeSeatId)?.seat ||
-          seatsToUse[idx]?.seat;
-
-        await client.printTicket({
-          mode: "print",
-          ticketNumber: ticket.ticketNumber,
-          orderNumber: order.orderNumber,
-          movie: schedule.movie.title,
-          studio: schedule.studio.name,
-          showDate,
-          showTime: startTime,
-          seat: seatObj?.seatLabel || ticket.showtimeSeat?.seat?.seatLabel || "-",
-          row: seatObj?.row || ticket.showtimeSeat?.seat?.row || "-",
-          seatNumber: seatObj?.seatNumber ?? ticket.showtimeSeat?.seat?.seatNumber,
-          price,
-          totalAmount: order.totalAmount,
-          qrCode: ticket.qrCode,
-          customerName: order.customerName || undefined,
-        });
-      }
-
-      toastSuccess(`${tickets.length} tiket berhasil dikirim ke printer.`);
-    } catch (error: any) {
-      toastError(error?.message || "Gagal mencetak tiket melalui printer agent.");
-    } finally {
-      setIsPrinting(false);
-    }
-  };
-
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 font-sans items-start">
-      {/* TOP BAR: ACTION BUTTONS & DUAL MONITOR CONTROL */}
-      <div className="xl:col-span-12 flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <Monitor className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-              {t("cashier.seatLayout")} & Customer Screen
-            </h2>
-            <p className="text-xs text-zinc-400">
-              Sinkronisasi layar pelanggan realtime pada monitor kedua.
-            </p>
-          </div>
-        </div>
+      <CashierTopBar
+        isCustomerDisplayConnected={isCustomerDisplayConnected}
+        onOpenCustomerDisplay={handleOpenCustomerDisplay}
+      />
 
-        <div className="flex items-center gap-3">
-          {isCustomerDisplayConnected && (
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-              <span>{t("cashier.customerDisplayActive")}</span>
-            </div>
-          )}
+      <DrawerSessionBanner
+        drawerLoading={drawerLoading}
+        activeDrawer={activeDrawer}
+        onOpenDrawerClick={() => setIsOpenDrawerModalOpen(true)}
+        onCloseDrawerClick={() => {
+          setDrawerActualBalance(0);
+          setIsCloseDrawerModalOpen(true);
+        }}
+      />
 
-          <button
-            type="button"
-            onClick={handleOpenCustomerDisplay}
-            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-500/20 flex items-center gap-2"
-          >
-            <Cast className="w-4 h-4" />
-            <span>{t("cashier.displayOnSecondMonitor")}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* TOP BANNER: CASH DRAWER SESSION STATUS */}
-      <div className="xl:col-span-12">
-        {drawerLoading ? null : activeDrawer ? (
-          <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between flex-wrap gap-4 shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <span className="flex h-3.5 w-3.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
-                  Sesi Laci Kas Aktif (Cash Drawer Open)
-                </h3>
-                <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                  Modal Awal: <span className="font-bold">{formatCurrency(activeDrawer.openingBalance)}</span> • Dibuka: {new Date(activeDrawer.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setDrawerActualBalance(0);
-                setIsCloseDrawerModalOpen(true);
-              }}
-              className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-zinc-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-bold transition-all cursor-pointer shadow-sm"
-            >
-              Tutup Sesi Laci Kas
-            </button>
-          </div>
-        ) : (
-          <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-center justify-between flex-wrap gap-4 shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <span className="flex h-3.5 w-3.5 rounded-full bg-amber-500"></span>
-              <div>
-                <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                  Sesi Laci Kas Belum Dibuka
-                </h3>
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Kasir wajib membuka sesi laci kas dengan modal awal sebelum dapat memproses transaksi tiket.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsOpenDrawerModalOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
-            >
-              Buka Laci Kas Sekarang
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* LEFT PANEL: SELECTORS & SEAT MAP */}
+      {/* LEFT PANEL */}
       <div className="xl:col-span-8 space-y-6">
+        <CashierMovieSelector
+          movies={moviesResponse?.data}
+          isLoading={moviesLoading}
+          selectedMovie={selectedMovie}
+          onSelectMovie={handleMovieSelect}
+        />
 
-        {/* Movie Selector */}
-        <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-4">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Film className="w-5 h-5 text-indigo-600" /> {t("cashier.movie")}
-          </h2>
-
-          {moviesLoading ? (
-            <div className="flex justify-center py-6"><Spinner className="w-8 h-8" /></div>
-          ) : moviesResponse?.data?.length === 0 ? (
-            <p className="text-sm text-zinc-400 italic">{t("cashier.noMovies")}</p>
-          ) : (
-            <div className="max-w-md">
-              <SearchableSelect
-                label={t("cashier.movie")}
-                value={selectedMovie?.id || ""}
-                onChange={(movieId) => {
-                  if (!movieId) {
-                    handleMovieSelect(null);
-                    return;
-                  }
-
-                  const movie = moviesResponse?.data?.find((item) => item.id === movieId) || null;
-                  handleMovieSelect(movie);
-                }}
-                options={(moviesResponse?.data || []).map((movie) => ({
-                  value: movie.id,
-                  label: movie.title,
-                  searchText: movie.censorshipRating,
-                }))}
-                placeholder={t("cashier.movie")}
-                searchPlaceholder={t("cashier.movie")}
-                clearable
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Schedule Selector */}
         {selectedMovie && (
-          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-5">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-emerald-600" /> {t("cashier.schedule")}
-              </h2>
-
-              {tomorrowSchedules.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowTomorrow(!showTomorrow)}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-                >
-                  {showTomorrow ? (
-                    <>
-                      <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
-                      <span>Sembunyikan Jadwal Besok</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Tampilkan Jadwal Besok ({tomorrowSchedules.length})</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-
-            {schedulesLoading ? (
-              <div className="flex justify-center py-6"><Spinner className="w-8 h-8" /></div>
-            ) : todaySchedules.length === 0 && tomorrowSchedules.length === 0 ? (
-              <p className="text-zinc-400 text-sm italic">{t("cashier.noSchedules")}</p>
-            ) : (
-              <div className="space-y-5">
-                {/* Today's Section */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      Hari Ini
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                      {new Date().toLocaleDateString("id-ID", { weekday: "long" })}, {formatDate(new Date())}
-                    </span>
-                  </div>
-
-                  {todaySchedules.length === 0 ? (
-                    <p className="text-xs text-zinc-400 italic pl-1">Tidak ada jadwal tayang untuk hari ini.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2.5">
-                      {todaySchedules.map((sched) => {
-                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-                        const studioName = sched.studio?.name || "Studio";
-                        const isSelected = selectedSchedule?.id === sched.id;
-
-                        return (
-                          <button
-                            key={sched.id}
-                            type="button"
-                            onClick={() => handleScheduleSelect(sched)}
-                            className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
-                              isSelected
-                                ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-2 ring-emerald-500/20 shadow-sm"
-                                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-800 dark:text-zinc-200"
-                            }`}
-                          >
-                            <Clock className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <span className="font-bold">{start}</span>
-                            <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
-                              {studioName}
-                            </span>
-                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(sched.ticketPrice)}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Tomorrow's Section (Only shown when showTomorrow is true) */}
-                {showTomorrow && tomorrowSchedules.length > 0 && (
-                  <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                        Besok
-                      </span>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                        {(() => {
-                          const tmr = new Date();
-                          tmr.setDate(tmr.getDate() + 1);
-                          return `${tmr.toLocaleDateString("id-ID", { weekday: "long" })}, ${formatDate(tmr)}`;
-                        })()}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2.5">
-                      {tomorrowSchedules.map((sched) => {
-                        const start = new Date(sched.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-                        const studioName = sched.studio?.name || "Studio";
-                        const isSelected = selectedSchedule?.id === sched.id;
-
-                        return (
-                          <button
-                            key={sched.id}
-                            type="button"
-                            onClick={() => handleScheduleSelect(sched)}
-                            className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
-                              isSelected
-                                ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-500/20 shadow-sm"
-                                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-800 dark:text-zinc-200"
-                            }`}
-                          >
-                            <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
-                            <span className="font-bold">{start}</span>
-                            <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
-                              {studioName}
-                            </span>
-                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                              {formatCurrency(sched.ticketPrice)}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <CashierScheduleSelector
+            isLoading={schedulesLoading}
+            todaySchedules={todaySchedules}
+            tomorrowSchedules={tomorrowSchedules}
+            showTomorrow={showTomorrow}
+            setShowTomorrow={setShowTomorrow}
+            selectedSchedule={selectedSchedule}
+            onSelectSchedule={handleScheduleSelect}
+          />
         )}
 
-        {/* Interactive Seat Map */}
         {selectedSchedule && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 flex flex-col shadow-sm dark:shadow-xl overflow-hidden transition-colors duration-200">
-            {/* Header with Studio Info, Counts & Zoom Controls */}
-            <div className="shrink-0 flex items-center justify-between flex-wrap gap-3 pb-4 mb-3 border-b border-zinc-200 dark:border-zinc-800/80">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <Armchair className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                    {t("cashier.seatLayout")}
-                  </h2>
-                  <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      {selectedSchedule.studio?.name || "Studio"}
-                    </span>
-                    <span>•</span>
-                    <span>{showtimeSeats.length} {t("cashier.seatsTotal") || "Total Kursi"}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Selected count badge */}
-                {selectedSeats.length > 0 && (
-                  <span className="px-3 py-1 rounded-xl bg-indigo-600 text-white text-xs font-black shadow-sm">
-                    {selectedSeats.length} {t("cashier.selected") || "Dipilih"}
-                  </span>
-                )}
-
-                {/* Zoom / Scaling Controls */}
-                <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 rounded-xl p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setManualZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
-                    title="Zoom Out"
-                    className="p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 rounded-lg transition cursor-pointer"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setManualZoom(1);
-                      updateScale();
-                    }}
-                    title="Reset Fit to Screen"
-                    className="px-2 py-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 rounded-lg transition cursor-pointer"
-                  >
-                    Fit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setManualZoom((z) => Math.min(1.8, Number((z + 0.1).toFixed(2))))}
-                    title="Zoom In"
-                    className="p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 rounded-lg transition cursor-pointer"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {seatsLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Spinner className="w-8 h-8 text-indigo-600" />
-                <p className="text-xs text-zinc-400">Memuat denah kursi...</p>
-              </div>
-            ) : (
-              <div className="w-full flex flex-col items-center">
-                {/* SEAT GRID SECTION (Auto-scaling responsive viewport matching customer-display) */}
-                <div
-                  ref={seatViewportRef}
-                  className="w-full min-h-[380px] sm:min-h-[460px] h-[58vh] max-h-[660px] flex items-center justify-center overflow-auto p-2 sm:p-4 relative bg-zinc-50/50 dark:bg-zinc-950/40 rounded-2xl border border-zinc-150 dark:border-zinc-800/60"
-                >
-                  {rows.length > 0 && cols.length > 0 && (
-                    <div
-                      style={{
-                        width: `${naturalWidth * seatScale * manualZoom}px`,
-                        height: `${naturalHeight * seatScale * manualZoom}px`,
-                        position: "relative",
-                        flexShrink: 0,
-                      }}
-                      className="transition-all duration-150 ease-out"
-                    >
-                      <div
-                        style={{
-                          width: `${naturalWidth}px`,
-                          height: `${naturalHeight}px`,
-                          transform: `scale(${seatScale * manualZoom})`,
-                          transformOrigin: "top left",
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                        }}
-                        className="flex flex-col items-center justify-center select-none"
-                      >
-                        {/* SCREEN CURVE (BEFORE ROW A) */}
-                        <div className="w-full max-w-sm shrink-0 mb-4 flex flex-col items-center">
-                          <div className="w-full h-3 bg-gradient-to-b from-indigo-500/40 via-indigo-500/20 to-transparent rounded-t-[120px] border-t-2 border-indigo-500 dark:border-indigo-400 shadow-md shadow-indigo-500/20" />
-                          <span className="text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300/80 tracking-[0.28em] uppercase mt-1">
-                            {t("cashier.screen")}
-                          </span>
-                        </div>
-
-                        {/* Rows & Seats Grid */}
-                        <div className="flex flex-col gap-1.5 justify-center items-center w-full">
-                          {rows.map((row) => (
-                            <div key={row} className="flex gap-1.5 items-center justify-center">
-                              <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
-                                {row}
-                              </span>
-                              {cols.map((col) => {
-                                const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
-
-                                if (!seat) {
-                                  return <div key={`gap-${row}-${col}`} className="w-9 h-9" />;
-                                }
-
-                                const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                                const isHold = seat.status === "HOLD" && !isSelected;
-
-                                // Determine colors & channel indicator
-                                let seatClasses = "bg-emerald-600 dark:bg-emerald-600/90 text-white border-emerald-500/50 hover:bg-emerald-700 active:scale-95 cursor-pointer shadow-sm"; // AVAILABLE
-                                let seatTooltip = seat.seat.seatLabel;
-
-                                if (seat.status === "DISABLED") {
-                                  seatClasses = "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700/50 opacity-40 cursor-not-allowed";
-                                  seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.disabled")}`;
-                                } else if (seat.status === "SOLD") {
-                                  const isOnline =
-                                    seat.salesChannel === "ONLINE" ||
-                                    seat.salesChannel === "MOBILE" ||
-                                    seat.ticket?.order?.channel === "ONLINE" ||
-                                    seat.ticket?.order?.channel === "MOBILE" ||
-                                    Boolean(seat.ticket?.order?.bookingNumber);
-
-                                  if (isOnline) {
-                                    seatClasses = "bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800/70 opacity-80 cursor-not-allowed line-through";
-                                    seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.soldOnline") || "Terjual (Online)"} ${seat.ticket?.ticketNumber ? `(#${seat.ticket.ticketNumber})` : ""}`;
-                                  } else {
-                                    seatClasses = "bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800/70 opacity-80 cursor-not-allowed line-through";
-                                    seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.soldPos") || "Terjual (Kasir)"} ${seat.ticket?.ticketNumber ? `(#${seat.ticket.ticketNumber})` : ""}`;
-                                  }
-                                } else if (isHold) {
-                                  seatClasses = "bg-amber-500 dark:bg-amber-500/90 text-white border-amber-400/60 animate-pulse cursor-not-allowed";
-                                  seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.hold")}`;
-                                } else if (isSelected) {
-                                  seatClasses =
-                                    "bg-indigo-600 text-white border-indigo-400 ring-4 ring-indigo-500/30 scale-105 shadow-md shadow-indigo-500/40 font-black cursor-pointer";
-                                  seatTooltip = `${seat.seat.seatLabel} • ${t("cashier.selected")}`;
-                                }
-
-                                return (
-                                  <button
-                                    key={seat.id}
-                                    type="button"
-                                    onClick={() => handleSeatClick(seat)}
-                                    disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
-                                    title={seatTooltip}
-                                    className={`w-9 h-9 rounded-xl text-xs font-bold border transition-transform duration-100 flex items-center justify-center ${seatClasses}`}
-                                  >
-                                    {seat.seat.seatLabel}
-                                  </button>
-                                );
-                              })}
-                              <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
-                                {row}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Legend (Bottom) */}
-                <div className="flex flex-wrap gap-3 sm:gap-4 justify-center mt-5 pt-3.5 border-t border-zinc-200 dark:border-zinc-800/80 w-full text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 bg-emerald-600 rounded-md border border-emerald-500/50" />
-                    <span>{t("cashier.available")}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 bg-indigo-600 rounded-md ring-2 ring-indigo-400/50 border border-indigo-400" />
-                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">{t("cashier.selected")}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 bg-amber-500 rounded-md border border-amber-400/60" />
-                    <span>{t("cashier.hold")}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 bg-rose-200 dark:bg-rose-950/80 rounded-md border border-rose-300 dark:border-rose-900" />
-                    <span>{t("cashier.soldPos") || "Terjual (Kasir)"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 bg-sky-200 dark:bg-sky-950/80 rounded-md border border-sky-300 dark:border-sky-900" />
-                    <span>{t("cashier.soldOnline") || "Terjual (Online)"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 bg-zinc-200 dark:bg-zinc-800 rounded-md border border-zinc-300 dark:border-zinc-700" />
-                    <span>{t("cashier.disabled")}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <CashierSeatMatrix
+            selectedSchedule={selectedSchedule}
+            showtimeSeats={showtimeSeats}
+            seatsLoading={seatsLoading}
+            selectedSeats={selectedSeats}
+            onSeatClick={handleSeatClick}
+          />
         )}
       </div>
 
-      {/* RIGHT PANEL: BILLING & CHECKOUT (Sticky on desktop) */}
-      <div className="xl:col-span-4 xl:sticky xl:top-6 p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-6 shadow-sm">
-        <div className="border-b border-zinc-100 dark:border-zinc-800 pb-5 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Cash Drawer</h2>
-              <p className="text-xs text-zinc-400 mt-1">
-                {drawerLoading
-                  ? "Checking drawer status..."
-                  : activeDrawer
-                    ? `Opened with ${formatCurrency(activeDrawer.openingBalance)}`
-                    : "Open a drawer before processing checkout."}
-              </p>
-            </div>
-            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${activeDrawer
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-              : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-              }`}>
-              {activeDrawer ? "Open" : "Closed"}
-            </span>
-          </div>
+      {/* RIGHT PANEL: BILLING & CHECKOUT */}
+      <CashierOrderSummary
+        drawerLoading={drawerLoading}
+        activeDrawer={activeDrawer}
+        drawerOpeningBalance={drawerOpeningBalance}
+        setDrawerOpeningBalance={setDrawerOpeningBalance}
+        isOpeningDrawer={isOpeningDrawer}
+        onOpenDrawerSubmit={handleOpenDrawerSubmit}
+        onOpenCloseModal={() => setIsCloseDrawerModalOpen(true)}
+        selectedMovie={selectedMovie}
+        selectedSchedule={selectedSchedule}
+        selectedSeats={selectedSeats}
+        onClearSelection={handleClearSelection}
+        activePromos={activePromos}
+        selectedPromo={selectedPromo}
+        setSelectedPromo={setSelectedPromo}
+        ticketPrice={ticketPrice}
+        quantity={quantity}
+        promoDiscount={promoDiscount}
+        freeTicketsCount={freeTicketsCount}
+        totalAmount={totalAmount}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
+        amountReceived={amountReceived}
+        setAmountReceived={setAmountReceived}
+        change={change}
+        isCheckingOut={isCheckingOut}
+        onCheckoutSubmit={handleCheckoutSubmit}
+      />
 
-          {activeDrawer ? (
-            <button
-              type="button"
-              onClick={() => setIsCloseDrawerModalOpen(true)}
-              className="w-full px-3 py-2 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/20"
-            >
-              Close Cash Drawer
-            </button>
-          ) : (
-            <form onSubmit={handleOpenDrawerSubmit} className="space-y-2">
-              <label className="text-xs font-semibold text-zinc-500">Opening Balance (IDR)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  value={drawerOpeningBalance}
-                  onChange={(e) => setDrawerOpeningBalance(Number(e.target.value))}
-                  className="min-w-0 flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-semibold"
-                />
-                <button
-                  type="submit"
-                  disabled={isOpeningDrawer || drawerLoading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 text-white rounded-xl text-xs font-bold"
-                >
-                  {isOpeningDrawer ? "Opening..." : "Open Drawer"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 border-b border-zinc-100 dark:border-zinc-800 pb-4 flex items-center gap-2">
-          <Ticket className="w-5.5 h-5.5 text-indigo-600" /> {t("cashier.summary")}
-        </h2>
-
-        {/* Selected Movie details */}
-        {selectedMovie ? (
-          <div className="space-y-1">
-            <h3 className="font-bold text-zinc-900 dark:text-zinc-50 text-sm leading-tight">{selectedMovie.title}</h3>
-            {selectedSchedule && (
-              <p className="text-xs text-zinc-400 flex items-center gap-1">
-                <span>{selectedSchedule.studio.name} ({selectedSchedule.studio.code})</span>
-                <span>•</span>
-                <span>{new Date(selectedSchedule.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-400">{t("cashier.selectPrompt")}</p>
-        )}
-
-        {/* Seats List */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs font-semibold text-zinc-400">
-            <span>{t("cashier.seatsSelected")} ({quantity})</span>
-            {quantity > 0 && (
-              <button onClick={handleClearSelection} className="text-rose-500 hover:underline cursor-pointer">
-                {t("cashier.clear")}
-              </button>
-            )}
-          </div>
-          {quantity > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {selectedSeats.map((s) => (
-                <span
-                  key={s.id}
-                  className="px-2.5 py-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-xl text-xs font-bold text-zinc-800 dark:text-zinc-200"
-                >
-                  {s.seat.seatLabel}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-zinc-400 italic">{t("cashier.noSeats")}</p>
-          )}
-        </div>
-
-        {/* Promotion Selector */}
-        {selectedMovie && (
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-400">
-              <span className="flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-indigo-500" />
-                {t("cashier.promo")}
-              </span>
-              {selectedPromo && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedPromo(null)}
-                  className="text-rose-500 hover:underline cursor-pointer"
-                >
-                  {t("cashier.clearPromo")}
-                </button>
-              )}
-            </div>
-
-            <Select
-              value={selectedPromo?.id || ""}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                const promo = activePromos.find((p: Promotion) => p.id === e.target.value);
-                setSelectedPromo(promo || null);
-              }}
-              options={[
-                { value: "", label: t("cashier.noPromoSelected") },
-                ...activePromos.map((p: Promotion) => {
-                  const remainingQuota = Math.max(0, p.quota - p.usedQuota);
-                  const typeLabel =
-                    p.promoType === "BUY_X_GET_Y"
-                      ? `BOGO ${p.buyQty}+${p.getQty}`
-                      : `${p.discountPercent}%`;
-                  return {
-                    value: p.id,
-                    label: `${p.name} [${p.code}] - ${typeLabel} (${t("promotions.quota")}: ${remainingQuota})`,
-                  };
-                }),
-              ]}
-            />
-
-            {selectedPromo && quantity > 0 && quantity < selectedPromo.minTickets && (
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
-                {t("cashier.promoMinTickets", { count: selectedPromo.minTickets })}
-              </div>
-            )}
-
-            {selectedPromo && promoDiscount > 0 && (
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Gift className="w-3.5 h-3.5" />
-                  {selectedPromo.promoType === "BUY_X_GET_Y"
-                    ? `${t("cashier.freeTickets")}: ${freeTicketsCount}`
-                    : `${t("promotions.discountPercent")}: ${selectedPromo.discountPercent}%`}
-                </span>
-                <span className="font-bold">-Rp {promoDiscount.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Pricing Math */}
-        <div className="border-t border-b border-zinc-100 dark:border-zinc-800 py-4 space-y-2">
-          <div className="flex justify-between text-sm text-zinc-500">
-            <span>{t("cashier.ticketPrice")}</span>
-            <span>Rp {ticketPrice.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between text-sm text-zinc-500">
-            <span>{t("cashier.quantity")}</span>
-            <span>x{quantity}</span>
-          </div>
-          {promoDiscount > 0 && (
-            <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-              <span>
-                {t("cashier.promoDiscount")} ({selectedPromo?.name})
-              </span>
-              <span>-Rp {promoDiscount.toLocaleString()}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-base font-bold text-zinc-900 dark:text-zinc-50 pt-1">
-            <span>{t("cashier.total")}</span>
-            <span>Rp {totalAmount.toLocaleString()}</span>
-          </div>
-        </div>
-
-        {/* Payment Configuration */}
-        {quantity > 0 && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t("cashier.paymentMethod")}</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setPaymentMethod("CASH")}
-                  className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-all ${paymentMethod === "CASH"
-                      ? "border-indigo-600 bg-indigo-50/20 text-indigo-600 dark:text-indigo-400 font-bold"
-                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 hover:border-zinc-300"
-                    }`}
-                >
-                  CASH / TUNAI
-                </button>
-                <button
-                  onClick={() => setPaymentMethod("QRIS")}
-                  className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-all ${paymentMethod === "QRIS"
-                      ? "border-indigo-600 bg-indigo-50/20 text-indigo-600 dark:text-indigo-400 font-bold"
-                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 hover:border-zinc-300"
-                    }`}
-                >
-                  QRIS CODE
-                </button>
-              </div>
-            </div>
-
-            {/* CASH Payment UI details */}
-            {paymentMethod === "CASH" && (
-              <div className="space-y-3.5">
-                <CurrencyInput
-                  label={t("cashier.amountReceived")}
-                  value={amountReceived}
-                  onChange={(val) => setAmountReceived(val === 0 ? "" : val)}
-                  placeholder={t("cashier.cashPlaceholder")}
-                />
-                {/* Change calculator representation */}
-                <div className="flex justify-between text-sm font-semibold p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl">
-                  <span className="text-zinc-500">{t("cashier.change")}</span>
-                  <span className={change > 0 ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-zinc-400"}>
-                    Rp {change.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* QRIS Simulated QR Display */}
-            {paymentMethod === "QRIS" && (
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl flex flex-col items-center gap-2">
-                <div className="w-32 h-32 bg-white p-2 rounded-xl border border-zinc-200 flex items-center justify-center">
-                  {/* Simplistic mock QR code layout */}
-                  <div className="grid grid-cols-4 gap-2 w-full h-full opacity-65">
-                    {Array.from({ length: 16 }).map((_, i) => (
-                      <div key={i} className={`rounded-xs ${i % 3 === 0 || i % 7 === 1 ? "bg-black" : "bg-white"}`} />
-                    ))}
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider text-center">
-                  {t("cashier.scan")} {formatCurrency(totalAmount)}
-                </span>
-              </div>
-            )}
-
-            {/* Checkout CTA */}
-            <Button
-              onClick={handleCheckoutSubmit}
-              isLoading={isCheckingOut}
-              className="w-full py-2.5 font-bold tracking-wide rounded-2xl flex items-center justify-center gap-2"
-            >
-              <Check className="w-4 h-4" /> {t("cashier.process")}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Open Cash Drawer Modal */}
-      <Modal isOpen={isOpenDrawerModalOpen} onClose={() => setIsOpenDrawerModalOpen(false)} title="Buka Sesi Laci Kas (Open Cash Drawer)">
-        <form onSubmit={handleOpenDrawerSubmit} className="space-y-6 py-4">
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-2xl">
-            <p className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold leading-relaxed">
-              Silakan masukkan nominal modal awal uang tunai yang ada di dalam laci kas sebelum memulai transaksi kasir tiket.
-            </p>
-          </div>
-
-          <CurrencyInput
-            label="Saldo Awal Kas Tunai (IDR)"
-            value={drawerOpeningBalance}
-            onChange={(val) => setDrawerOpeningBalance(val)}
-            placeholder="500.000"
-            min={0}
-            required
-          />
-
-          <div className="flex gap-3 justify-end pt-2">
-            <button
-              type="button"
-              onClick={() => setIsOpenDrawerModalOpen(false)}
-              className="px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold cursor-pointer"
-            >
-              Nanti Saja
-            </button>
-            <button
-              type="submit"
-              disabled={isOpeningDrawer}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-350 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-2 shadow-sm"
-            >
-              {isOpeningDrawer ? <Spinner className="w-4 h-4" /> : "Buka Laci Kas & Mulai Transaksi"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Close Cash Drawer Modal */}
-      <Modal isOpen={isCloseDrawerModalOpen} onClose={() => setIsCloseDrawerModalOpen(false)} title="Close Cash Drawer Session">
-        <form onSubmit={handleCloseDrawerSubmit} className="space-y-6 py-4">
-          <CurrencyInput
-            label="Enter Actual Cash Balance in Drawer (IDR)"
-            value={drawerActualBalance}
-            onChange={(val) => setDrawerActualBalance(val)}
-            placeholder="1.500.000"
-            min={0}
-            required
-          />
-
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            Upon submitting, the system will calculate the expected sales balance against your cash count and record the overage/shortage variance.
-          </p>
-
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => setIsCloseDrawerModalOpen(false)}
-              className="px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isClosingDrawer}
-              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-zinc-350 text-white font-bold rounded-xl text-xs cursor-pointer flex items-center gap-2"
-            >
-              {isClosingDrawer ? <Spinner className="w-4 h-4" /> : "Close Drawer & Submit"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {/* Cash Drawer Modals */}
+      <CashierDrawerModals
+        isOpenDrawerModalOpen={isOpenDrawerModalOpen}
+        setIsOpenDrawerModalOpen={setIsOpenDrawerModalOpen}
+        isCloseDrawerModalOpen={isCloseDrawerModalOpen}
+        setIsCloseDrawerModalOpen={setIsCloseDrawerModalOpen}
+        drawerOpeningBalance={drawerOpeningBalance}
+        setDrawerOpeningBalance={setDrawerOpeningBalance}
+        drawerActualBalance={drawerActualBalance}
+        setDrawerActualBalance={setDrawerActualBalance}
+        isOpeningDrawer={isOpeningDrawer}
+        isClosingDrawer={isClosingDrawer}
+        onOpenDrawerSubmit={handleOpenDrawerSubmit}
+        onCloseDrawerSubmit={handleCloseDrawerSubmit}
+      />
     </div>
   );
 }

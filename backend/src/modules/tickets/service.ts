@@ -223,6 +223,14 @@ export const kioskLookupOrder = async (query: string) => {
     throw new AppError("BAD_REQUEST", "Pesanan belum lunas. Harap selesaikan pembayaran terlebih dahulu.");
   }
 
+  // Check if showtime has passed by more than 2 hours
+  if (order.schedule?.startTime) {
+    const showtimeStart = new Date(order.schedule.startTime).getTime();
+    if (showtimeStart < twoHoursAgo.getTime()) {
+      throw new AppError("BAD_REQUEST", "Tiket tidak dapat dicetak karena jam tayang telah lewat lebih dari 2 jam.");
+    }
+  }
+
   // Validation: Each ticket can ONLY be printed 1x at Kiosk (only cashier can reprint > 1x)
   const isAlreadyPrinted = order.tickets.some(
     (t) => (t.printCount || 0) > 0 || t.printedAt !== null
@@ -232,14 +240,6 @@ export const kioskLookupOrder = async (query: string) => {
       "BAD_REQUEST",
       "Tiket untuk pesanan ini sudah pernah dicetak (1x). Cetak ulang hanya dapat dilakukan melalui kasir / petugas."
     );
-  }
-
-  // Check if showtime has passed by more than 2 hours
-  if (order.schedule?.startTime) {
-    const showtimeStart = new Date(order.schedule.startTime).getTime();
-    if (showtimeStart < twoHoursAgo.getTime()) {
-      throw new AppError("BAD_REQUEST", "Tiket tidak dapat dicetak karena jam tayang telah lewat lebih dari 2 jam.");
-    }
   }
 
   const latestPayment = order.payments?.[0];

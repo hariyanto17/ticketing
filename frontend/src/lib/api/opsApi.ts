@@ -194,6 +194,14 @@ export const opsApi = api.injectEndpoints({
       transformResponse: (response: any) => response.data,
       providesTags: ["Report"],
     }),
+    getMovieAnalytics: builder.query<MovieAnalyticsData, { days?: number; endDate?: string } | void>({
+      query: (params) => ({
+        url: "/reports/movie-analytics",
+        params: params || { days: 7 },
+      }),
+      transformResponse: (response: any) => response.data,
+      providesTags: ["Report"],
+    }),
   }),
 });
 
@@ -232,6 +240,78 @@ export interface FilmSalesReportData {
   };
 }
 
+export interface MovieAnalyticsDailyItem {
+  date: string;
+  dayName: string;
+  dayShort: string;
+  displayDate: string;
+  tickets: number;
+  revenue: number;
+  showtimesCount: number;
+}
+
+export interface MovieAnalyticsMovieItem {
+  id: string;
+  title: string;
+  poster: string | null;
+  censorshipRating: string;
+  durationMinutes: number | null;
+  genres: string[];
+  totalTickets: number;
+  totalRevenue: number;
+  totalShowtimes: number;
+  averageTicketPrice: number;
+  revenueShare: number;
+  ticketShare: number;
+  daily: MovieAnalyticsDailyItem[];
+}
+
+export interface MovieAnalyticsData {
+  period: {
+    startDate: string;
+    endDate: string;
+    days: number;
+    timezone: string;
+  };
+  summary: {
+    totalRevenue: number;
+    totalTickets: number;
+    totalShowtimes: number;
+    activeMoviesCount: number;
+    averageTicketsPerDay: number;
+    averageRevenuePerDay: number;
+    topMovie: {
+      id: string;
+      title: string;
+      poster: string | null;
+      revenue: number;
+      tickets: number;
+    } | null;
+    highestSalesDay: {
+      date: string;
+      dayName: string;
+      revenue: number;
+      tickets: number;
+    } | null;
+  };
+  dailyTotals: Array<{
+    date: string;
+    dayName: string;
+    dayShort: string;
+    displayDate: string;
+    totalTickets: number;
+    totalRevenue: number;
+    totalShowtimes: number;
+    movieBreakdown: Array<{
+      movieId: string;
+      title: string;
+      tickets: number;
+      revenue: number;
+    }>;
+  }>;
+  movies: MovieAnalyticsMovieItem[];
+}
+
 export const {
   useGetActiveDrawerQuery,
   useOpenDrawerMutation,
@@ -247,8 +327,10 @@ export const {
   useGetFilmShowingDatesQuery,
   useGetFilmSalesReportQuery,
   useLazyGetFilmSalesReportQuery,
+  useGetMovieAnalyticsQuery,
   useVoidOrderMutation,
   useRefundTicketMutation,
   useReprintTicketMutation,
 } = opsApi;
+
 

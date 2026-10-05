@@ -27,6 +27,7 @@ import {
   Printer,
   FileSpreadsheet,
   Tag,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -170,6 +171,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const adminMenuItems = [
     { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.movieAnalytics") || "Analitik Film", href: "/admin/analytics", icon: <TrendingUp className="w-5 h-5" /> },
     { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" /> },
     { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" /> },
     { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" /> },

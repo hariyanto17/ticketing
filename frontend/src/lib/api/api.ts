@@ -28,9 +28,18 @@ export const api = createApi({
       },
     })(args, apiContext, extraOptions);
 
-    if (result.error?.status === 401) {
+    const errorData = result.error?.data as any;
+    const isUnauthorized =
+      result.error?.status === 401 ||
+      errorData?.code === "UNAUTHORIZED" ||
+      (typeof errorData?.message === "string" && errorData.message.toLowerCase().includes("authentication required"));
+
+    if (isUnauthorized) {
       apiContext.dispatch(clearCredentials());
       apiContext.dispatch(api.util.resetApiState());
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.replace("/login");
+      }
     }
 
     return result;

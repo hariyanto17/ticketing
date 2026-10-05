@@ -87,12 +87,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [dispatch, sessionResponse]);
 
   useEffect(() => {
-    if (isSessionError) {
+    if (isSessionError || (!isSessionLoading && !user && !sessionResponse?.data?.user)) {
       dispatch(clearCredentials());
       dispatch(api.util.resetApiState());
       router.replace("/login");
     }
-  }, [dispatch, isSessionError, router]);
+  }, [dispatch, isSessionError, isSessionLoading, user, sessionResponse, router]);
 
   const isGateUser = Boolean(
     (user?.role || "").toUpperCase().includes("GATE") ||

@@ -321,7 +321,7 @@ function KioskPrintContent() {
   const pairingQrValue =
     typeof window !== "undefined"
       ? `${window.location.origin}/kiosk-print/mobile-scan?kiosk=${encodeURIComponent(kioskId)}`
-      : `https://ticket.168billiard.online/kiosk-print/mobile-scan?kiosk=${encodeURIComponent(kioskId)}`;
+      : `https://planetsinemaid.com/kiosk-print/mobile-scan?kiosk=${encodeURIComponent(kioskId)}`;
 
   return (
     <main className="min-h-screen w-full bg-zinc-950 text-white flex flex-col justify-between overflow-hidden select-none font-sans">

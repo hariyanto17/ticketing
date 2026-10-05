@@ -6,6 +6,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useTranslation } from "@/lib/i18n";
 import MovieAnalyticsChart, { AnalyticsChartItem } from "@/components/analytics/MovieAnalyticsChart";
 import { Spinner } from "@/components/ui/spinner";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import {
   TrendingUp,
   TrendingDown,
@@ -411,29 +412,27 @@ export default function MovieAnalyticsView() {
         {/* Custom Date Pickers when 'Rentang Kustom' is selected */}
         {rangePreset === "custom" && (
           <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-3 bg-zinc-50 dark:bg-zinc-800/40 p-3.5 rounded-2xl">
-            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400">Pilih Tanggal:</span>
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] font-semibold text-zinc-400">Mulai:</label>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+            <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400">Pilih Rentang:</span>
+            <div className="w-48 sm:w-56">
+              <DateTimePicker
+                mode="date"
+                placeholder="Pilih tgl mulai"
+                value={customStartDate || null}
+                onChange={(val) => setCustomStartDate(val || "")}
               />
             </div>
-            <span className="text-zinc-400 text-xs">s.d.</span>
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] font-semibold text-zinc-400">Sampai:</label>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+            <span className="text-zinc-400 text-xs font-semibold">s.d.</span>
+            <div className="w-48 sm:w-56">
+              <DateTimePicker
+                mode="date"
+                placeholder="Pilih tgl selesai"
+                value={customEndDate || null}
+                onChange={(val) => setCustomEndDate(val || "")}
               />
             </div>
             {(!customStartDate || !customEndDate) && (
               <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                *Masukkan tanggal mulai dan akhir untuk menerapkan filter
+                *Pilih kedua tanggal untuk menerapkan filter
               </span>
             )}
           </div>

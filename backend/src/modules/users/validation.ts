@@ -22,5 +22,47 @@ export const updateUserSchema = z.object({
   status: z.string().optional(),
 });
 
+export const updateProfileSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100).optional(),
+  phone: z.string().optional().nullable(),
+  currentPassword: z.string().optional().nullable(),
+  newPassword: z.string().optional().nullable(),
+  confirmPassword: z.string().optional().nullable(),
+}).refine(
+  (data) => {
+    if (data.newPassword && data.newPassword.trim().length > 0) {
+      if (data.newPassword.length < 6) return false;
+    }
+    return true;
+  },
+  {
+    message: "New password must be at least 6 characters",
+    path: ["newPassword"],
+  }
+).refine(
+  (data) => {
+    if (data.newPassword && data.newPassword.trim().length > 0) {
+      return !!data.currentPassword && data.currentPassword.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "Current password is required to set a new password",
+    path: ["currentPassword"],
+  }
+).refine(
+  (data) => {
+    if (data.newPassword && data.newPassword.trim().length > 0) {
+      return data.newPassword === data.confirmPassword;
+    }
+    return true;
+  },
+  {
+    message: "New password and confirmation password do not match",
+    path: ["confirmPassword"],
+  }
+);
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

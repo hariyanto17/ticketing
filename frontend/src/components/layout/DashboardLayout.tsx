@@ -125,10 +125,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         else if (pathname === "/admin/closing") router.replace("/cashier/closing");
         else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
         else if (pathname === "/admin/reports/film-sales") router.replace("/cashier/reports/film-sales");
+        else if (pathname === "/admin/profile") router.replace("/cashier/profile");
         else router.replace("/cashier/dashboard");
       }
     } else if (user && isProjectionistUser && !isGateUser && !isCashierUser) {
-      const allowedPaths = ["/admin/dashboard", "/admin/studios", "/admin/movies", "/admin/schedules"];
+      const allowedPaths = ["/admin/dashboard", "/admin/studios", "/admin/movies", "/admin/schedules", "/admin/profile"];
       const isAllowed = allowedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
       if (!isAllowed) {
         router.replace("/admin/dashboard");
@@ -472,6 +473,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="px-4 py-2 border-b border-zinc-150 dark:border-zinc-800">
                       <p className="text-xs text-zinc-400">Signed in as</p>
                       <p className="font-semibold text-sm truncate">{user?.email || "admin"}</p>
+                    </div>
+                    <div className="py-1 border-b border-zinc-150 dark:border-zinc-800">
+                      <Link
+                        href={isCashierUser ? "/cashier/profile" : "/admin/profile"}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <UserIcon className="w-4 h-4 text-indigo-500" />
+                        <span>{t("common.profile")}</span>
+                      </Link>
                     </div>
                     <button
                       onClick={() => {

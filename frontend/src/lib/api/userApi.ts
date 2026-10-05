@@ -72,6 +72,27 @@ export const userApi = api.injectEndpoints({
     getBranches: builder.query<ApiResponse<Branch[]>, void>({
       query: () => "/branches",
     }),
+    getProfile: builder.query<ApiResponse<UserDetail>, void>({
+      query: () => "/users/profile",
+      providesTags: ["User"],
+    }),
+    updateProfile: builder.mutation<
+      ApiResponse<UserDetail>,
+      {
+        name?: string;
+        phone?: string | null;
+        currentPassword?: string;
+        newPassword?: string;
+        confirmPassword?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/users/profile",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["User"],
+    }),
   }),
 });
 
@@ -83,4 +104,6 @@ export const {
   useDeleteUserMutation,
   useGetRolesQuery,
   useGetBranchesQuery,
+  useGetProfileQuery,
+  useUpdateProfileMutation,
 } = userApi;

@@ -127,3 +127,95 @@ export const deleteUserSoft = async (id: string) => {
     },
   });
 };
+
+export const getUserProfile = async (userId: string) => {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, isActive: true },
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      email: true,
+      phone: true,
+      avatar: true,
+      roleId: true,
+      branchId: true,
+      isActive: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      role: { select: { id: true, name: true, description: true } },
+      branch: { select: { id: true, name: true, code: true, city: true, timezone: true } },
+    },
+  });
+
+  if (!user) {
+    throw new AppError("NOT_FOUND", "User profile not found");
+  }
+
+  return user;
+};
+
+export const updateUserProfile = async (
+  userId: string,
+  input: {
+    name?: string;
+    phone?: string | null;
+    currentPassword?: string | null;
+    newPassword?: string | null;
+    confirmPassword?: string | null;
+  }
+) => {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, isActive: true },
+  });
+
+  if (!user) {
+    throw new AppError("NOT_FOUND", "User not found");
+  }
+
+  const updateData: any = {};
+
+  if (input.name && input.name.trim().length > 0) {
+    updateData.name = input.name.trim();
+  }
+
+  if (input.phone !== undefined) {
+    updateData.phone = input.phone ? input.phone.trim() : null;
+  }
+
+  // If user wants to change password
+  if (input.newPassword && input.newPassword.trim().length > 0) {
+    if (!input.currentPassword) {
+      throw new AppError("BAD_REQUEST", "Password saat ini (lama) wajib diisi untuk mengubah password");
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+    if (!isCurrentPasswordValid) {
+      throw new AppError("BAD_REQUEST", "Password lama tidak sesuai");
+    }
+
+    updateData.passwordHash = await bcrypt.hash(input.newPassword, 10);
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      email: true,
+      phone: true,
+      avatar: true,
+      roleId: true,
+      branchId: true,
+      isActive: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      role: { select: { id: true, name: true, description: true } },
+      branch: { select: { id: true, name: true, code: true, city: true, timezone: true } },
+    },
+  });
+};

@@ -447,7 +447,7 @@ export default function MovieAnalyticsChart({
             setHoveredItemId(item.id);
             const dailyEntry = item.daily.find((mDaily) => mDaily.date === d.date);
             const val = activeMetric === "revenue" ? dailyEntry?.revenue || 0 : dailyEntry?.tickets || 0;
-            const formatted = activeMetric === "revenue" ? formatCurrency(val) : `${formatNumber(val)} tiket`;
+            const formatted = activeMetric === "revenue" ? formatCurrency(val) : `${formatNumber(val)} ${t("analytics.ticketsUnit")}`;
 
             tooltip
               .style("display", "block")
@@ -460,10 +460,10 @@ export default function MovieAnalyticsChart({
                     <span class="font-bold text-white">${item.title}</span>
                   </div>
                   <div class="text-zinc-300 font-medium">
-                    ${activeMetric === "revenue" ? "Pendapatan" : "Tiket"}: <span class="font-bold text-white">${formatted}</span>
+                    ${activeMetric === "revenue" ? t("analytics.tableRevenue") : t("analytics.tableTickets")}: <span class="font-bold text-white">${formatted}</span>
                   </div>
                   <div class="text-zinc-400 text-[11px]">
-                    ${dailyEntry?.showtimesCount || 0} sesi penayangan
+                    ${dailyEntry?.showtimesCount || 0} ${t("analytics.sessionsUnit") || "sesi"}
                   </div>
                 </div>
               `);

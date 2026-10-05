@@ -87,28 +87,25 @@ export const AnalyticsHeatmap: React.FC<AnalyticsHeatmapProps> = ({ showtimeHeat
 
       {/* Heatmap Grid */}
       <div className="overflow-x-auto">
-        <div className="min-w-[650px] space-y-2">
+        <div className="min-w-[500px] space-y-2">
           {/* Header slots */}
-          <div className="grid grid-cols-8 gap-2 text-center text-xs font-bold text-zinc-400">
+          <div className="grid grid-cols-5 gap-2.5 text-center text-xs font-bold text-zinc-400">
             <div className="text-left pl-2">{t("analytics.tableDate") || "Hari"}</div>
-            <div>10:00 - 12:00</div>
-            <div>12:00 - 14:00</div>
             <div>14:00 - 16:00</div>
             <div>16:00 - 18:00</div>
             <div>18:00 - 20:00</div>
             <div>20:00 - 22:00</div>
-            <div>22:00+</div>
           </div>
 
           {/* Rows per Day of Week */}
           {dayList.map((d) => {
             const dayCells = showtimeHeatmap.filter((c) => c.dayOfWeek === d.dow);
             return (
-              <div key={d.dow} className="grid grid-cols-8 gap-2 items-center">
+              <div key={d.dow} className="grid grid-cols-5 gap-2.5 items-center">
                 <div className="text-xs font-extrabold text-zinc-700 dark:text-zinc-300 pl-2">
                   {d.name}
                 </div>
-                {["10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"].map((slotKey) => {
+                {["14:00", "16:00", "18:00", "20:00"].map((slotKey) => {
                   const cell = dayCells.find((c) => c.slotKey === slotKey) || {
                     occupancy: 0,
                     ticketsPerShow: 0,

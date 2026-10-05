@@ -819,15 +819,12 @@ export const getMovieAnalytics = async (
     });
   }
 
-  // Heatmap definitions (Day of week × 2-hour buckets)
+  // Heatmap definitions (Day of week × 2-hour buckets: 14:00 to 22:00)
   const heatmapBuckets = [
-    { key: "10:00", label: "10:00 - 11:59", minH: 0, maxH: 12 },
-    { key: "12:00", label: "12:00 - 13:59", minH: 12, maxH: 14 },
     { key: "14:00", label: "14:00 - 15:59", minH: 14, maxH: 16 },
     { key: "16:00", label: "16:00 - 17:59", minH: 16, maxH: 18 },
     { key: "18:00", label: "18:00 - 19:59", minH: 18, maxH: 20 },
     { key: "20:00", label: "20:00 - 21:59", minH: 20, maxH: 22 },
-    { key: "22:00", label: "22:00+", minH: 22, maxH: 30 },
   ];
 
   // Key: `${dayOfWeek}_${bucketKey}`

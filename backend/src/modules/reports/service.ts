@@ -325,6 +325,22 @@ export interface MovieAnalyticsMovieItem {
   daily: MovieAnalyticsDailyItem[];
 }
 
+export interface GenreAnalyticsItem {
+  id: string;
+  name: string;
+  moviesCount: number;
+  movieTitles: string[];
+  totalTickets: number;
+  totalRevenue: number;
+  totalShowtimes: number;
+  ticketsPerShow: number;
+  revenueShare: number;
+  ticketShare: number;
+  trendDirection: "UP" | "DOWN" | "STABLE";
+  trendPercentage: number;
+  daily: MovieAnalyticsDailyItem[];
+}
+
 export interface StudioPerformanceItem {
   studioId: string;
   studioName: string;
@@ -373,6 +389,12 @@ export interface MovieAnalyticsResponse {
       revenue: number;
       tickets: number;
     } | null;
+    topGenre: {
+      name: string;
+      revenue: number;
+      tickets: number;
+      moviesCount: number;
+    } | null;
     highestSalesDay: {
       date: string;
       dayName: string;
@@ -402,9 +424,11 @@ export interface MovieAnalyticsResponse {
     }>;
   }>;
   movies: MovieAnalyticsMovieItem[];
+  genres: GenreAnalyticsItem[];
   studioPerformance: StudioPerformanceItem[];
   timeSlotPerformance: TimeSlotPerformanceItem[];
 }
+
 
 export const getMovieAnalytics = async (
   branchId?: string,
@@ -546,8 +570,23 @@ export const getMovieAnalytics = async (
     }
   >();
 
+  // Map to hold genre performance
+  const genresMap = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      movieTitlesSet: Set<string>;
+      totalTickets: number;
+      totalRevenue: number;
+      totalShowtimes: number;
+      dailyMap: Map<string, { tickets: number; revenue: number; showtimesCount: number }>;
+    }
+  >();
+
   // Map to hold studio performance
   const studiosMap = new Map<
+
     string,
     {
       studioId: string;
@@ -705,6 +744,40 @@ export const getMovieAnalytics = async (
       timeSlotEntry.totalRevenue += showtimeRevenue;
     }
 
+    // Accumulate to genres
+    const genreObjects =
+      (movie.genres?.map((g) => g.genre).filter(Boolean) as Array<{ id: string; name: string }>) || [];
+    const effectiveGenres = genreObjects.length > 0 ? genreObjects : [{ id: "general", name: "Umum" }];
+
+    for (const gen of effectiveGenres) {
+      if (!genresMap.has(gen.id)) {
+        const dailyMap = new Map<string, { tickets: number; revenue: number; showtimesCount: number }>();
+        for (const dl of dateList) {
+          dailyMap.set(dl.date, { tickets: 0, revenue: 0, showtimesCount: 0 });
+        }
+        genresMap.set(gen.id, {
+          id: gen.id,
+          name: gen.name,
+          movieTitlesSet: new Set<string>(),
+          totalTickets: 0,
+          totalRevenue: 0,
+          totalShowtimes: 0,
+          dailyMap,
+        });
+      }
+
+      const genreEntry = genresMap.get(gen.id)!;
+      genreEntry.movieTitlesSet.add(movie.title);
+      genreEntry.totalTickets += showtimeTickets;
+      genreEntry.totalRevenue += showtimeRevenue;
+      genreEntry.totalShowtimes += 1;
+
+      const genreDaily = genreEntry.dailyMap.get(dateStr)!;
+      genreDaily.tickets += showtimeTickets;
+      genreDaily.revenue += showtimeRevenue;
+      genreDaily.showtimesCount += 1;
+    }
+
     // Accumulate to daily totals
     dailyTotal.tickets += showtimeTickets;
     dailyTotal.revenue += showtimeRevenue;
@@ -804,6 +877,60 @@ export const getMovieAnalytics = async (
   // Sort movies by total revenue descending
   moviesArray.sort((a, b) => b.totalRevenue - a.totalRevenue || b.totalTickets - a.totalTickets);
 
+  // Convert genresMap to array
+  const genresArray: GenreAnalyticsItem[] = Array.from(genresMap.values()).map((g) => {
+    const revenueShare = grandTotalRevenue > 0 ? Number(((g.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
+    const ticketShare = grandTotalTickets > 0 ? Number(((g.totalTickets / grandTotalTickets) * 100).toFixed(1)) : 0;
+    const ticketsPerShow = g.totalShowtimes > 0 ? Number((g.totalTickets / g.totalShowtimes).toFixed(1)) : 0;
+
+    const daily = dateList.map((dl) => {
+      const dm = g.dailyMap.get(dl.date)!;
+      return {
+        date: dl.date,
+        dayName: dl.dayName,
+        dayShort: dl.dayShort,
+        displayDate: dl.displayDate,
+        tickets: dm.tickets,
+        revenue: dm.revenue,
+        showtimesCount: dm.showtimesCount,
+      };
+    });
+
+    const earlyRevenue = daily.slice(0, 3).reduce((sum, d) => sum + d.revenue, 0);
+    const recentRevenue = daily.slice(-3).reduce((sum, d) => sum + d.revenue, 0);
+
+    let trendPercentage = 0;
+    let trendDirection: "UP" | "DOWN" | "STABLE" = "STABLE";
+
+    if (earlyRevenue > 0) {
+      trendPercentage = Number((((recentRevenue - earlyRevenue) / earlyRevenue) * 100).toFixed(1));
+    } else if (recentRevenue > 0) {
+      trendPercentage = 100;
+    }
+
+    if (trendPercentage > 5) trendDirection = "UP";
+    else if (trendPercentage < -5) trendDirection = "DOWN";
+    else trendDirection = "STABLE";
+
+    return {
+      id: g.id,
+      name: g.name,
+      moviesCount: g.movieTitlesSet.size,
+      movieTitles: Array.from(g.movieTitlesSet),
+      totalTickets: g.totalTickets,
+      totalRevenue: g.totalRevenue,
+      totalShowtimes: g.totalShowtimes,
+      ticketsPerShow,
+      revenueShare,
+      ticketShare,
+      trendDirection,
+      trendPercentage,
+      daily,
+    };
+  });
+
+  genresArray.sort((a, b) => b.totalRevenue - a.totalRevenue || b.totalTickets - a.totalTickets);
+
   // Convert studio performance to array
   const studioPerformance: StudioPerformanceItem[] = Array.from(studiosMap.values()).map((st) => {
     const revenueShare = grandTotalRevenue > 0 ? Number(((st.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
@@ -868,6 +995,17 @@ export const getMovieAnalytics = async (
         }
       : null;
 
+  // Top genre
+  const topGenre =
+    genresArray.length > 0 && genresArray[0].totalRevenue > 0
+      ? {
+          name: genresArray[0].name,
+          revenue: genresArray[0].totalRevenue,
+          tickets: genresArray[0].totalTickets,
+          moviesCount: genresArray[0].moviesCount,
+        }
+      : null;
+
   // Highest sales day
   let highestSalesDay: { date: string; dayName: string; revenue: number; tickets: number } | null = null;
   for (const dt of dailyTotals) {
@@ -896,6 +1034,7 @@ export const getMovieAnalytics = async (
     averageTicketsPerDay: Math.round(grandTotalTickets / daysCount),
     averageRevenuePerDay: Math.round(grandTotalRevenue / daysCount),
     topMovie,
+    topGenre,
     highestSalesDay,
     peakTimeSlot: peakTimeSlotItem && peakTimeSlotItem.totalRevenue > 0
       ? {
@@ -917,10 +1056,12 @@ export const getMovieAnalytics = async (
     summary,
     dailyTotals,
     movies: moviesArray,
+    genres: genresArray,
     studioPerformance,
     timeSlotPerformance,
   };
 };
+
 
 
 export const getScheduledMovies = async (branchId?: string) => {

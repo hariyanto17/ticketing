@@ -171,7 +171,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const adminMenuItems = [
     { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
-    { name: t("nav.movieAnalytics") || "Analitik Film", href: "/admin/analytics", icon: <TrendingUp className="w-5 h-5" /> },
     { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" /> },
     { name: t("nav.movies"), href: "/admin/movies", icon: <Film className="w-5 h-5" /> },
     { name: t("nav.studios"), href: "/admin/studios", icon: <Tv className="w-5 h-5" /> },
@@ -184,6 +183,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
     { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
+    { name: t("nav.analytics") || "Analitik", href: "/admin/analytics", icon: <TrendingUp className="w-5 h-5" /> },
   ];
 
   const menuItems = isCashierUser

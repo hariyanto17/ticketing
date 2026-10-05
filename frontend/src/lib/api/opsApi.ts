@@ -269,6 +269,22 @@ export interface MovieAnalyticsMovieItem {
   daily: MovieAnalyticsDailyItem[];
 }
 
+export interface GenreAnalyticsItem {
+  id: string;
+  name: string;
+  moviesCount: number;
+  movieTitles: string[];
+  totalTickets: number;
+  totalRevenue: number;
+  totalShowtimes: number;
+  ticketsPerShow: number;
+  revenueShare: number;
+  ticketShare: number;
+  trendDirection: "UP" | "DOWN" | "STABLE";
+  trendPercentage: number;
+  daily: MovieAnalyticsDailyItem[];
+}
+
 export interface StudioPerformanceItem {
   studioId: string;
   studioName: string;
@@ -317,6 +333,12 @@ export interface MovieAnalyticsData {
       revenue: number;
       tickets: number;
     } | null;
+    topGenre: {
+      name: string;
+      revenue: number;
+      tickets: number;
+      moviesCount: number;
+    } | null;
     highestSalesDay: {
       date: string;
       dayName: string;
@@ -346,9 +368,11 @@ export interface MovieAnalyticsData {
     }>;
   }>;
   movies: MovieAnalyticsMovieItem[];
+  genres: GenreAnalyticsItem[];
   studioPerformance: StudioPerformanceItem[];
   timeSlotPerformance: TimeSlotPerformanceItem[];
 }
+
 
 
 export const {

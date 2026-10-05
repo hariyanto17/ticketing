@@ -2,16 +2,41 @@
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import * as d3 from "d3";
-import { MovieAnalyticsData, MovieAnalyticsMovieItem } from "@/lib/api/opsApi";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
 
+export interface AnalyticsChartItem {
+  id: string;
+  title: string;
+  totalRevenue: number;
+  totalTickets: number;
+  daily: Array<{
+    date: string;
+    dayName: string;
+    dayShort: string;
+    displayDate: string;
+    tickets: number;
+    revenue: number;
+    showtimesCount: number;
+  }>;
+}
+
 interface MovieAnalyticsChartProps {
-  data: MovieAnalyticsData;
+  dailyTotals: Array<{
+    date: string;
+    dayName: string;
+    dayShort: string;
+    displayDate: string;
+    totalTickets: number;
+    totalRevenue: number;
+    totalShowtimes: number;
+  }>;
+  items: AnalyticsChartItem[];
   activeMetric: "tickets" | "revenue";
   chartType: "line" | "bar";
-  selectedMovieId: string | "ALL";
-  onSelectMovie?: (movieId: string | "ALL") => void;
+  selectedItemId: string | "ALL";
+  onSelectItem?: (id: string | "ALL") => void;
+  allLabel?: string;
 }
 
 const COLOR_PALETTE = [
@@ -25,41 +50,45 @@ const COLOR_PALETTE = [
   "#14B8A6", // Teal
   "#E11D48", // Rose
   "#3B82F6", // Blue
+  "#84CC16", // Lime
+  "#A855F7", // Purple 500
 ];
 
 export default function MovieAnalyticsChart({
-  data,
+  dailyTotals,
+  items,
   activeMetric,
   chartType,
-  selectedMovieId,
-  onSelectMovie,
+  selectedItemId,
+  onSelectItem,
+  allLabel = "Semua",
 }: MovieAnalyticsChartProps) {
   const { formatCurrency, formatNumber, t } = useTranslation();
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [hoveredMovieId, setHoveredMovieId] = useState<string | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
-  // Assign color mapping per movie
-  const movieColorMap = useMemo(() => {
+  // Assign color mapping per item
+  const itemColorMap = useMemo(() => {
     const map: Record<string, string> = {};
-    data.movies.forEach((movie, index) => {
-      map[movie.id] = COLOR_PALETTE[index % COLOR_PALETTE.length];
+    items.forEach((item, index) => {
+      map[item.id] = COLOR_PALETTE[index % COLOR_PALETTE.length];
     });
     return map;
-  }, [data.movies]);
+  }, [items]);
 
-  // Filtered movies to display
-  const displayMovies = useMemo(() => {
-    if (selectedMovieId === "ALL") {
-      return data.movies;
+  // Filtered items to display
+  const displayItems = useMemo(() => {
+    if (selectedItemId === "ALL") {
+      return items;
     }
-    return data.movies.filter((m) => m.id === selectedMovieId);
-  }, [data.movies, selectedMovieId]);
+    return items.filter((m) => m.id === selectedItemId);
+  }, [items, selectedItemId]);
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || !data.dailyTotals.length) return;
+    if (!svgRef.current || !containerRef.current || !dailyTotals.length) return;
 
     const container = containerRef.current;
     const width = container.clientWidth || 800;
@@ -93,11 +122,11 @@ export default function MovieAnalyticsChart({
     feMerge.append("feMergeNode").attr("in", "SourceGraphic");
 
     // Create linear gradients for area fills under lines
-    data.movies.forEach((movie) => {
-      const color = movieColorMap[movie.id];
+    items.forEach((item) => {
+      const color = itemColorMap[item.id] || "#6366F1";
       const gradient = defs
         .append("linearGradient")
-        .attr("id", `area-grad-${movie.id}`)
+        .attr("id", `area-grad-${item.id}`)
         .attr("x1", "0%")
         .attr("y1", "0%")
         .attr("x2", "0%")
@@ -110,9 +139,9 @@ export default function MovieAnalyticsChart({
     const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
     // X Scale (Dates)
-    const dates = data.dailyTotals.map((d) => d.date);
+    const dates = dailyTotals.map((d) => d.date);
     const dateLabels: Record<string, string> = {};
-    data.dailyTotals.forEach((d) => {
+    dailyTotals.forEach((d) => {
       dateLabels[d.date] = `${d.dayShort} ${d.displayDate.split(" ")[0]}`;
     });
 
@@ -121,23 +150,23 @@ export default function MovieAnalyticsChart({
     // Y Max calculation
     let yMax = 0;
     if (chartType === "line") {
-      if (selectedMovieId === "ALL") {
-        displayMovies.forEach((m) => {
+      if (selectedItemId === "ALL") {
+        displayItems.forEach((m) => {
           m.daily.forEach((d) => {
             const val = activeMetric === "revenue" ? d.revenue : d.tickets;
             if (val > yMax) yMax = val;
           });
         });
       } else {
-        const targetMovie = data.movies.find((m) => m.id === selectedMovieId);
-        targetMovie?.daily.forEach((d) => {
+        const targetItem = items.find((m) => m.id === selectedItemId);
+        targetItem?.daily.forEach((d) => {
           const val = activeMetric === "revenue" ? d.revenue : d.tickets;
           if (val > yMax) yMax = val;
         });
       }
     } else {
       // Bar chart
-      displayMovies.forEach((m) => {
+      displayItems.forEach((m) => {
         m.daily.forEach((d) => {
           const val = activeMetric === "revenue" ? d.revenue : d.tickets;
           if (val > yMax) yMax = val;
@@ -221,22 +250,22 @@ export default function MovieAnalyticsChart({
         .y1((d) => yScale(d.value))
         .curve(d3.curveMonotoneX);
 
-      displayMovies.forEach((movie) => {
-        const movieColor = movieColorMap[movie.id];
-        const seriesData = movie.daily.map((d) => ({
+      displayItems.forEach((item) => {
+        const itemColor = itemColorMap[item.id] || "#6366F1";
+        const seriesData = item.daily.map((d) => ({
           date: d.date,
           value: activeMetric === "revenue" ? d.revenue : d.tickets,
         }));
 
         const isDimmed =
-          hoveredMovieId !== null && hoveredMovieId !== movie.id;
-        const isHighlighted = hoveredMovieId === movie.id;
+          hoveredItemId !== null && hoveredItemId !== item.id;
+        const isHighlighted = hoveredItemId === item.id;
 
-        // Area Fill (only when single movie or highlighted)
-        if (displayMovies.length === 1 || isHighlighted) {
+        // Area Fill (only when single item or highlighted)
+        if (displayItems.length === 1 || isHighlighted) {
           g.append("path")
             .datum(seriesData)
-            .attr("fill", `url(#area-grad-${movie.id})`)
+            .attr("fill", `url(#area-grad-${item.id})`)
             .attr("d", areaGen)
             .attr("opacity", isDimmed ? 0.05 : 0.8)
             .style("transition", "opacity 0.2s ease");
@@ -246,35 +275,35 @@ export default function MovieAnalyticsChart({
         g.append("path")
           .datum(seriesData)
           .attr("fill", "none")
-          .attr("stroke", movieColor)
-          .attr("stroke-width", isHighlighted ? 3.5 : displayMovies.length === 1 ? 3 : 2.5)
+          .attr("stroke", itemColor)
+          .attr("stroke-width", isHighlighted ? 3.5 : displayItems.length === 1 ? 3 : 2.5)
           .attr("d", lineGen)
           .attr("opacity", isDimmed ? 0.15 : 1)
           .style("transition", "all 0.2s ease")
           .style("cursor", "pointer")
-          .on("mouseenter", () => setHoveredMovieId(movie.id))
-          .on("mouseleave", () => setHoveredMovieId(null));
+          .on("mouseenter", () => setHoveredItemId(item.id))
+          .on("mouseleave", () => setHoveredItemId(null));
 
         // Data dots
-        g.selectAll(`.dot-${movie.id}`)
+        g.selectAll(`.dot-${item.id}`)
           .data(seriesData)
           .enter()
           .append("circle")
-          .attr("class", `dot-${movie.id}`)
+          .attr("class", `dot-${item.id}`)
           .attr("cx", (d) => xScale(d.date) || 0)
           .attr("cy", (d) => yScale(d.value))
           .attr("r", isHighlighted ? 5.5 : 4)
           .attr("fill", isDark ? "#09090b" : "#ffffff")
-          .attr("stroke", movieColor)
+          .attr("stroke", itemColor)
           .attr("stroke-width", 2.5)
           .attr("opacity", isDimmed ? 0.15 : 1)
           .style("transition", "all 0.2s ease")
           .style("cursor", "pointer")
-          .on("mouseenter", () => setHoveredMovieId(movie.id))
-          .on("mouseleave", () => setHoveredMovieId(null));
+          .on("mouseenter", () => setHoveredItemId(item.id))
+          .on("mouseleave", () => setHoveredItemId(null));
       });
 
-      // Hover Crosshair vertical bar & multi-movie tooltip tracker
+      // Hover Crosshair vertical bar & multi-item tooltip tracker
       const crosshair = g
         .append("line")
         .attr("class", "crosshair")
@@ -312,15 +341,15 @@ export default function MovieAnalyticsChart({
           const currentX = xScale(closestDate) || 0;
           crosshair.attr("x1", currentX).attr("x2", currentX).style("opacity", 1);
 
-          const dayInfo = data.dailyTotals.find((dt) => dt.date === closestDate);
+          const dayInfo = dailyTotals.find((dt) => dt.date === closestDate);
           if (!dayInfo) return;
 
           // Tooltip content
-          const movieRows = displayMovies
+          const itemRows = displayItems
             .map((m) => {
               const dailyEntry = m.daily.find((d) => d.date === closestDate);
               const val = activeMetric === "revenue" ? dailyEntry?.revenue || 0 : dailyEntry?.tickets || 0;
-              const color = movieColorMap[m.id];
+              const color = itemColorMap[m.id] || "#6366F1";
               return {
                 id: m.id,
                 title: m.title,
@@ -346,10 +375,10 @@ export default function MovieAnalyticsChart({
                   <span class="text-zinc-300 font-bold">${totalForDay}</span>
                 </div>
                 <div class="space-y-1.5 max-h-48 overflow-y-auto">
-                  ${movieRows
+                  ${itemRows
                     .map(
                       (row) => `
-                    <div class="flex items-center justify-between gap-3 ${hoveredMovieId === row.id ? "bg-zinc-800/80 p-1 rounded-lg" : ""}">
+                    <div class="flex items-center justify-between gap-3 ${hoveredItemId === row.id ? "bg-zinc-800/80 p-1 rounded-lg" : ""}">
                       <div class="flex items-center gap-2 truncate max-w-[130px]">
                         <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${row.color}"></span>
                         <span class="truncate text-zinc-200">${row.title}</span>
@@ -375,48 +404,48 @@ export default function MovieAnalyticsChart({
     if (chartType === "bar") {
       const xGroupScale = d3.scaleBand().domain(dates).range([0, innerWidth]).padding(0.2);
 
-      const movieIds = displayMovies.map((m) => m.id);
+      const itemIds = displayItems.map((m) => m.id);
       const xSubgroupScale = d3
         .scaleBand()
-        .domain(movieIds)
+        .domain(itemIds)
         .range([0, xGroupScale.bandwidth()])
         .padding(0.08);
 
       const dateGroups = g
         .selectAll(".date-group")
-        .data(data.dailyTotals)
+        .data(dailyTotals)
         .enter()
         .append("g")
         .attr("class", "date-group")
         .attr("transform", (d) => `translate(${xGroupScale(d.date)},0)`);
 
-      displayMovies.forEach((movie) => {
-        const movieColor = movieColorMap[movie.id];
-        const isDimmed = hoveredMovieId !== null && hoveredMovieId !== movie.id;
-        const isHighlighted = hoveredMovieId === movie.id;
+      displayItems.forEach((item) => {
+        const itemColor = itemColorMap[item.id] || "#6366F1";
+        const isDimmed = hoveredItemId !== null && hoveredItemId !== item.id;
+        const isHighlighted = hoveredItemId === item.id;
 
         dateGroups
           .append("rect")
-          .attr("x", () => xSubgroupScale(movie.id) || 0)
+          .attr("x", () => xSubgroupScale(item.id) || 0)
           .attr("y", (d) => {
-            const dailyEntry = movie.daily.find((mDaily) => mDaily.date === d.date);
+            const dailyEntry = item.daily.find((mDaily) => mDaily.date === d.date);
             const val = activeMetric === "revenue" ? dailyEntry?.revenue || 0 : dailyEntry?.tickets || 0;
             return yScale(val);
           })
           .attr("width", xSubgroupScale.bandwidth())
           .attr("height", (d) => {
-            const dailyEntry = movie.daily.find((mDaily) => mDaily.date === d.date);
+            const dailyEntry = item.daily.find((mDaily) => mDaily.date === d.date);
             const val = activeMetric === "revenue" ? dailyEntry?.revenue || 0 : dailyEntry?.tickets || 0;
             return Math.max(innerHeight - yScale(val), 0);
           })
           .attr("rx", 4)
-          .attr("fill", movieColor)
+          .attr("fill", itemColor)
           .attr("opacity", isDimmed ? 0.2 : isHighlighted ? 1 : 0.85)
           .style("transition", "all 0.2s ease")
           .style("cursor", "pointer")
           .on("mouseenter", (event, d) => {
-            setHoveredMovieId(movie.id);
-            const dailyEntry = movie.daily.find((mDaily) => mDaily.date === d.date);
+            setHoveredItemId(item.id);
+            const dailyEntry = item.daily.find((mDaily) => mDaily.date === d.date);
             const val = activeMetric === "revenue" ? dailyEntry?.revenue || 0 : dailyEntry?.tickets || 0;
             const formatted = activeMetric === "revenue" ? formatCurrency(val) : `${formatNumber(val)} tiket`;
 
@@ -427,8 +456,8 @@ export default function MovieAnalyticsChart({
                 <div class="p-3 bg-zinc-900/95 dark:bg-zinc-950/95 text-white backdrop-blur-md rounded-2xl shadow-xl border border-zinc-700/50 text-xs space-y-1.5">
                   <div class="text-indigo-400 font-semibold">${d.dayName}, ${d.displayDate}</div>
                   <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${movieColor}"></span>
-                    <span class="font-bold text-white">${movie.title}</span>
+                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${itemColor}"></span>
+                    <span class="font-bold text-white">${item.title}</span>
                   </div>
                   <div class="text-zinc-300 font-medium">
                     ${activeMetric === "revenue" ? "Pendapatan" : "Tiket"}: <span class="font-bold text-white">${formatted}</span>
@@ -443,19 +472,20 @@ export default function MovieAnalyticsChart({
             tooltip.style("left", `${event.clientX + 15}px`).style("top", `${event.clientY - 30}px`);
           })
           .on("mouseleave", () => {
-            setHoveredMovieId(null);
+            setHoveredItemId(null);
             tooltip.style("display", "none");
           });
       });
     }
   }, [
-    data,
+    dailyTotals,
+    items,
     activeMetric,
     chartType,
-    selectedMovieId,
-    displayMovies,
-    movieColorMap,
-    hoveredMovieId,
+    selectedItemId,
+    displayItems,
+    itemColorMap,
+    hoveredItemId,
     theme,
     formatCurrency,
     formatNumber,
@@ -480,30 +510,30 @@ export default function MovieAnalyticsChart({
           <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
             {t("analytics.legendHelp")}
           </p>
-          {onSelectMovie && selectedMovieId !== "ALL" && (
+          {onSelectItem && selectedItemId !== "ALL" && (
             <button
-              onClick={() => onSelectMovie("ALL")}
+              onClick={() => onSelectItem("ALL")}
               className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
             >
-              ← {t("analytics.allMovies")}
+              ← {allLabel}
             </button>
           )}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {data.movies.map((movie) => {
-            const color = movieColorMap[movie.id];
-            const isSelected = selectedMovieId === movie.id || selectedMovieId === "ALL";
-            const isHovered = hoveredMovieId === movie.id;
+          {items.map((item) => {
+            const color = itemColorMap[item.id] || "#6366F1";
+            const isSelected = selectedItemId === item.id || selectedItemId === "ALL";
+            const isHovered = hoveredItemId === item.id;
 
             return (
               <button
-                key={movie.id}
-                onClick={() => onSelectMovie && onSelectMovie(selectedMovieId === movie.id ? "ALL" : movie.id)}
-                onMouseEnter={() => setHoveredMovieId(movie.id)}
-                onMouseLeave={() => setHoveredMovieId(null)}
+                key={item.id}
+                onClick={() => onSelectItem && onSelectItem(selectedItemId === item.id ? "ALL" : item.id)}
+                onMouseEnter={() => setHoveredItemId(item.id)}
+                onMouseLeave={() => setHoveredItemId(null)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border ${
-                  isHovered || (selectedMovieId === movie.id && selectedMovieId !== "ALL")
+                  isHovered || (selectedItemId === item.id && selectedItemId !== "ALL")
                     ? "bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 shadow-xs scale-105"
                     : isSelected
                     ? "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300"
@@ -515,12 +545,12 @@ export default function MovieAnalyticsChart({
                   style={{ backgroundColor: color }}
                 />
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200 max-w-[140px] truncate">
-                  {movie.title}
+                  {item.title}
                 </span>
                 <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[11px]">
                   {activeMetric === "revenue"
-                    ? formatCurrency(movie.totalRevenue)
-                    : `${formatNumber(movie.totalTickets)} tkt`}
+                    ? formatCurrency(item.totalRevenue)
+                    : `${formatNumber(item.totalTickets)} tkt`}
                 </span>
               </button>
             );

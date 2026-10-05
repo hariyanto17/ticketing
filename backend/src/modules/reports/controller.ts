@@ -48,8 +48,9 @@ export const exportFilmSalesExcelController = async (req: Request, res: Response
 export const getMovieAnalyticsController = async (req: Request, res: Response) => {
   const days = req.query.days ? parseInt(req.query.days as string, 10) : 7;
   const endDate = req.query.endDate as string | undefined;
+  const startDate = req.query.startDate as string | undefined;
   const branchId = (req.user as any)?.branchId;
-  const analytics = await service.getMovieAnalytics(branchId, isNaN(days) ? 7 : days, endDate);
+  const analytics = await service.getMovieAnalytics(branchId, isNaN(days) ? 7 : days, endDate, startDate);
   return responseHandler.ok(res, analytics, "Movie analytics retrieved successfully");
 };
 

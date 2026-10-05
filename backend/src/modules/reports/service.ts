@@ -306,6 +306,22 @@ export interface MovieAnalyticsDailyItem {
   showtimesCount: number;
 }
 
+export type MomentumDirection = "UP" | "SLIGHT_UP" | "STABLE" | "SLIGHT_DOWN" | "DOWN" | "NONE";
+export type MomentumLabel = "Naik" | "Cenderung Naik" | "Stabil" | "Cenderung Turun" | "Turun" | "Tidak tersedia";
+
+export interface MovieStudioBreakdownItem {
+  studioId: string;
+  studioName: string;
+  studioCode: string;
+  shows: number;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+  ticketsPerShow: number;
+  revenuePerShow: number;
+}
+
 export interface MovieAnalyticsMovieItem {
   id: string;
   title: string;
@@ -316,12 +332,33 @@ export interface MovieAnalyticsMovieItem {
   totalTickets: number;
   totalRevenue: number;
   totalShowtimes: number;
+  totalCapacity: number;
+  occupancy: number;
   ticketsPerShow: number;
+  revenuePerShow: number;
   averageTicketPrice: number;
   revenueShare: number;
   ticketShare: number;
-  trendDirection: "UP" | "DOWN" | "STABLE";
-  trendPercentage: number;
+  peakHour: string;
+  bestStudio: string;
+  momentum: {
+    direction: MomentumDirection;
+    label: MomentumLabel;
+    growthPercentage: number;
+    currentTickets: number;
+    previousTickets: number;
+  };
+  recommendation: {
+    action: "INCREASE" | "MAINTAIN" | "REDUCE" | "MONITOR";
+    label: string;
+    reason: string;
+  };
+  healthScore: {
+    score: number;
+    status: "STRONG" | "NORMAL" | "WEAK" | "CRITICAL";
+    label: string;
+  };
+  studiosBreakdown: MovieStudioBreakdownItem[];
   daily: MovieAnalyticsDailyItem[];
 }
 
@@ -333,11 +370,19 @@ export interface GenreAnalyticsItem {
   totalTickets: number;
   totalRevenue: number;
   totalShowtimes: number;
+  totalCapacity: number;
+  occupancy: number;
   ticketsPerShow: number;
+  revenuePerShow: number;
   revenueShare: number;
   ticketShare: number;
-  trendDirection: "UP" | "DOWN" | "STABLE";
-  trendPercentage: number;
+  momentum: {
+    direction: MomentumDirection;
+    label: MomentumLabel;
+    growthPercentage: number;
+    currentTickets: number;
+    previousTickets: number;
+  };
   daily: MovieAnalyticsDailyItem[];
 }
 
@@ -348,8 +393,10 @@ export interface StudioPerformanceItem {
   capacity: number;
   totalShowtimes: number;
   totalTickets: number;
+  totalCapacity: number;
   totalRevenue: number;
   averageTicketsPerShow: number;
+  averageRevenuePerShow: number;
   occupancyRate: number;
   revenueShare: number;
 }
@@ -361,9 +408,77 @@ export interface TimeSlotPerformanceItem {
   totalTickets: number;
   totalRevenue: number;
   showtimesCount: number;
+  totalCapacity: number;
+  occupancy: number;
   averageTicketsPerShow: number;
+  revenuePerShow: number;
   revenueShare: number;
   isPeak: boolean;
+}
+
+export interface ShowtimeHeatmapCell {
+  dayOfWeek: number; // 0=Sun, 1=Mon, ..., 6=Sat
+  dayName: string;
+  dayShort: string;
+  timeSlot: string; // e.g. "10:00 - 12:00"
+  slotKey: string;
+  showsCount: number;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+  ticketsPerShow: number;
+  revenuePerShow: number;
+}
+
+export interface IndividualShowAnalyticsItem {
+  showtimeId: string;
+  movieId: string;
+  movieTitle: string;
+  date: string;
+  displayDate: string;
+  time: string;
+  studioId: string;
+  studioName: string;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+}
+
+export interface DayOfWeekAnalyticsItem {
+  dayOfWeek: number;
+  dayName: string;
+  dayShort: string;
+  shows: number;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+  ticketsPerShow: number;
+  revenuePerShow: number;
+}
+
+export interface WeekdayWeekendComparison {
+  weekday: {
+    shows: number;
+    tickets: number;
+    capacity: number;
+    occupancy: number;
+    revenue: number;
+    ticketsPerShow: number;
+    revenuePerShow: number;
+  };
+  weekend: {
+    shows: number;
+    tickets: number;
+    capacity: number;
+    occupancy: number;
+    revenue: number;
+    ticketsPerShow: number;
+    revenuePerShow: number;
+  };
+  weekendLiftPercentage: number;
 }
 
 export interface MovieAnalyticsResponse {
@@ -372,11 +487,15 @@ export interface MovieAnalyticsResponse {
     endDate: string;
     days: number;
     timezone: string;
+    previousStartDate: string;
+    previousEndDate: string;
   };
   summary: {
     totalRevenue: number;
     totalTickets: number;
     totalShowtimes: number;
+    totalCapacity: number;
+    averageOccupancy: number;
     activeMoviesCount: number;
     averageTicketsPerShow: number;
     averageRevenuePerShow: number;
@@ -388,12 +507,15 @@ export interface MovieAnalyticsResponse {
       poster: string | null;
       revenue: number;
       tickets: number;
+      occupancy: number;
+      recommendation: string;
     } | null;
     topGenre: {
       name: string;
       revenue: number;
       tickets: number;
       moviesCount: number;
+      revenueShare: number;
     } | null;
     highestSalesDay: {
       date: string;
@@ -406,6 +528,7 @@ export interface MovieAnalyticsResponse {
       timeRange: string;
       revenue: number;
       tickets: number;
+      occupancy: number;
     } | null;
   };
   dailyTotals: Array<{
@@ -416,6 +539,8 @@ export interface MovieAnalyticsResponse {
     totalTickets: number;
     totalRevenue: number;
     totalShowtimes: number;
+    totalCapacity: number;
+    occupancy: number;
     movieBreakdown: Array<{
       movieId: string;
       title: string;
@@ -427,13 +552,18 @@ export interface MovieAnalyticsResponse {
   genres: GenreAnalyticsItem[];
   studioPerformance: StudioPerformanceItem[];
   timeSlotPerformance: TimeSlotPerformanceItem[];
+  showtimeHeatmap: ShowtimeHeatmapCell[];
+  bestShows: IndividualShowAnalyticsItem[];
+  underperformingShows: IndividualShowAnalyticsItem[];
+  dayOfWeekAnalytics: DayOfWeekAnalyticsItem[];
+  weekdayWeekendComparison: WeekdayWeekendComparison;
 }
-
 
 export const getMovieAnalytics = async (
   branchId?: string,
   daysCount: number = 7,
-  targetEndDate?: string
+  targetEndDate?: string,
+  targetStartDate?: string
 ): Promise<MovieAnalyticsResponse> => {
   const branch = branchId
     ? await prisma.branch.findUnique({ where: { id: branchId } })
@@ -453,17 +583,26 @@ export const getMovieAnalytics = async (
     baseEndDateStr = new Intl.DateTimeFormat("sv-SE", { timeZone: timezone }).format(new Date());
   }
 
-  // Parse baseEndDate to date in UTC safely
   const [endYear, endMonth, endDay] = baseEndDateStr.split("-").map(Number);
   const endDateObj = new Date(Date.UTC(endYear, endMonth - 1, endDay, 12, 0, 0));
 
-  // Build the list of consecutive dates (last `daysCount` days)
-  const dateList: Array<{ date: string; dateObj: Date; dayName: string; dayShort: string; displayDate: string }> = [];
+  let effectiveDaysCount = daysCount;
+  if (targetStartDate) {
+    const [startYear, startMonth, startDay] = targetStartDate.split("-").map(Number);
+    const startDateObj = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12, 0, 0));
+    const diffDays = Math.round((endDateObj.getTime() - startDateObj.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    if (diffDays > 0) {
+      effectiveDaysCount = Math.min(diffDays, 180);
+    }
+  }
+
   const dayNamesId = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
   const dayShortsId = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
   const monthsId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
 
-  for (let i = daysCount - 1; i >= 0; i--) {
+  // Current period date list
+  const dateList: Array<{ date: string; dateObj: Date; dayName: string; dayShort: string; displayDate: string }> = [];
+  for (let i = effectiveDaysCount - 1; i >= 0; i--) {
     const d = new Date(endDateObj.getTime() - i * 24 * 60 * 60 * 1000);
     const dateStr = d.toISOString().split("T")[0];
     const dayOfWeek = d.getUTCDay();
@@ -482,6 +621,20 @@ export const getMovieAnalytics = async (
   const startDateStr = dateList[0].date;
   const finalEndDateStr = dateList[dateList.length - 1].date;
   const dateSet = new Set(dateList.map((d) => d.date));
+
+  // Previous period date list (for momentum comparison)
+  const prevDateList: Array<{ date: string }> = [];
+  for (let i = effectiveDaysCount * 2 - 1; i >= effectiveDaysCount; i--) {
+    const d = new Date(endDateObj.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toISOString().split("T")[0];
+    prevDateList.push({ date: dateStr });
+  }
+  const prevStartDateStr = prevDateList[0]?.date || startDateStr;
+  const prevEndDateStr = prevDateList[prevDateList.length - 1]?.date || startDateStr;
+  const prevDateSet = new Set(prevDateList.map((d) => d.date));
+
+  // Combined date set for DB filtering
+  const allNeededDates = new Set([...dateSet, ...prevDateSet]);
 
   // Fetch showtimes
   let showtimes = await prisma.showtime.findMany({
@@ -545,7 +698,33 @@ export const getMovieAnalytics = async (
     });
   }
 
-  // Filter showtimes that fall in our date range
+  // Pre-calculate previous period movie & genre ticket totals
+  const prevMovieTickets = new Map<string, number>();
+  const prevGenreTickets = new Map<string, number>();
+
+  for (const s of showtimes) {
+    const rawDate = s.businessDate || s.startTime;
+    if (!rawDate) continue;
+    const dateStr = new Intl.DateTimeFormat("sv-SE", { timeZone: timezone }).format(new Date(rawDate));
+    if (!prevDateSet.has(dateStr)) continue;
+
+    let ticketsCount = 0;
+    for (const o of s.orders) {
+      ticketsCount += o.tickets.length;
+    }
+
+    if (s.movie) {
+      prevMovieTickets.set(s.movie.id, (prevMovieTickets.get(s.movie.id) || 0) + ticketsCount);
+
+      const genreObjects = (s.movie.genres?.map((g) => g.genre).filter(Boolean) as Array<{ id: string; name: string }>) || [];
+      const effectiveGenres = genreObjects.length > 0 ? genreObjects : [{ id: "general", name: "Umum" }];
+      for (const g of effectiveGenres) {
+        prevGenreTickets.set(g.id, (prevGenreTickets.get(g.id) || 0) + ticketsCount);
+      }
+    }
+  }
+
+  // Filter current period showtimes
   const relevantShowtimes = showtimes.filter((s) => {
     const rawDate = s.businessDate || s.startTime;
     if (!rawDate) return false;
@@ -553,7 +732,7 @@ export const getMovieAnalytics = async (
     return dateSet.has(dateStr);
   });
 
-  // Map to hold movie data
+  // Structures for current period aggregation
   const moviesMap = new Map<
     string,
     {
@@ -566,11 +745,13 @@ export const getMovieAnalytics = async (
       totalTickets: number;
       totalRevenue: number;
       totalShowtimes: number;
+      totalCapacity: number;
+      studiosMap: Map<string, { studioId: string; studioName: string; studioCode: string; shows: number; tickets: number; capacity: number; revenue: number }>;
+      hourCountsMap: Map<string, number>;
       dailyMap: Map<string, { tickets: number; revenue: number; showtimesCount: number }>;
     }
   >();
 
-  // Map to hold genre performance
   const genresMap = new Map<
     string,
     {
@@ -580,13 +761,12 @@ export const getMovieAnalytics = async (
       totalTickets: number;
       totalRevenue: number;
       totalShowtimes: number;
+      totalCapacity: number;
       dailyMap: Map<string, { tickets: number; revenue: number; showtimesCount: number }>;
     }
   >();
 
-  // Map to hold studio performance
   const studiosMap = new Map<
-
     string,
     {
       studioId: string;
@@ -595,17 +775,23 @@ export const getMovieAnalytics = async (
       capacity: number;
       totalShowtimes: number;
       totalTickets: number;
+      totalCapacity: number;
       totalRevenue: number;
     }
   >();
 
-  // Map to hold time slot performance (slots by hour)
+  // Slot definitions according to requirements:
+  // Morning: 06:00 - 11:59
+  // Afternoon: 12:00 - 15:59
+  // Evening: 16:00 - 18:59
+  // Prime Time: 19:00 - 21:59
+  // Late Night: 22:00+
   const slotDefinitions = [
-    { key: "MORNING", label: "Pagi / Siang Awal", timeRange: "10:00 - 13:00", startHour: 10, endHour: 13 },
-    { key: "AFTERNOON", label: "Siang / Sore", timeRange: "13:00 - 16:30", startHour: 13, endHour: 16.5 },
-    { key: "LATE_AFTERNOON", label: "Sore / Senja", timeRange: "16:30 - 19:00", startHour: 16.5, endHour: 19 },
-    { key: "PRIME_TIME", label: "Prime Time Malam", timeRange: "19:00 - 21:30", startHour: 19, endHour: 21.5 },
-    { key: "LATE_NIGHT", label: "Malam / Late Night", timeRange: "21:30+", startHour: 21.5, endHour: 24 },
+    { key: "MORNING", label: "Pagi (Morning)", timeRange: "06:00 - 11:59", minHour: 6, maxHour: 12 },
+    { key: "AFTERNOON", label: "Siang (Afternoon)", timeRange: "12:00 - 15:59", minHour: 12, maxHour: 16 },
+    { key: "EVENING", label: "Sore (Evening)", timeRange: "16:00 - 18:59", minHour: 16, maxHour: 19 },
+    { key: "PRIME_TIME", label: "Prime Time", timeRange: "19:00 - 21:59", minHour: 19, maxHour: 22 },
+    { key: "LATE_NIGHT", label: "Larut Malam (Late Night)", timeRange: "22:00+", minHour: 22, maxHour: 30 },
   ];
 
   const timeSlotsMap = new Map<
@@ -617,6 +803,7 @@ export const getMovieAnalytics = async (
       totalTickets: number;
       totalRevenue: number;
       showtimesCount: number;
+      totalCapacity: number;
     }
   >();
 
@@ -628,16 +815,38 @@ export const getMovieAnalytics = async (
       totalTickets: 0,
       totalRevenue: 0,
       showtimesCount: 0,
+      totalCapacity: 0,
     });
   }
 
-  // Map to hold daily aggregate totals
+  // Heatmap definitions (Day of week × 2-hour buckets)
+  const heatmapBuckets = [
+    { key: "10:00", label: "10:00 - 11:59", minH: 0, maxH: 12 },
+    { key: "12:00", label: "12:00 - 13:59", minH: 12, maxH: 14 },
+    { key: "14:00", label: "14:00 - 15:59", minH: 14, maxH: 16 },
+    { key: "16:00", label: "16:00 - 17:59", minH: 16, maxH: 18 },
+    { key: "18:00", label: "18:00 - 19:59", minH: 18, maxH: 20 },
+    { key: "20:00", label: "20:00 - 21:59", minH: 20, maxH: 22 },
+    { key: "22:00", label: "22:00+", minH: 22, maxH: 30 },
+  ];
+
+  // Key: `${dayOfWeek}_${bucketKey}`
+  const heatmapDataMap = new Map<string, { shows: number; tickets: number; capacity: number; revenue: number }>();
+
+  // Day of week analytics (0 to 6)
+  const dayOfWeekMap = new Map<number, { shows: number; tickets: number; capacity: number; revenue: number }>();
+  for (let d = 0; d < 7; d++) {
+    dayOfWeekMap.set(d, { shows: 0, tickets: 0, capacity: 0, revenue: 0 });
+  }
+
+  // Daily totals map
   const dailyTotalsMap = new Map<
     string,
     {
       tickets: number;
       revenue: number;
       showtimesCount: number;
+      capacity: number;
       movieBreakdownMap: Map<string, { movieId: string; title: string; tickets: number; revenue: number }>;
     }
   >();
@@ -647,9 +856,12 @@ export const getMovieAnalytics = async (
       tickets: 0,
       revenue: 0,
       showtimesCount: 0,
+      capacity: 0,
       movieBreakdownMap: new Map(),
     });
   }
+
+  const individualShowsList: IndividualShowAnalyticsItem[] = [];
 
   // Process all relevant showtimes
   for (const s of relevantShowtimes) {
@@ -660,6 +872,71 @@ export const getMovieAnalytics = async (
     const movie = s.movie;
     if (!movie) continue;
 
+    const studio = s.studio;
+    const studioCapacity = studio?.capacity || 100;
+
+    // Count tickets & revenue
+    let showtimeTickets = 0;
+    let showtimeRevenue = 0;
+
+    for (const order of s.orders) {
+      const activeTickets = order.tickets.length;
+      showtimeTickets += activeTickets;
+      showtimeRevenue += activeTickets * s.ticketPrice;
+    }
+
+    // Individual show record
+    const startTimeDate = new Date(s.startTime);
+    const timeFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false });
+    const formattedTime = timeFormatter.format(startTimeDate);
+    const showOccupancy = studioCapacity > 0 ? Number(((showtimeTickets / studioCapacity) * 100).toFixed(1)) : 0;
+
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const displayDateStr = `${d.toString().padStart(2, "0")} ${monthsId[m - 1]}`;
+
+    individualShowsList.push({
+      showtimeId: s.id,
+      movieId: movie.id,
+      movieTitle: movie.title,
+      date: dateStr,
+      displayDate: displayDateStr,
+      time: formattedTime,
+      studioId: studio?.id || "",
+      studioName: studio?.name || "Studio",
+      tickets: showtimeTickets,
+      capacity: studioCapacity,
+      occupancy: showOccupancy,
+      revenue: showtimeRevenue,
+    });
+
+    // Extract hour in timezone
+    const hourVal = parseInt(formattedTime.split(":")[0], 10) + parseInt(formattedTime.split(":")[1] || "0", 10) / 60;
+    const dayOfWeekVal = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).getUTCDay();
+
+    // Accumulate day of week
+    const dowEntry = dayOfWeekMap.get(dayOfWeekVal)!;
+    dowEntry.shows += 1;
+    dowEntry.tickets += showtimeTickets;
+    dowEntry.capacity += studioCapacity;
+    dowEntry.revenue += showtimeRevenue;
+
+    // Accumulate heatmap
+    let matchedBucketKey = "10:00";
+    for (const b of heatmapBuckets) {
+      if (hourVal >= b.minH && hourVal < b.maxH) {
+        matchedBucketKey = b.key;
+        break;
+      }
+    }
+    const hmKey = `${dayOfWeekVal}_${matchedBucketKey}`;
+    const hmEntry = heatmapDataMap.get(hmKey) || { shows: 0, tickets: 0, capacity: 0, revenue: 0 };
+    hmEntry.shows += 1;
+    hmEntry.tickets += showtimeTickets;
+    hmEntry.capacity += studioCapacity;
+    hmEntry.revenue += showtimeRevenue;
+    heatmapDataMap.set(hmKey, hmEntry);
+
+    // Initialize movie entry
     if (!moviesMap.has(movie.id)) {
       const dailyMap = new Map<string, { tickets: number; revenue: number; showtimesCount: number }>();
       for (const dl of dateList) {
@@ -676,6 +953,9 @@ export const getMovieAnalytics = async (
         totalTickets: 0,
         totalRevenue: 0,
         totalShowtimes: 0,
+        totalCapacity: 0,
+        studiosMap: new Map(),
+        hourCountsMap: new Map(),
         dailyMap,
       });
     }
@@ -684,69 +964,76 @@ export const getMovieAnalytics = async (
     const movieDaily = movieEntry.dailyMap.get(dateStr)!;
     const dailyTotal = dailyTotalsMap.get(dateStr)!;
 
-    // Studio tracking
-    const studio = s.studio;
-    if (studio && !studiosMap.has(studio.id)) {
-      studiosMap.set(studio.id, {
-        studioId: studio.id,
-        studioName: studio.name,
-        studioCode: studio.code,
-        capacity: studio.capacity || 100,
-        totalShowtimes: 0,
-        totalTickets: 0,
-        totalRevenue: 0,
-      });
-    }
-
-    // Time Slot tracking
-    const startDate = new Date(s.startTime);
-    const startHour = startDate.getUTCHours() + startDate.getUTCMinutes() / 60; // approximate or local
-    let matchedSlotKey = "PRIME_TIME";
-    if (startHour < 13) matchedSlotKey = "MORNING";
-    else if (startHour < 16.5) matchedSlotKey = "AFTERNOON";
-    else if (startHour < 19) matchedSlotKey = "LATE_AFTERNOON";
-    else if (startHour < 21.5) matchedSlotKey = "PRIME_TIME";
-    else matchedSlotKey = "LATE_NIGHT";
-
-    const timeSlotEntry = timeSlotsMap.get(matchedSlotKey);
-
-    // Count tickets & revenue for this showtime
-    let showtimeTickets = 0;
-    let showtimeRevenue = 0;
-
-    for (const order of s.orders) {
-      const activeTickets = order.tickets.length;
-      showtimeTickets += activeTickets;
-      showtimeRevenue += activeTickets * s.ticketPrice;
-    }
-
-    // Accumulate to movie
     movieEntry.totalTickets += showtimeTickets;
     movieEntry.totalRevenue += showtimeRevenue;
     movieEntry.totalShowtimes += 1;
+    movieEntry.totalCapacity += studioCapacity;
 
     movieDaily.tickets += showtimeTickets;
     movieDaily.revenue += showtimeRevenue;
     movieDaily.showtimesCount += 1;
 
-    // Accumulate to studio
-    if (studio && studiosMap.has(studio.id)) {
+    // Track movie studios
+    if (studio) {
+      const ms = movieEntry.studiosMap.get(studio.id) || {
+        studioId: studio.id,
+        studioName: studio.name,
+        studioCode: studio.code,
+        shows: 0,
+        tickets: 0,
+        capacity: 0,
+        revenue: 0,
+      };
+      ms.shows += 1;
+      ms.tickets += showtimeTickets;
+      ms.capacity += studioCapacity;
+      ms.revenue += showtimeRevenue;
+      movieEntry.studiosMap.set(studio.id, ms);
+    }
+
+    // Track movie hour popularity
+    const hourBucket = `${formattedTime.split(":")[0]}:00`;
+    movieEntry.hourCountsMap.set(hourBucket, (movieEntry.hourCountsMap.get(hourBucket) || 0) + showtimeTickets);
+
+    // Studio tracking
+    if (studio) {
+      if (!studiosMap.has(studio.id)) {
+        studiosMap.set(studio.id, {
+          studioId: studio.id,
+          studioName: studio.name,
+          studioCode: studio.code,
+          capacity: studioCapacity,
+          totalShowtimes: 0,
+          totalTickets: 0,
+          totalCapacity: 0,
+          totalRevenue: 0,
+        });
+      }
       const studioEntry = studiosMap.get(studio.id)!;
       studioEntry.totalShowtimes += 1;
       studioEntry.totalTickets += showtimeTickets;
+      studioEntry.totalCapacity += studioCapacity;
       studioEntry.totalRevenue += showtimeRevenue;
     }
 
-    // Accumulate to time slot
+    // Time Slot tracking
+    let matchedSlotKey = "PRIME_TIME";
+    if (hourVal < 12) matchedSlotKey = "MORNING";
+    else if (hourVal < 16) matchedSlotKey = "AFTERNOON";
+    else if (hourVal < 19) matchedSlotKey = "EVENING";
+    else if (hourVal < 22) matchedSlotKey = "PRIME_TIME";
+    else matchedSlotKey = "LATE_NIGHT";
+
+    const timeSlotEntry = timeSlotsMap.get(matchedSlotKey);
     if (timeSlotEntry) {
       timeSlotEntry.showtimesCount += 1;
       timeSlotEntry.totalTickets += showtimeTickets;
+      timeSlotEntry.totalCapacity += studioCapacity;
       timeSlotEntry.totalRevenue += showtimeRevenue;
     }
 
-    // Accumulate to genres
-    const genreObjects =
-      (movie.genres?.map((g) => g.genre).filter(Boolean) as Array<{ id: string; name: string }>) || [];
+    // Genre tracking
+    const genreObjects = (movie.genres?.map((g) => g.genre).filter(Boolean) as Array<{ id: string; name: string }>) || [];
     const effectiveGenres = genreObjects.length > 0 ? genreObjects : [{ id: "general", name: "Umum" }];
 
     for (const gen of effectiveGenres) {
@@ -762,6 +1049,7 @@ export const getMovieAnalytics = async (
           totalTickets: 0,
           totalRevenue: 0,
           totalShowtimes: 0,
+          totalCapacity: 0,
           dailyMap,
         });
       }
@@ -771,6 +1059,7 @@ export const getMovieAnalytics = async (
       genreEntry.totalTickets += showtimeTickets;
       genreEntry.totalRevenue += showtimeRevenue;
       genreEntry.totalShowtimes += 1;
+      genreEntry.totalCapacity += studioCapacity;
 
       const genreDaily = genreEntry.dailyMap.get(dateStr)!;
       genreDaily.tickets += showtimeTickets;
@@ -778,10 +1067,11 @@ export const getMovieAnalytics = async (
       genreDaily.showtimesCount += 1;
     }
 
-    // Accumulate to daily totals
+    // Daily totals
     dailyTotal.tickets += showtimeTickets;
     dailyTotal.revenue += showtimeRevenue;
     dailyTotal.showtimesCount += 1;
+    dailyTotal.capacity += studioCapacity;
 
     const currentMb = dailyTotal.movieBreakdownMap.get(movie.id) || {
       movieId: movie.id,
@@ -794,16 +1084,20 @@ export const getMovieAnalytics = async (
     dailyTotal.movieBreakdownMap.set(movie.id, currentMb);
   }
 
-  // Calculate overall totals
+  // Calculate grand totals
   let grandTotalRevenue = 0;
   let grandTotalTickets = 0;
   let grandTotalShowtimes = 0;
+  let grandTotalCapacity = 0;
 
   const dailyTotals = dateList.map((dl) => {
     const dt = dailyTotalsMap.get(dl.date)!;
     grandTotalRevenue += dt.revenue;
     grandTotalTickets += dt.tickets;
     grandTotalShowtimes += dt.showtimesCount;
+    grandTotalCapacity += dt.capacity;
+
+    const dayOccupancy = dt.capacity > 0 ? Number(((dt.tickets / dt.capacity) * 100).toFixed(1)) : 0;
 
     return {
       date: dl.date,
@@ -813,16 +1107,22 @@ export const getMovieAnalytics = async (
       totalTickets: dt.tickets,
       totalRevenue: dt.revenue,
       totalShowtimes: dt.showtimesCount,
+      totalCapacity: dt.capacity,
+      occupancy: dayOccupancy,
       movieBreakdown: Array.from(dt.movieBreakdownMap.values()),
     };
   });
 
-  // Convert moviesMap to array and compute shares & momentum trend (Naik / Turun)
-  const moviesArray = Array.from(moviesMap.values()).map((m) => {
-    const revenueShare = grandTotalRevenue > 0 ? (m.totalRevenue / grandTotalRevenue) * 100 : 0;
-    const ticketShare = grandTotalTickets > 0 ? (m.totalTickets / grandTotalTickets) * 100 : 0;
+  const averageOccupancy = grandTotalCapacity > 0 ? Number(((grandTotalTickets / grandTotalCapacity) * 100).toFixed(1)) : 0;
+
+  // Build Movies Array with Momentum, Recommendations, Health Scores & Studios Breakdown
+  const moviesArray: MovieAnalyticsMovieItem[] = Array.from(moviesMap.values()).map((m) => {
+    const revenueShare = grandTotalRevenue > 0 ? Number(((m.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
+    const ticketShare = grandTotalTickets > 0 ? Number(((m.totalTickets / grandTotalTickets) * 100).toFixed(1)) : 0;
     const averageTicketPrice = m.totalTickets > 0 ? Math.round(m.totalRevenue / m.totalTickets) : 0;
     const ticketsPerShow = m.totalShowtimes > 0 ? Number((m.totalTickets / m.totalShowtimes).toFixed(1)) : 0;
+    const revenuePerShow = m.totalShowtimes > 0 ? Math.round(m.totalRevenue / m.totalShowtimes) : 0;
+    const movieOccupancy = m.totalCapacity > 0 ? Number(((m.totalTickets / m.totalCapacity) * 100).toFixed(1)) : 0;
 
     const daily = dateList.map((dl) => {
       const dm = m.dailyMap.get(dl.date)!;
@@ -837,22 +1137,124 @@ export const getMovieAnalytics = async (
       };
     });
 
-    // Calculate trend momentum: compare last 3 days vs first 3 days of the 7-day period
-    const earlyRevenue = daily.slice(0, 3).reduce((sum, d) => sum + d.revenue, 0);
-    const recentRevenue = daily.slice(-3).reduce((sum, d) => sum + d.revenue, 0);
+    // Studios breakdown for this movie
+    const studiosBreakdown: MovieStudioBreakdownItem[] = Array.from(m.studiosMap.values()).map((s) => ({
+      studioId: s.studioId,
+      studioName: s.studioName,
+      studioCode: s.studioCode,
+      shows: s.shows,
+      tickets: s.tickets,
+      capacity: s.capacity,
+      occupancy: s.capacity > 0 ? Number(((s.tickets / s.capacity) * 100).toFixed(1)) : 0,
+      revenue: s.revenue,
+      ticketsPerShow: s.shows > 0 ? Number((s.tickets / s.shows).toFixed(1)) : 0,
+      revenuePerShow: s.shows > 0 ? Math.round(s.revenue / s.shows) : 0,
+    }));
+    studiosBreakdown.sort((a, b) => b.occupancy - a.occupancy || b.tickets - a.tickets);
 
-    let trendPercentage = 0;
-    let trendDirection: "UP" | "DOWN" | "STABLE" = "STABLE";
+    const bestStudio = studiosBreakdown.length > 0 ? studiosBreakdown[0].studioName : "-";
 
-    if (earlyRevenue > 0) {
-      trendPercentage = Number((((recentRevenue - earlyRevenue) / earlyRevenue) * 100).toFixed(1));
-    } else if (recentRevenue > 0) {
-      trendPercentage = 100;
+    // Peak Hour calculation
+    let peakHourStr = "-";
+    let maxHourTickets = 0;
+    for (const [hour, tCount] of m.hourCountsMap.entries()) {
+      if (tCount > maxHourTickets) {
+        maxHourTickets = tCount;
+        peakHourStr = hour;
+      }
     }
 
-    if (trendPercentage > 5) trendDirection = "UP";
-    else if (trendPercentage < -5) trendDirection = "DOWN";
-    else trendDirection = "STABLE";
+    // Momentum Calculation comparing current period vs previous period
+    const prevTix = prevMovieTickets.get(m.id) || 0;
+    const currTix = m.totalTickets;
+
+    let growthPercentage = 0;
+    let direction: MomentumDirection = "STABLE";
+    let label: MomentumLabel = "Stabil";
+
+    if (prevTix === 0 && currTix === 0) {
+      direction = "NONE";
+      label = "Tidak tersedia";
+      growthPercentage = 0;
+    } else if (prevTix === 0 && currTix > 0) {
+      direction = "UP";
+      label = "Naik";
+      growthPercentage = 100;
+    } else {
+      growthPercentage = Number((((currTix - prevTix) / prevTix) * 100).toFixed(1));
+      if (growthPercentage > 15) {
+        direction = "UP";
+        label = "Naik";
+      } else if (growthPercentage >= 5) {
+        direction = "SLIGHT_UP";
+        label = "Cenderung Naik";
+      } else if (growthPercentage >= -5) {
+        direction = "STABLE";
+        label = "Stabil";
+      } else if (growthPercentage >= -15) {
+        direction = "SLIGHT_DOWN";
+        label = "Cenderung Turun";
+      } else {
+        direction = "DOWN";
+        label = "Turun";
+      }
+    }
+
+    // Deterministic Rule-Based Recommendation
+    let recAction: "INCREASE" | "MAINTAIN" | "REDUCE" | "MONITOR" = "MONITOR";
+    let recLabel = "Pantau";
+    let recReason = "Data tayang masih sedikit";
+
+    if (m.totalShowtimes < 3) {
+      recAction = "MONITOR";
+      recLabel = "Pantau";
+      recReason = "Penayangan masih baru / terbatas (< 3 show)";
+    } else if (movieOccupancy >= 60 || (movieOccupancy >= 45 && (direction === "UP" || direction === "SLIGHT_UP")) || ticketsPerShow >= 35) {
+      recAction = "INCREASE";
+      recLabel = "Tambah Jam Tayang";
+      recReason = `Okupansi tinggi (${movieOccupancy}%) dengan momentum ${label.toLowerCase()}`;
+    } else if (movieOccupancy < 30 || (movieOccupancy < 40 && (direction === "DOWN" || direction === "SLIGHT_DOWN"))) {
+      recAction = "REDUCE";
+      recLabel = "Kurangi Jam Tayang";
+      recReason = `Okupansi rendah (${movieOccupancy}%) dan permintaan menurun`;
+    } else {
+      recAction = "MAINTAIN";
+      recLabel = "Pertahankan";
+      recReason = `Kinerja stabil dengan rata-rata ${ticketsPerShow} tiket/show`;
+    }
+
+    // Health Score (0 - 100)
+    // 30% Occupancy, 25% Tickets/Show, 20% Revenue/Show, 15% Momentum, 10% Recent Trend
+    const normOccupancy = Math.min(100, Math.max(0, movieOccupancy));
+    const normTicketsPerShow = Math.min(100, Math.max(0, (ticketsPerShow / 40) * 100));
+    const normRevPerShow = Math.min(100, Math.max(0, (revenuePerShow / 1_500_000) * 100));
+    const normMomentum = Math.min(100, Math.max(0, 50 + growthPercentage * 2.5));
+    const normTrend = direction === "UP" ? 100 : direction === "SLIGHT_UP" ? 75 : direction === "STABLE" ? 50 : direction === "SLIGHT_DOWN" ? 25 : 10;
+
+    const rawScore = Math.round(
+      0.30 * normOccupancy +
+      0.25 * normTicketsPerShow +
+      0.20 * normRevPerShow +
+      0.15 * normMomentum +
+      0.10 * normTrend
+    );
+    const healthScoreVal = Math.max(0, Math.min(100, rawScore));
+
+    let hsStatus: "STRONG" | "NORMAL" | "WEAK" | "CRITICAL" = "NORMAL";
+    let hsLabel = "Normal";
+    if (healthScoreVal >= 80) {
+      hsStatus = "STRONG";
+      hsLabel = "Sangat Baik";
+    } else if (healthScoreVal >= 60) {
+      hsStatus = "NORMAL";
+      hsLabel = "Normal";
+    } else if (healthScoreVal >= 40) {
+      hsStatus = "WEAK";
+      hsLabel = "Kurang";
+    } else {
+      hsStatus = "CRITICAL";
+      hsLabel = "Kritis";
+    }
 
     return {
       id: m.id,
@@ -864,24 +1266,46 @@ export const getMovieAnalytics = async (
       totalTickets: m.totalTickets,
       totalRevenue: m.totalRevenue,
       totalShowtimes: m.totalShowtimes,
+      totalCapacity: m.totalCapacity,
+      occupancy: movieOccupancy,
       ticketsPerShow,
+      revenuePerShow,
       averageTicketPrice,
-      revenueShare: Number(revenueShare.toFixed(1)),
-      ticketShare: Number(ticketShare.toFixed(1)),
-      trendDirection,
-      trendPercentage,
+      revenueShare,
+      ticketShare,
+      peakHour: peakHourStr,
+      bestStudio,
+      momentum: {
+        direction,
+        label,
+        growthPercentage,
+        currentTickets: currTix,
+        previousTickets: prevTix,
+      },
+      recommendation: {
+        action: recAction,
+        label: recLabel,
+        reason: recReason,
+      },
+      healthScore: {
+        score: healthScoreVal,
+        status: hsStatus,
+        label: hsLabel,
+      },
+      studiosBreakdown,
       daily,
     };
   });
 
-  // Sort movies by total revenue descending
   moviesArray.sort((a, b) => b.totalRevenue - a.totalRevenue || b.totalTickets - a.totalTickets);
 
-  // Convert genresMap to array
+  // Convert Genres
   const genresArray: GenreAnalyticsItem[] = Array.from(genresMap.values()).map((g) => {
     const revenueShare = grandTotalRevenue > 0 ? Number(((g.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
     const ticketShare = grandTotalTickets > 0 ? Number(((g.totalTickets / grandTotalTickets) * 100).toFixed(1)) : 0;
     const ticketsPerShow = g.totalShowtimes > 0 ? Number((g.totalTickets / g.totalShowtimes).toFixed(1)) : 0;
+    const revenuePerShow = g.totalShowtimes > 0 ? Math.round(g.totalRevenue / g.totalShowtimes) : 0;
+    const genreOccupancy = g.totalCapacity > 0 ? Number(((g.totalTickets / g.totalCapacity) * 100).toFixed(1)) : 0;
 
     const daily = dateList.map((dl) => {
       const dm = g.dailyMap.get(dl.date)!;
@@ -896,21 +1320,40 @@ export const getMovieAnalytics = async (
       };
     });
 
-    const earlyRevenue = daily.slice(0, 3).reduce((sum, d) => sum + d.revenue, 0);
-    const recentRevenue = daily.slice(-3).reduce((sum, d) => sum + d.revenue, 0);
+    const prevTix = prevGenreTickets.get(g.id) || 0;
+    const currTix = g.totalTickets;
 
-    let trendPercentage = 0;
-    let trendDirection: "UP" | "DOWN" | "STABLE" = "STABLE";
+    let growthPercentage = 0;
+    let direction: MomentumDirection = "STABLE";
+    let label: MomentumLabel = "Stabil";
 
-    if (earlyRevenue > 0) {
-      trendPercentage = Number((((recentRevenue - earlyRevenue) / earlyRevenue) * 100).toFixed(1));
-    } else if (recentRevenue > 0) {
-      trendPercentage = 100;
+    if (prevTix === 0 && currTix === 0) {
+      direction = "NONE";
+      label = "Tidak tersedia";
+      growthPercentage = 0;
+    } else if (prevTix === 0 && currTix > 0) {
+      direction = "UP";
+      label = "Naik";
+      growthPercentage = 100;
+    } else {
+      growthPercentage = Number((((currTix - prevTix) / prevTix) * 100).toFixed(1));
+      if (growthPercentage > 15) {
+        direction = "UP";
+        label = "Naik";
+      } else if (growthPercentage >= 5) {
+        direction = "SLIGHT_UP";
+        label = "Cenderung Naik";
+      } else if (growthPercentage >= -5) {
+        direction = "STABLE";
+        label = "Stabil";
+      } else if (growthPercentage >= -15) {
+        direction = "SLIGHT_DOWN";
+        label = "Cenderung Turun";
+      } else {
+        direction = "DOWN";
+        label = "Turun";
+      }
     }
-
-    if (trendPercentage > 5) trendDirection = "UP";
-    else if (trendPercentage < -5) trendDirection = "DOWN";
-    else trendDirection = "STABLE";
 
     return {
       id: g.id,
@@ -920,23 +1363,31 @@ export const getMovieAnalytics = async (
       totalTickets: g.totalTickets,
       totalRevenue: g.totalRevenue,
       totalShowtimes: g.totalShowtimes,
+      totalCapacity: g.totalCapacity,
+      occupancy: genreOccupancy,
       ticketsPerShow,
+      revenuePerShow,
       revenueShare,
       ticketShare,
-      trendDirection,
-      trendPercentage,
+      momentum: {
+        direction,
+        label,
+        growthPercentage,
+        currentTickets: currTix,
+        previousTickets: prevTix,
+      },
       daily,
     };
   });
 
   genresArray.sort((a, b) => b.totalRevenue - a.totalRevenue || b.totalTickets - a.totalTickets);
 
-  // Convert studio performance to array
+  // Convert Studios
   const studioPerformance: StudioPerformanceItem[] = Array.from(studiosMap.values()).map((st) => {
     const revenueShare = grandTotalRevenue > 0 ? Number(((st.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
-    const totalPotentialSeats = st.totalShowtimes * st.capacity;
-    const occupancyRate = totalPotentialSeats > 0 ? Number(((st.totalTickets / totalPotentialSeats) * 100).toFixed(1)) : 0;
+    const occupancyRate = st.totalCapacity > 0 ? Number(((st.totalTickets / st.totalCapacity) * 100).toFixed(1)) : 0;
     const averageTicketsPerShow = st.totalShowtimes > 0 ? Number((st.totalTickets / st.totalShowtimes).toFixed(1)) : 0;
+    const averageRevenuePerShow = st.totalShowtimes > 0 ? Math.round(st.totalRevenue / st.totalShowtimes) : 0;
 
     return {
       studioId: st.studioId,
@@ -945,8 +1396,10 @@ export const getMovieAnalytics = async (
       capacity: st.capacity,
       totalShowtimes: st.totalShowtimes,
       totalTickets: st.totalTickets,
+      totalCapacity: st.totalCapacity,
       totalRevenue: st.totalRevenue,
       averageTicketsPerShow,
+      averageRevenuePerShow,
       occupancyRate,
       revenueShare,
     };
@@ -954,10 +1407,12 @@ export const getMovieAnalytics = async (
 
   studioPerformance.sort((a, b) => b.totalRevenue - a.totalRevenue);
 
-  // Convert time slot performance to array
+  // Convert Time Slots
   const timeSlotPerformance: TimeSlotPerformanceItem[] = Array.from(timeSlotsMap.values()).map((slot) => {
     const revenueShare = grandTotalRevenue > 0 ? Number(((slot.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
+    const occupancy = slot.totalCapacity > 0 ? Number(((slot.totalTickets / slot.totalCapacity) * 100).toFixed(1)) : 0;
     const averageTicketsPerShow = slot.showtimesCount > 0 ? Number((slot.totalTickets / slot.showtimesCount).toFixed(1)) : 0;
+    const revenuePerShow = slot.showtimesCount > 0 ? Math.round(slot.totalRevenue / slot.showtimesCount) : 0;
 
     return {
       slotKey: slot.slotKey,
@@ -966,13 +1421,15 @@ export const getMovieAnalytics = async (
       totalTickets: slot.totalTickets,
       totalRevenue: slot.totalRevenue,
       showtimesCount: slot.showtimesCount,
+      totalCapacity: slot.totalCapacity,
+      occupancy,
       averageTicketsPerShow,
+      revenuePerShow,
       revenueShare,
       isPeak: false,
     };
   });
 
-  // Find peak time slot
   let peakTimeSlotItem: TimeSlotPerformanceItem | null = null;
   for (const slot of timeSlotPerformance) {
     if (!peakTimeSlotItem || slot.totalRevenue > peakTimeSlotItem.totalRevenue) {
@@ -983,6 +1440,120 @@ export const getMovieAnalytics = async (
     peakTimeSlotItem.isPeak = true;
   }
 
+  // Showtime Heatmap Grid Cells
+  const showtimeHeatmap: ShowtimeHeatmapCell[] = [];
+  // Order: Senin(1) to Minggu(0)
+  const orderedDows = [1, 2, 3, 4, 5, 6, 0];
+  for (const dow of orderedDows) {
+    for (const b of heatmapBuckets) {
+      const hmKey = `${dow}_${b.key}`;
+      const cell = heatmapDataMap.get(hmKey) || { shows: 0, tickets: 0, capacity: 0, revenue: 0 };
+      const cellOccupancy = cell.capacity > 0 ? Number(((cell.tickets / cell.capacity) * 100).toFixed(1)) : 0;
+      const cellTixPerShow = cell.shows > 0 ? Number((cell.tickets / cell.shows).toFixed(1)) : 0;
+      const cellRevPerShow = cell.shows > 0 ? Math.round(cell.revenue / cell.shows) : 0;
+
+      showtimeHeatmap.push({
+        dayOfWeek: dow,
+        dayName: dayNamesId[dow],
+        dayShort: dayShortsId[dow],
+        timeSlot: b.label,
+        slotKey: b.key,
+        showsCount: cell.shows,
+        tickets: cell.tickets,
+        capacity: cell.capacity,
+        occupancy: cellOccupancy,
+        revenue: cell.revenue,
+        ticketsPerShow: cellTixPerShow,
+        revenuePerShow: cellRevPerShow,
+      });
+    }
+  }
+
+  // Best & Underperforming Individual Shows
+  const sortedShowsByOccupancy = [...individualShowsList].sort((a, b) => b.occupancy - a.occupancy || b.tickets - a.tickets);
+  const bestShows = sortedShowsByOccupancy.slice(0, 10);
+  const underperformingShows = [...sortedShowsByOccupancy].reverse().slice(0, 10);
+
+  // Day of Week Analytics
+  const dayOfWeekAnalytics: DayOfWeekAnalyticsItem[] = orderedDows.map((dow) => {
+    const d = dayOfWeekMap.get(dow)!;
+    const occupancy = d.capacity > 0 ? Number(((d.tickets / d.capacity) * 100).toFixed(1)) : 0;
+    const ticketsPerShow = d.shows > 0 ? Number((d.tickets / d.shows).toFixed(1)) : 0;
+    const revenuePerShow = d.shows > 0 ? Math.round(d.revenue / d.shows) : 0;
+
+    return {
+      dayOfWeek: dow,
+      dayName: dayNamesId[dow],
+      dayShort: dayShortsId[dow],
+      shows: d.shows,
+      tickets: d.tickets,
+      capacity: d.capacity,
+      occupancy,
+      revenue: d.revenue,
+      ticketsPerShow,
+      revenuePerShow,
+    };
+  });
+
+  // Weekday vs Weekend
+  // Weekday: Mon(1), Tue(2), Wed(3), Thu(4)
+  // Weekend: Fri(5), Sat(6), Sun(0)
+  let wdShows = 0, wdTickets = 0, wdCapacity = 0, wdRevenue = 0;
+  let weShows = 0, weTickets = 0, weCapacity = 0, weRevenue = 0;
+
+  for (const dow of [1, 2, 3, 4]) {
+    const d = dayOfWeekMap.get(dow)!;
+    wdShows += d.shows;
+    wdTickets += d.tickets;
+    wdCapacity += d.capacity;
+    wdRevenue += d.revenue;
+  }
+
+  for (const dow of [5, 6, 0]) {
+    const d = dayOfWeekMap.get(dow)!;
+    weShows += d.shows;
+    weTickets += d.tickets;
+    weCapacity += d.capacity;
+    weRevenue += d.revenue;
+  }
+
+  const wdTixPerShow = wdShows > 0 ? Number((wdTickets / wdShows).toFixed(1)) : 0;
+  const wdRevPerShow = wdShows > 0 ? Math.round(wdRevenue / wdShows) : 0;
+  const wdOccupancy = wdCapacity > 0 ? Number(((wdTickets / wdCapacity) * 100).toFixed(1)) : 0;
+
+  const weTixPerShow = weShows > 0 ? Number((weTickets / weShows).toFixed(1)) : 0;
+  const weRevPerShow = weShows > 0 ? Math.round(weRevenue / weShows) : 0;
+  const weOccupancy = weCapacity > 0 ? Number(((weTickets / weCapacity) * 100).toFixed(1)) : 0;
+
+  let weekendLiftPercentage = 0;
+  if (wdTixPerShow > 0) {
+    weekendLiftPercentage = Number((((weTixPerShow - wdTixPerShow) / wdTixPerShow) * 100).toFixed(1));
+  } else if (weTixPerShow > 0) {
+    weekendLiftPercentage = 100;
+  }
+
+  const weekdayWeekendComparison: WeekdayWeekendComparison = {
+    weekday: {
+      shows: wdShows,
+      tickets: wdTickets,
+      capacity: wdCapacity,
+      occupancy: wdOccupancy,
+      revenue: wdRevenue,
+      ticketsPerShow: wdTixPerShow,
+      revenuePerShow: wdRevPerShow,
+    },
+    weekend: {
+      shows: weShows,
+      tickets: weTickets,
+      capacity: weCapacity,
+      occupancy: weOccupancy,
+      revenue: weRevenue,
+      ticketsPerShow: weTixPerShow,
+      revenuePerShow: weRevPerShow,
+    },
+    weekendLiftPercentage,
+  };
+
   // Top movie
   const topMovie =
     moviesArray.length > 0
@@ -992,6 +1563,8 @@ export const getMovieAnalytics = async (
           poster: moviesArray[0].poster,
           revenue: moviesArray[0].totalRevenue,
           tickets: moviesArray[0].totalTickets,
+          occupancy: moviesArray[0].occupancy,
+          recommendation: moviesArray[0].recommendation.label,
         }
       : null;
 
@@ -1003,6 +1576,7 @@ export const getMovieAnalytics = async (
           revenue: genresArray[0].totalRevenue,
           tickets: genresArray[0].totalTickets,
           moviesCount: genresArray[0].moviesCount,
+          revenueShare: genresArray[0].revenueShare,
         }
       : null;
 
@@ -1019,39 +1593,43 @@ export const getMovieAnalytics = async (
     }
   }
 
-  const averageTicketsPerShow =
-    grandTotalShowtimes > 0 ? Number((grandTotalTickets / grandTotalShowtimes).toFixed(1)) : 0;
-  const averageRevenuePerShow =
-    grandTotalShowtimes > 0 ? Math.round(grandTotalRevenue / grandTotalShowtimes) : 0;
+  const averageTicketsPerShow = grandTotalShowtimes > 0 ? Number((grandTotalTickets / grandTotalShowtimes).toFixed(1)) : 0;
+  const averageRevenuePerShow = grandTotalShowtimes > 0 ? Math.round(grandTotalRevenue / grandTotalShowtimes) : 0;
 
   const summary = {
     totalRevenue: grandTotalRevenue,
     totalTickets: grandTotalTickets,
     totalShowtimes: grandTotalShowtimes,
+    totalCapacity: grandTotalCapacity,
+    averageOccupancy,
     activeMoviesCount: moviesArray.length,
     averageTicketsPerShow,
     averageRevenuePerShow,
-    averageTicketsPerDay: Math.round(grandTotalTickets / daysCount),
-    averageRevenuePerDay: Math.round(grandTotalRevenue / daysCount),
+    averageTicketsPerDay: Math.round(grandTotalTickets / effectiveDaysCount),
+    averageRevenuePerDay: Math.round(grandTotalRevenue / effectiveDaysCount),
     topMovie,
     topGenre,
     highestSalesDay,
-    peakTimeSlot: peakTimeSlotItem && peakTimeSlotItem.totalRevenue > 0
-      ? {
-          label: peakTimeSlotItem.label,
-          timeRange: peakTimeSlotItem.timeRange,
-          revenue: peakTimeSlotItem.totalRevenue,
-          tickets: peakTimeSlotItem.totalTickets,
-        }
-      : null,
+    peakTimeSlot:
+      peakTimeSlotItem && peakTimeSlotItem.totalRevenue > 0
+        ? {
+            label: peakTimeSlotItem.label,
+            timeRange: peakTimeSlotItem.timeRange,
+            revenue: peakTimeSlotItem.totalRevenue,
+            tickets: peakTimeSlotItem.totalTickets,
+            occupancy: peakTimeSlotItem.occupancy,
+          }
+        : null,
   };
 
   return {
     period: {
       startDate: startDateStr,
       endDate: finalEndDateStr,
-      days: daysCount,
+      days: effectiveDaysCount,
       timezone,
+      previousStartDate: prevStartDateStr,
+      previousEndDate: prevEndDateStr,
     },
     summary,
     dailyTotals,
@@ -1059,6 +1637,11 @@ export const getMovieAnalytics = async (
     genres: genresArray,
     studioPerformance,
     timeSlotPerformance,
+    showtimeHeatmap,
+    bestShows,
+    underperformingShows,
+    dayOfWeekAnalytics,
+    weekdayWeekendComparison,
   };
 };
 

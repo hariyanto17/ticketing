@@ -24,24 +24,77 @@ import {
   Tv,
   Clock,
   Shapes,
+  Percent,
+  ChevronDown,
+  ChevronUp,
+  Flame,
+  AlertTriangle,
+  HeartPulse,
+  ThumbsUp,
+  Eye,
+  SlidersHorizontal,
+  Grid3X3,
+  ArrowUpRight,
+  ArrowDownRight,
+  Info,
 } from "lucide-react";
+
+type SortField =
+  | "tickets"
+  | "shows"
+  | "ticketsPerShow"
+  | "occupancy"
+  | "revenue"
+  | "revenuePerShow"
+  | "momentum"
+  | "healthScore";
+
+type HeatmapMetric = "occupancy" | "ticketsPerShow" | "revenuePerShow";
 
 export default function MovieAnalyticsView() {
   const { t, formatCurrency, formatNumber } = useTranslation();
   const user = useAppSelector((state) => state.auth.user);
 
+  // Tab & Filter States
   const [activeTab, setActiveTab] = useState<"movies" | "genres">("movies");
+  const [rangePreset, setRangePreset] = useState<"7d" | "14d" | "30d" | "custom">("7d");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+
+  // Chart Controls
   const [activeMetric, setActiveMetric] = useState<"tickets" | "revenue">("revenue");
   const [chartType, setChartType] = useState<"line" | "bar">("line");
   const [selectedMovieId, setSelectedMovieId] = useState<string | "ALL">("ALL");
   const [selectedGenreId, setSelectedGenreId] = useState<string | "ALL">("ALL");
+
+  // Table Controls
+  const [movieSortField, setMovieSortField] = useState<SortField>("revenue");
+  const [movieSortAsc, setMovieSortAsc] = useState<boolean>(false);
+  const [expandedMovieId, setExpandedMovieId] = useState<string | null>(null);
+
+  // Genre Tab Controls
+  const [genreShareMode, setGenreShareMode] = useState<"revenue" | "ticket">("revenue");
+
+  // Heatmap Controls
+  const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetric>("occupancy");
+
+  // Query Params computation
+  const queryParams = useMemo(() => {
+    if (rangePreset === "7d") return { days: 7 };
+    if (rangePreset === "14d") return { days: 14 };
+    if (rangePreset === "30d") return { days: 30 };
+    if (rangePreset === "custom" && customStartDate && customEndDate) {
+      return { startDate: customStartDate, endDate: customEndDate };
+    }
+    return { days: 7 };
+  }, [rangePreset, customStartDate, customEndDate]);
 
   const {
     data: analytics,
     isLoading,
     isFetching,
     refetch,
-  } = useGetMovieAnalyticsQuery(undefined, {
+  } = useGetMovieAnalyticsQuery(queryParams, {
     refetchOnMountOrArgChange: true,
   });
 
@@ -75,6 +128,150 @@ export default function MovieAnalyticsView() {
     }));
   }, [analytics?.genres]);
 
+  // Sorted Movies
+  const sortedMovies = useMemo(() => {
+    if (!analytics?.movies) return [];
+    const list = [...analytics.movies];
+    list.sort((a, b) => {
+      let valA = 0;
+      let valB = 0;
+      if (movieSortField === "tickets") {
+        valA = a.totalTickets;
+        valB = b.totalTickets;
+      } else if (movieSortField === "shows") {
+        valA = a.totalShowtimes;
+        valB = b.totalShowtimes;
+      } else if (movieSortField === "ticketsPerShow") {
+        valA = a.ticketsPerShow;
+        valB = b.ticketsPerShow;
+      } else if (movieSortField === "occupancy") {
+        valA = a.occupancy;
+        valB = b.occupancy;
+      } else if (movieSortField === "revenue") {
+        valA = a.totalRevenue;
+        valB = b.totalRevenue;
+      } else if (movieSortField === "revenuePerShow") {
+        valA = a.revenuePerShow;
+        valB = b.revenuePerShow;
+      } else if (movieSortField === "momentum") {
+        valA = a.momentum?.growthPercentage || 0;
+        valB = b.momentum?.growthPercentage || 0;
+      } else if (movieSortField === "healthScore") {
+        valA = a.healthScore?.score || 0;
+        valB = b.healthScore?.score || 0;
+      }
+      return movieSortAsc ? valA - valB : valB - valA;
+    });
+    return list;
+  }, [analytics?.movies, movieSortField, movieSortAsc]);
+
+  const handleMovieSort = (field: SortField) => {
+    if (movieSortField === field) {
+      setMovieSortAsc(!movieSortAsc);
+    } else {
+      setMovieSortField(field);
+      setMovieSortAsc(false);
+    }
+  };
+
+  const getRecommendationBadge = (rec: { action: string; label: string; reason: string }) => {
+    switch (rec.action) {
+      case "INCREASE":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            {rec.label}
+          </span>
+        );
+      case "REDUCE":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+            <ArrowDownRight className="w-3.5 h-3.5" />
+            {rec.label}
+          </span>
+        );
+      case "MAINTAIN":
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+            <ThumbsUp className="w-3.5 h-3.5" />
+            {rec.label}
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+            <Eye className="w-3.5 h-3.5" />
+            {rec.label}
+          </span>
+        );
+    }
+  };
+
+  const getMomentumBadge = (momentum?: {
+    direction: string;
+    label: string;
+    growthPercentage: number;
+  }) => {
+    if (!momentum || momentum.direction === "NONE") {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-zinc-400">
+          <Minus className="w-3.5 h-3.5" />
+          {t("analytics.momNone") || "Tidak tersedia"}
+        </span>
+      );
+    }
+    const isPos = momentum.growthPercentage > 0;
+    const sign = isPos ? "+" : "";
+
+    if (momentum.direction === "UP" || momentum.direction === "SLIGHT_UP") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+          <TrendingUp className="w-3.5 h-3.5" />
+          {sign}
+          {momentum.growthPercentage}% {momentum.label}
+        </span>
+      );
+    }
+    if (momentum.direction === "DOWN" || momentum.direction === "SLIGHT_DOWN") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+          <TrendingDown className="w-3.5 h-3.5" />
+          {sign}
+          {momentum.growthPercentage}% {momentum.label}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+        <Minus className="w-3.5 h-3.5" />
+        {sign}
+        {momentum.growthPercentage}% {momentum.label}
+      </span>
+    );
+  };
+
+  const getHealthScoreBadge = (healthScore?: { score: number; status: string; label: string }) => {
+    if (!healthScore) return null;
+    let colorClass = "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
+    if (healthScore.status === "STRONG") {
+      colorClass = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800";
+    } else if (healthScore.status === "NORMAL") {
+      colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800";
+    } else if (healthScore.status === "WEAK") {
+      colorClass = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800";
+    } else {
+      colorClass = "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800";
+    }
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className={`px-2 py-0.5 rounded-lg text-xs font-extrabold border ${colorClass}`}>
+          {healthScore.score}
+        </span>
+        <span className="text-[11px] font-medium text-zinc-400">{healthScore.label}</span>
+      </div>
+    );
+  };
+
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
@@ -100,784 +297,1227 @@ export default function MovieAnalyticsView() {
     );
   }
 
-  if (!analytics || !analytics.movies.length) {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-3">
-              <TrendingUp className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-              {t("analytics.title")}
-            </h1>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-              {t("analytics.subtitle")}
-            </p>
-          </div>
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-            {t("analytics.refresh")}
-          </button>
-        </div>
-
-        <div className="p-12 text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-3">
-          <Film className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mx-auto" />
-          <h3 className="font-bold text-zinc-800 dark:text-zinc-200 text-lg">
-            {t("analytics.noDataTitle")}
-          </h3>
-          <p className="text-sm text-zinc-400 max-w-md mx-auto">
-            {t("analytics.noDataDesc")}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const { summary, period, movies, genres, dailyTotals, studioPerformance, timeSlotPerformance } = analytics;
+  const {
+    summary,
+    period,
+    movies = [],
+    genres = [],
+    dailyTotals = [],
+    studioPerformance = [],
+    timeSlotPerformance = [],
+    showtimeHeatmap = [],
+    bestShows = [],
+    underperformingShows = [],
+    dayOfWeekAnalytics = [],
+    weekdayWeekendComparison,
+  } = analytics || ({} as any);
 
   return (
     <div className="space-y-8 font-sans pb-16">
-      {/* Top Header & Navigation Tabs */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* Top Header & Range Filter Bar */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
         <div>
-          <div className="flex items-center gap-2.5 mb-1.5">
-            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              {t("analytics.badge7Days")} ({period.startDate} - {period.endDate})
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+                {t("analytics.title") || "Analitik Cinema"}
+              </h1>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                {t("analytics.subtitle") ||
+                  "Dashboard pengambilan keputusan pemrograman film & analisis permintaan bioskop"}
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 flex items-center gap-3">
-            <TrendingUp className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            {t("analytics.title")}
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            {t("analytics.subtitle")}
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Main Category Switcher: FILM vs GENRE */}
-          <div className="flex items-center p-1 bg-zinc-200/80 dark:bg-zinc-800 rounded-2xl border border-zinc-300/60 dark:border-zinc-700/60 shadow-inner">
+        {/* Date Range Selector Presets */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
             <button
-              onClick={() => setActiveTab("movies")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "movies"
-                  ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm scale-102"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              onClick={() => setRangePreset("7d")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                rangePreset === "7d"
+                  ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
               }`}
             >
-              <Film className="w-4 h-4" />
-              <span>{t("analytics.tabMovies")}</span>
+              7D
             </button>
             <button
-              onClick={() => setActiveTab("genres")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "genres"
-                  ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm scale-102"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              onClick={() => setRangePreset("14d")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                rangePreset === "14d"
+                  ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
               }`}
             >
-              <Shapes className="w-4 h-4" />
-              <span>{t("analytics.tabGenres")}</span>
+              14D
+            </button>
+            <button
+              onClick={() => setRangePreset("30d")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                rangePreset === "30d"
+                  ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+              }`}
+            >
+              30D
+            </button>
+            <button
+              onClick={() => setRangePreset("custom")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                rangePreset === "custom"
+                  ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+              }`}
+            >
+              Kustom
             </button>
           </div>
+
+          {rangePreset === "custom" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <span className="text-zinc-400 text-xs">-</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          )}
 
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer"
+            title={t("analytics.refresh") || "Segarkan Data"}
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-zinc-500 ${isFetching ? "animate-spin text-indigo-500" : ""}`} />
-            <span>{t("analytics.refresh")}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{t("analytics.refresh") || "Segarkan"}</span>
           </button>
         </div>
       </div>
 
-      {/* 6 Key KPI Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {/* Card 1: Penjualan 7 Hari Terakhir */}
-        <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {t("analytics.totalRevenue")}
-            </span>
-            <div className="p-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-black text-zinc-900 dark:text-zinc-50 truncate" title={formatCurrency(summary.totalRevenue)}>
-              {formatCurrency(summary.totalRevenue)}
-            </div>
-            <p className="text-[11px] text-zinc-400 mt-1">
-              {formatCurrency(summary.averageRevenuePerDay)} / hari
-            </p>
-          </div>
-        </div>
-
-        {/* Card 2: Total Tiket Terjual */}
-        <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {t("analytics.totalTickets")}
-            </span>
-            <div className="p-2 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
-              <Ticket className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-black text-zinc-900 dark:text-zinc-50">
-              {formatNumber(summary.totalTickets)} <span className="text-xs font-normal text-zinc-400">tkt</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 mt-1">
-              {formatNumber(summary.averageTicketsPerDay)} tkt / hari
-            </p>
-          </div>
-        </div>
-
-        {/* Card 3: Tiket / Show */}
-        <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {t("analytics.ticketsPerShow")}
-            </span>
-            <div className="p-2 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
-              <Layers className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-black text-zinc-900 dark:text-zinc-50">
-              {summary.averageTicketsPerShow} <span className="text-xs font-normal text-zinc-400">tkt/sesi</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 mt-1">
-              Total {summary.totalShowtimes} sesi tayang
-            </p>
-          </div>
-        </div>
-
-        {/* Card 4: Top Grossing (Movie or Genre depending on tab) */}
-        <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {activeTab === "genres" ? t("analytics.topGenre") : t("analytics.topMovie")}
-            </span>
-            <div className="p-2 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
-              <Award className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-base font-bold text-zinc-900 dark:text-zinc-50 truncate" title={activeTab === "genres" ? summary.topGenre?.name || "-" : summary.topMovie?.title || "-"}>
-              {activeTab === "genres" ? summary.topGenre?.name || "-" : summary.topMovie?.title || "-"}
-            </div>
-            <p className="text-[11px] text-zinc-400 mt-1 truncate">
-              {activeTab === "genres"
-                ? summary.topGenre ? `${formatCurrency(summary.topGenre.revenue)} (${summary.topGenre.moviesCount} film)` : "-"
-                : summary.topMovie ? `${formatNumber(summary.topMovie.tickets)} tiket` : "-"}
-            </p>
-          </div>
-        </div>
-
-        {/* Card 5: Jam Tayang Paling Menghasilkan */}
-        <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {t("analytics.peakShowtime")}
-            </span>
-            <div className="p-2 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-base font-extrabold text-zinc-900 dark:text-zinc-50 truncate" title={summary.peakTimeSlot?.label || "-"}>
-              {summary.peakTimeSlot?.timeRange || "-"}
-            </div>
-            <p className="text-[11px] text-zinc-400 mt-1 truncate">
-              {summary.peakTimeSlot ? formatCurrency(summary.peakTimeSlot.revenue) : "-"}
-            </p>
-          </div>
-        </div>
-
-        {/* Card 6: Hari Penjualan Tertinggi */}
-        <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {t("analytics.peakSalesDay")}
-            </span>
-            <div className="p-2 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
-              <Sparkles className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-base font-bold text-zinc-900 dark:text-zinc-50 truncate">
-              {summary.highestSalesDay ? `${summary.highestSalesDay.dayName}` : "-"}
-            </div>
-            <p className="text-[11px] text-zinc-400 mt-1 truncate">
-              {summary.highestSalesDay ? formatCurrency(summary.highestSalesDay.revenue) : "-"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main D3 Chart Section */}
-      <div className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-6">
-        {/* Controls Bar */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800">
-          <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-indigo-500" />
-              {activeTab === "genres" ? t("analytics.genreTrendChartTitle") : t("analytics.trendChartTitle")}
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              {activeTab === "genres" ? t("analytics.genreTrendChartSubtitle") : t("analytics.trendChartSubtitle")}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Metric Switcher */}
-            <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800/70 rounded-2xl border border-zinc-200/50 dark:border-zinc-700/50">
-              <button
-                onClick={() => setActiveMetric("revenue")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  activeMetric === "revenue"
-                    ? "bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
+      {/* Main Tab Navigation: Film vs Genre */}
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-1">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab("movies")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer ${
+              activeTab === "movies"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                : "bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <Film className="w-4 h-4" />
+            {t("analytics.tabMovies") || "Film"}
+            {movies.length > 0 && (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                  activeTab === "movies" ? "bg-white/20 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
                 }`}
               >
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>{t("analytics.metricRevenue")}</span>
-              </button>
-              <button
-                onClick={() => setActiveMetric("tickets")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  activeMetric === "tickets"
-                    ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
-                }`}
-              >
-                <Ticket className="w-3.5 h-3.5" />
-                <span>{t("analytics.metricTickets")}</span>
-              </button>
-            </div>
-
-            {/* Chart Type Switcher: Line vs Bar */}
-            <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800/70 rounded-2xl border border-zinc-200/50 dark:border-zinc-700/50">
-              <button
-                onClick={() => setChartType("line")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  chartType === "line"
-                    ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>{t("analytics.chartLine")}</span>
-              </button>
-              <button
-                onClick={() => setChartType("bar")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  chartType === "bar"
-                    ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span>{t("analytics.chartBar")}</span>
-              </button>
-            </div>
-
-            {/* Filter Dropdown */}
-            {activeTab === "movies" ? (
-              <select
-                value={selectedMovieId}
-                onChange={(e) => setSelectedMovieId(e.target.value)}
-                className="px-3.5 py-2 text-xs font-semibold rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
-              >
-                <option value="ALL">{t("analytics.allMovies")}</option>
-                {movies.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <select
-                value={selectedGenreId}
-                onChange={(e) => setSelectedGenreId(e.target.value)}
-                className="px-3.5 py-2 text-xs font-semibold rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
-              >
-                <option value="ALL">{t("analytics.allGenres")}</option>
-                {genres?.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+                {movies.length}
+              </span>
             )}
-          </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("genres")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer ${
+              activeTab === "genres"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                : "bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <Shapes className="w-4 h-4" />
+            {t("analytics.tabGenres") || "Genre"}
+            {genres.length > 0 && (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                  activeTab === "genres" ? "bg-white/20 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
+                }`}
+              >
+                {genres.length}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* D3 Interactive Chart (Dynamically renders movies or genres) */}
-        <MovieAnalyticsChart
-          dailyTotals={dailyTotals}
-          items={activeTab === "movies" ? movieChartItems : genreChartItems}
-          activeMetric={activeMetric}
-          chartType={chartType}
-          selectedItemId={activeTab === "movies" ? selectedMovieId : selectedGenreId}
-          onSelectItem={(id) => (activeTab === "movies" ? setSelectedMovieId(id) : setSelectedGenreId(id))}
-          allLabel={activeTab === "movies" ? t("analytics.allMovies") : t("analytics.allGenres")}
-        />
+        {period && (
+          <div className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>
+              {period.startDate} s.d. {period.endDate} ({period.days} hari)
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* ========================================================= */}
-      {/* TAB CONTENT: MOVIES VIEW                                  */}
-      {/* ========================================================= */}
+      {/* TAB 1: FILM ANALYTICS */}
       {activeTab === "movies" && (
-        <>
-          {/* Performa Tiap Studio & Jam Tayang Paling Menghasilkan */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Section: Performa Tiap Studio */}
-            <div className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-5">
+        <div className="space-y-8">
+          {/* KPI Cards (4 Cards) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Total Tiket Terjual */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                    <Tv className="w-5 h-5 text-indigo-500" />
-                    {t("analytics.studioPerformanceTitle")}
-                  </h2>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    {t("analytics.studioPerformanceSubtitle")}
-                  </p>
-                </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                  {studioPerformance?.length || 0} Studio
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {t("analytics.totalTickets") || "Total Tiket Terjual"}
                 </span>
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <Ticket className="w-4 h-4" />
+                </div>
               </div>
-
-              <div className="space-y-4">
-                {studioPerformance && studioPerformance.length > 0 ? (
-                  studioPerformance.map((st) => (
-                    <div
-                      key={st.studioId}
-                      className="p-4 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-200/60 dark:border-zinc-800 space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center shrink-0">
-                            {st.studioCode || st.studioName.charAt(0)}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                              {st.studioName}
-                            </h4>
-                            <p className="text-[11px] text-zinc-400">
-                              Kapasitas {st.capacity} kursi • {st.totalShowtimes} sesi tayang
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
-                            {formatCurrency(st.totalRevenue)}
-                          </div>
-                          <div className="text-[11px] text-zinc-400">
-                            {formatNumber(st.totalTickets)} tiket ({st.averageTicketsPerShow} tkt/sesi)
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Occupancy Progress Bar */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-zinc-400 font-medium">Tingkat Okupansi Kursi</span>
-                          <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                            {st.occupancyRate}%
-                          </span>
-                        </div>
-                        <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500"
-                            style={{ width: `${Math.min(Math.max(st.occupancyRate, 2), 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-zinc-400 text-center py-6">Belum ada data studio.</p>
-                )}
+              <div>
+                <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                  {formatNumber(summary?.totalTickets || 0)}
+                  <span className="text-xs font-normal text-zinc-400 ml-1.5">tiket</span>
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
+                  <span>Okupansi:</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                    {summary?.averageOccupancy || 0}%
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Section: Jam Tayang Paling Menghasilkan */}
-            <div className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-5">
+            {/* KPI 2: Rata-rata Tiket / Show */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-amber-500" />
-                    {t("analytics.timeSlotTitle")}
-                  </h2>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    {t("analytics.timeSlotSubtitle")}
-                  </p>
-                </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
-                  5 Rentang Jam
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {t("analytics.ticketsPerShow") || "Rata-rata Tiket / Show"}
                 </span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Activity className="w-4 h-4" />
+                </div>
               </div>
+              <div>
+                <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                  {summary?.averageTicketsPerShow || 0}
+                  <span className="text-xs font-normal text-zinc-400 ml-1.5">tiket/show</span>
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Dari {formatNumber(summary?.totalShowtimes || 0)} sesi penayangan
+                </div>
+              </div>
+            </div>
 
-              <div className="space-y-3.5">
-                {timeSlotPerformance && timeSlotPerformance.length > 0 ? (
-                  timeSlotPerformance.map((slot) => (
-                    <div
-                      key={slot.slotKey}
-                      className={`p-3.5 rounded-2xl border transition-all ${
-                        slot.isPeak
-                          ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60 shadow-xs"
-                          : "bg-zinc-50/70 dark:bg-zinc-800/40 border-zinc-200/60 dark:border-zinc-800"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-7 h-7 rounded-xl font-bold text-xs flex items-center justify-center shrink-0 ${
-                              slot.isPeak
-                                ? "bg-amber-500 text-white shadow-xs"
-                                : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
-                            }`}
-                          >
-                            {slot.isPeak ? "★" : "🕒"}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
-                                {slot.label}
-                              </span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">
-                                {slot.timeRange}
-                              </span>
-                              {slot.isPeak && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 font-bold">
-                                  PEAK HOUR
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-zinc-400 mt-0.5">
-                              {slot.showtimesCount} penayangan • {formatNumber(slot.totalTickets)} tiket ({slot.averageTicketsPerShow} tkt/sesi)
-                            </p>
-                          </div>
-                        </div>
+            {/* KPI 3: Top Performing Movie */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {t("analytics.topMovie") || "Film Terlaris"}
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <Award className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50 truncate" title={summary?.topMovie?.title || "-"}>
+                  {summary?.topMovie?.title || "-"}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 flex items-center justify-between">
+                  <span>{formatNumber(summary?.topMovie?.tickets || 0)} tiket</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {summary?.topMovie?.occupancy || 0}% Okupansi
+                  </span>
+                </div>
+              </div>
+            </div>
 
-                        <div className="text-right">
-                          <div className="font-bold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
-                            {formatCurrency(slot.totalRevenue)}
-                          </div>
-                          <div className="text-[10px] text-zinc-400 font-mono">
-                            {slot.revenueShare}% total
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-zinc-400 text-center py-6">Belum ada data jam tayang.</p>
-                )}
+            {/* KPI 4: Jam Tayang Paling Menghasilkan */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {t("analytics.peakShowtime") || "Jam Tayang Paling Menghasilkan"}
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <Clock className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-base font-black text-zinc-900 dark:text-zinc-50 truncate">
+                  {summary?.peakTimeSlot?.label || "18:00 - 21:00"}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 flex items-center justify-between">
+                  <span>{summary?.peakTimeSlot?.timeRange || "-"}</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                    {formatCurrency(summary?.peakTimeSlot?.revenue || 0)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Table: Rincian Performa Film & Indikator Tren (Naik / Turun) */}
-          <div className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          {/* D3 Chart Visualizer (Line / Bar) */}
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                  <Film className="w-5 h-5 text-indigo-500" />
-                  {t("analytics.performanceBreakdown")}
-                </h2>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.trendChartTitle") || "Tren Penjualan Harian Berdasarkan Film"}
+                </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Pantau performa individual film, tiket per show, dan momentum tren naik / turun 7 hari terakhir.
+                  {t("analytics.trendChartSubtitle") || "Analisis fluktuasi penjualan tiket harian per film"}
                 </p>
               </div>
-              <span className="text-xs text-zinc-400 font-medium">
-                {movies.length} {t("analytics.activeMovies")}
-              </span>
+
+              {/* Chart Controls */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Metric Selector */}
+                <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+                  <button
+                    onClick={() => setActiveMetric("revenue")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      activeMetric === "revenue"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Omset (Rp)
+                  </button>
+                  <button
+                    onClick={() => setActiveMetric("tickets")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      activeMetric === "tickets"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Tiket
+                  </button>
+                </div>
+
+                {/* Chart Type */}
+                <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+                  <button
+                    onClick={() => setChartType("line")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      chartType === "line"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Garis
+                  </button>
+                  <button
+                    onClick={() => setChartType("bar")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      chartType === "bar"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Batang
+                  </button>
+                </div>
+
+                {/* Filter Single Movie */}
+                <select
+                  value={selectedMovieId}
+                  onChange={(e) => setSelectedMovieId(e.target.value)}
+                  className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="ALL">{t("analytics.allMovies") || "Semua Film"}</option>
+                  {movies.map((m: any) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="overflow-x-auto -mx-6 sm:-mx-8 px-6 sm:px-8">
+            {/* D3 Render */}
+            <MovieAnalyticsChart
+              dailyTotals={dailyTotals}
+              items={movieChartItems}
+              activeMetric={activeMetric}
+              chartType={chartType}
+              selectedItemId={selectedMovieId}
+              onSelectItem={(id) => setSelectedMovieId(id)}
+              allLabel={t("analytics.allMovies") || "Semua Film"}
+            />
+          </div>
+
+          {/* Detailed Movie Performance Table with Decision Support */}
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden space-y-4">
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Film className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.performanceBreakdown") || "Tabel Kinerja & Rekomendasi Pemrograman Film"}
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Klik pada judul kolom untuk mengurutkan (sorting) data. Klik baris untuk melihat rincian performa per studio.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-zinc-150 dark:border-zinc-800 text-zinc-400 uppercase tracking-wider font-semibold">
-                    <th className="py-3 px-2 font-medium">{t("analytics.tableMovie")}</th>
-                    <th className="py-3 px-3 font-medium text-center">{t("analytics.tableShowtimes")}</th>
-                    <th className="py-3 px-3 font-medium text-right">{t("analytics.tableTickets")}</th>
-                    <th className="py-3 px-3 font-medium text-right">{t("analytics.tableTicketsPerShow")}</th>
-                    <th className="py-3 px-3 font-medium text-right">{t("analytics.tableRevenue")}</th>
-                    <th className="py-3 px-3 font-medium text-right">{t("analytics.tableShare")}</th>
-                    <th className="py-3 px-3 font-medium text-center">{t("analytics.tableTrend")}</th>
+                  <tr className="bg-zinc-50/80 dark:bg-zinc-800/50 text-zinc-500 font-bold border-b border-zinc-200 dark:border-zinc-800">
+                    <th className="py-3 px-4 font-extrabold">{t("analytics.tableMovie") || "Film"}</th>
+                    <th
+                      onClick={() => handleMovieSort("tickets")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Tiket</span>
+                        {movieSortField === "tickets" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleMovieSort("shows")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Shows</span>
+                        {movieSortField === "shows" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleMovieSort("ticketsPerShow")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Tiket/Show</span>
+                        {movieSortField === "ticketsPerShow" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleMovieSort("occupancy")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Okupansi</span>
+                        {movieSortField === "occupancy" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleMovieSort("revenue")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Pendapatan</span>
+                        {movieSortField === "revenue" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleMovieSort("revenuePerShow")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Rev/Show</span>
+                        {movieSortField === "revenuePerShow" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th className="py-3 px-3 text-center">Jam Puncak</th>
+                    <th className="py-3 px-3 text-center">Best Studio</th>
+                    <th
+                      onClick={() => handleMovieSort("momentum")}
+                      className="py-3 px-3 text-center cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Momentum</span>
+                        {movieSortField === "momentum" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleMovieSort("healthScore")}
+                      className="py-3 px-3 text-center cursor-pointer hover:text-indigo-600"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Health</span>
+                        {movieSortField === "healthScore" && (movieSortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                      </div>
+                    </th>
+                    <th className="py-3 px-4 text-center font-bold">Rekomendasi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                  {movies.map((movie, idx) => {
-                    const isSelected = selectedMovieId === movie.id;
-                    const isTrendUp = movie.trendDirection === "UP";
-                    const isTrendDown = movie.trendDirection === "DOWN";
-
+                  {sortedMovies.map((m: any) => {
+                    const isExpanded = expandedMovieId === m.id;
                     return (
-                      <tr
-                        key={movie.id}
-                        onClick={() => setSelectedMovieId(selectedMovieId === movie.id ? "ALL" : movie.id)}
-                        className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer ${
-                          isSelected ? "bg-indigo-50/50 dark:bg-indigo-950/20 font-semibold" : ""
-                        }`}
-                      >
-                        <td className="py-3.5 px-2">
-                          <div className="flex items-center gap-3">
-                            <span className="w-5 text-center font-bold text-zinc-400">
-                              {idx + 1}
-                            </span>
-                            {movie.poster ? (
-                              <img
-                                src={movie.poster}
-                                alt={movie.title}
-                                className="w-9 h-12 object-cover rounded-lg shadow-2xs shrink-0"
-                              />
-                            ) : (
-                              <div className="w-9 h-12 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex items-center justify-center shrink-0">
-                                <Film className="w-4 h-4 text-zinc-400" />
-                              </div>
-                            )}
-                            <div className="space-y-0.5 max-w-[220px] truncate">
-                              <div className="font-bold text-zinc-800 dark:text-zinc-200 truncate">
-                                {movie.title}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                                <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-medium">
-                                  {movie.censorshipRating}
-                                </span>
-                                {movie.genres.length > 0 && (
-                                  <span className="truncate">{movie.genres.slice(0, 2).join(", ")}</span>
-                                )}
+                      <React.Fragment key={m.id}>
+                        <tr
+                          onClick={() => setExpandedMovieId(isExpanded ? null : m.id)}
+                          className={`hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 transition-colors cursor-pointer ${
+                            isExpanded ? "bg-indigo-50/30 dark:bg-indigo-950/30" : ""
+                          }`}
+                        >
+                          {/* Title & Info */}
+                          <td className="py-3.5 px-4 font-bold text-zinc-900 dark:text-zinc-100">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" />
+                              <div className="max-w-[200px] truncate">
+                                <div className="font-extrabold truncate" title={m.title}>
+                                  {m.title}
+                                </div>
+                                <div className="text-[10px] font-normal text-zinc-400">
+                                  {m.genres?.join(", ") || "-"}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-3 text-center text-zinc-600 dark:text-zinc-300 font-medium">
-                          {movie.totalShowtimes} {t("analytics.sessionsUnit")}
-                        </td>
-                        <td className="py-3.5 px-3 text-right font-bold text-zinc-900 dark:text-zinc-100">
-                          {formatNumber(movie.totalTickets)}
-                        </td>
-                        <td className="py-3.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                          {movie.ticketsPerShow} <span className="text-[10px] font-normal text-zinc-400">tkt/show</span>
-                        </td>
-                        <td className="py-3.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                          {formatCurrency(movie.totalRevenue)}
-                        </td>
-                        <td className="py-3.5 px-3 text-right font-semibold text-zinc-700 dark:text-zinc-300">
-                          {movie.revenueShare}%
-                        </td>
-                        <td className="py-3.5 px-3 text-center">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                              isTrendUp
-                                ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50"
-                                : isTrendDown
-                                ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50"
-                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
-                            }`}
-                          >
-                            {isTrendUp ? (
-                              <>
-                                <TrendingUp className="w-3 h-3" />
-                                <span>{t("analytics.trendUp")} (+{movie.trendPercentage}%)</span>
-                              </>
-                            ) : isTrendDown ? (
-                              <>
-                                <TrendingDown className="w-3 h-3" />
-                                <span>{t("analytics.trendDown")} ({movie.trendPercentage}%)</span>
-                              </>
-                            ) : (
-                              <>
-                                <Minus className="w-3 h-3" />
-                                <span>{t("analytics.trendStable")}</span>
-                              </>
-                            )}
-                          </span>
-                        </td>
-                      </tr>
+                          </td>
+
+                          {/* Tickets */}
+                          <td className="py-3.5 px-3 text-right font-extrabold text-zinc-900 dark:text-zinc-100">
+                            {formatNumber(m.totalTickets)}
+                          </td>
+
+                          {/* Shows */}
+                          <td className="py-3.5 px-3 text-right text-zinc-600 dark:text-zinc-300">
+                            {m.totalShowtimes}
+                          </td>
+
+                          {/* Tickets/Show */}
+                          <td className="py-3.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                            {m.ticketsPerShow}
+                          </td>
+
+                          {/* Occupancy */}
+                          <td className="py-3.5 px-3 text-right font-bold">
+                            <span
+                              className={`${
+                                m.occupancy >= 60
+                                  ? "text-emerald-600 dark:text-emerald-400 font-extrabold"
+                                  : m.occupancy < 30
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : "text-zinc-700 dark:text-zinc-300"
+                              }`}
+                            >
+                              {m.occupancy}%
+                            </span>
+                          </td>
+
+                          {/* Revenue */}
+                          <td className="py-3.5 px-3 text-right font-black text-zinc-900 dark:text-zinc-50">
+                            {formatCurrency(m.totalRevenue)}
+                          </td>
+
+                          {/* Revenue/Show */}
+                          <td className="py-3.5 px-3 text-right text-zinc-500">
+                            {formatCurrency(m.revenuePerShow)}
+                          </td>
+
+                          {/* Peak Hour */}
+                          <td className="py-3.5 px-3 text-center text-zinc-600 dark:text-zinc-400">
+                            <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 font-mono text-[11px]">
+                              {m.peakHour || "-"}
+                            </span>
+                          </td>
+
+                          {/* Best Studio */}
+                          <td className="py-3.5 px-3 text-center text-zinc-700 dark:text-zinc-300 font-medium">
+                            {m.bestStudio || "-"}
+                          </td>
+
+                          {/* Momentum */}
+                          <td className="py-3.5 px-3 text-center">
+                            {getMomentumBadge(m.momentum)}
+                          </td>
+
+                          {/* Health Score */}
+                          <td className="py-3.5 px-3 text-center">
+                            {getHealthScoreBadge(m.healthScore)}
+                          </td>
+
+                          {/* Recommendation */}
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              {getRecommendationBadge(m.recommendation)}
+                              <span className="text-[10px] text-zinc-400 max-w-[130px] truncate" title={m.recommendation?.reason}>
+                                {m.recommendation?.reason}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Studio Breakdown Row */}
+                        {isExpanded && (
+                          <tr className="bg-zinc-50/50 dark:bg-zinc-800/30">
+                            <td colSpan={12} className="py-3 px-6">
+                              <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                                <div className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                  <Tv className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span>Rincian Performa per Studio: {m.title}</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+                                  {m.studiosBreakdown?.map((st: any) => (
+                                    <div
+                                      key={st.studioId}
+                                      className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 space-y-1"
+                                    >
+                                      <div className="flex items-center justify-between text-xs font-extrabold">
+                                        <span>{st.studioName}</span>
+                                        <span className="text-indigo-600 dark:text-indigo-400">{st.occupancy}% Okupansi</span>
+                                      </div>
+                                      <div className="text-[11px] text-zinc-500 flex justify-between">
+                                        <span>{st.shows} shows • {st.tickets} tiket</span>
+                                        <span className="font-bold">{formatCurrency(st.revenue)}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
           </div>
-        </>
-      )}
 
-      {/* ========================================================= */}
-      {/* TAB CONTENT: GENRES VIEW                                  */}
-      {/* ========================================================= */}
-      {activeTab === "genres" && (
-        <div className="space-y-6">
-          {/* Genre Market Share Ranking Progress Grid */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Left 2 Cols: Table Rincian Genre */}
-            <div className="lg:col-span-2 p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                    <Shapes className="w-5 h-5 text-indigo-500" />
-                    {t("analytics.genrePerformanceTitle")}
-                  </h2>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    {t("analytics.genrePerformanceSubtitle")}
-                  </p>
+          {/* Showtime Heatmap Matrix (Day of week × Hours) */}
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Grid3X3 className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.heatmapTitle") || "Heatmap Okupansi & Jam Tayang"}
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {t("analytics.heatmapSubtitle") || "Matriks distribusi okupansi kursi berdasarkan hari dalam seminggu dan jam penayangan"}
+                </p>
+              </div>
+
+              {/* Heatmap Metric Selector */}
+              <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+                <button
+                  onClick={() => setHeatmapMetric("occupancy")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    heatmapMetric === "occupancy"
+                      ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  Okupansi %
+                </button>
+                <button
+                  onClick={() => setHeatmapMetric("ticketsPerShow")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    heatmapMetric === "ticketsPerShow"
+                      ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  Tiket / Show
+                </button>
+                <button
+                  onClick={() => setHeatmapMetric("revenuePerShow")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    heatmapMetric === "revenuePerShow"
+                      ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  Omset / Show
+                </button>
+              </div>
+            </div>
+
+            {/* Heatmap Grid */}
+            <div className="overflow-x-auto">
+              <div className="min-w-[650px] space-y-2">
+                {/* Header slots */}
+                <div className="grid grid-cols-8 gap-2 text-center text-xs font-bold text-zinc-400">
+                  <div className="text-left pl-2">Hari</div>
+                  <div>10:00 - 12:00</div>
+                  <div>12:00 - 14:00</div>
+                  <div>14:00 - 16:00</div>
+                  <div>16:00 - 18:00</div>
+                  <div>18:00 - 20:00</div>
+                  <div>20:00 - 22:00</div>
+                  <div>22:00+</div>
                 </div>
-                <span className="text-xs text-zinc-400 font-medium">
-                  {genres?.length || 0} {t("analytics.activeGenres")}
+
+                {/* Rows per Day of Week */}
+                {[
+                  { dow: 1, name: "Senin" },
+                  { dow: 2, name: "Selasa" },
+                  { dow: 3, name: "Rabu" },
+                  { dow: 4, name: "Kamis" },
+                  { dow: 5, name: "Jumat" },
+                  { dow: 6, name: "Sabtu" },
+                  { dow: 0, name: "Minggu" },
+                ].map((d) => {
+                  const dayCells = showtimeHeatmap.filter((c: any) => c.dayOfWeek === d.dow);
+                  return (
+                    <div key={d.dow} className="grid grid-cols-8 gap-2 items-center">
+                      <div className="text-xs font-extrabold text-zinc-700 dark:text-zinc-300 pl-2">
+                        {d.name}
+                      </div>
+                      {["10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"].map((slotKey) => {
+                        const cell = dayCells.find((c: any) => c.slotKey === slotKey) || {
+                          occupancy: 0,
+                          ticketsPerShow: 0,
+                          revenuePerShow: 0,
+                          showsCount: 0,
+                          tickets: 0,
+                        };
+
+                        let bgColor = "bg-zinc-50 dark:bg-zinc-800/40 text-zinc-400";
+                        if (cell.occupancy >= 70) {
+                          bgColor = "bg-emerald-500 text-white font-black shadow-sm";
+                        } else if (cell.occupancy >= 45) {
+                          bgColor = "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 font-bold";
+                        } else if (cell.occupancy >= 25) {
+                          bgColor = "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 font-semibold";
+                        } else if (cell.showsCount > 0) {
+                          bgColor = "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300";
+                        }
+
+                        let displayVal = `${cell.occupancy}%`;
+                        if (heatmapMetric === "ticketsPerShow") {
+                          displayVal = `${cell.ticketsPerShow}`;
+                        } else if (heatmapMetric === "revenuePerShow") {
+                          displayVal = cell.revenuePerShow > 0 ? `${Math.round(cell.revenuePerShow / 1000)}k` : "0";
+                        }
+
+                        return (
+                          <div
+                            key={slotKey}
+                            title={`${d.name} ${slotKey}: ${cell.occupancy}% okupansi, ${cell.tickets} tiket, ${cell.showsCount} shows`}
+                            className={`h-11 rounded-2xl flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer text-xs ${bgColor}`}
+                          >
+                            <span>{cell.showsCount > 0 ? displayVal : "-"}</span>
+                            {cell.showsCount > 0 && (
+                              <span className="text-[9px] opacity-75">{cell.showsCount} show</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Best Shows vs Underperforming Shows (Dual Grid) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Performing Shows */}
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-emerald-500" />
+                  {t("analytics.bestShowsTitle") || "Jadwal Tayang Berperforma Terbaik"}
+                </h3>
+                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-xl">
+                  Top Okupansi
                 </span>
               </div>
 
-              <div className="overflow-x-auto -mx-6 sm:-mx-8 px-6 sm:px-8">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="space-y-2.5">
+                {bestShows.slice(0, 5).map((s: any, idx: number) => (
+                  <div
+                    key={s.showtimeId || idx}
+                    className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                        {s.movieTitle}
+                      </div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5">
+                        {s.displayDate} • {s.time} • <span className="font-semibold text-zinc-600 dark:text-zinc-300">{s.studioName}</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                        {s.occupancy}%
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        {s.tickets}/{s.capacity} tiket
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Underperforming Shows */}
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500" />
+                  {t("analytics.underperformingShowsTitle") || "Jadwal Tayang Berperforma Rendah"}
+                </h3>
+                <span className="text-[11px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-xl">
+                  Perlu Evaluasi
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {underperformingShows.slice(0, 5).map((s: any, idx: number) => (
+                  <div
+                    key={s.showtimeId || idx}
+                    className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                        {s.movieTitle}
+                      </div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5">
+                        {s.displayDate} • {s.time} • <span className="font-semibold text-zinc-600 dark:text-zinc-300">{s.studioName}</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-sm font-black text-rose-600 dark:text-rose-400">
+                        {s.occupancy}%
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        {s.tickets}/{s.capacity} tiket
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Weekday vs Weekend & Day of Week Breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Weekday vs Weekend Lift Card */}
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+              <div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <SlidersHorizontal className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.weekdayWeekendTitle") || "Weekday vs Weekend"}
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Perbandingan animo penonton hari kerja vs akhir pekan
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 text-center space-y-1">
+                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                  {t("analytics.weekendLift") || "Weekend Lift"}
+                </span>
+                <div className="text-3xl font-black text-indigo-700 dark:text-indigo-300">
+                  {weekdayWeekendComparison?.weekendLiftPercentage > 0 ? "+" : ""}
+                  {weekdayWeekendComparison?.weekendLiftPercentage || 0}%
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {t("analytics.weekendLiftDesc") || "Peningkatan keterisian penonton di akhir pekan dibanding hari kerja"}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 space-y-1">
+                  <div className="text-xs font-bold text-zinc-500">Weekday (Sen-Kam)</div>
+                  <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+                    {weekdayWeekendComparison?.weekday?.ticketsPerShow || 0}
+                    <span className="text-[10px] font-normal text-zinc-400 ml-1">tix/show</span>
+                  </div>
+                  <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                    {weekdayWeekendComparison?.weekday?.occupancy || 0}% Okupansi
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 space-y-1">
+                  <div className="text-xs font-bold text-emerald-600">Weekend (Jum-Min)</div>
+                  <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+                    {weekdayWeekendComparison?.weekend?.ticketsPerShow || 0}
+                    <span className="text-[10px] font-normal text-zinc-400 ml-1">tix/show</span>
+                  </div>
+                  <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    {weekdayWeekendComparison?.weekend?.occupancy || 0}% Okupansi
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Studio Performance Table */}
+            <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+              <div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Tv className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.studioPerformanceTitle") || "Performa Tiap Studio"}
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Efisiensi okupansi kursi dan kontribusi pendapatan per auditorium
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-zinc-150 dark:border-zinc-800 text-zinc-400 uppercase tracking-wider font-semibold">
-                      <th className="py-3 px-2 font-medium">{t("analytics.tableGenreName")}</th>
-                      <th className="py-3 px-3 font-medium text-center">{t("analytics.tableShowtimes")}</th>
-                      <th className="py-3 px-3 font-medium text-right">{t("analytics.tableTickets")}</th>
-                      <th className="py-3 px-3 font-medium text-right">{t("analytics.tableTicketsPerShow")}</th>
-                      <th className="py-3 px-3 font-medium text-right">{t("analytics.tableRevenue")}</th>
-                      <th className="py-3 px-3 font-medium text-right">{t("analytics.tableShare")}</th>
-                      <th className="py-3 px-3 font-medium text-center">{t("analytics.tableTrend")}</th>
+                    <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold">
+                      <th className="py-2.5 px-3">Studio</th>
+                      <th className="py-2.5 px-3 text-right">Kapasitas</th>
+                      <th className="py-2.5 px-3 text-right">Shows</th>
+                      <th className="py-2.5 px-3 text-right">Tiket</th>
+                      <th className="py-2.5 px-3 text-right">Okupansi</th>
+                      <th className="py-2.5 px-3 text-right">Pendapatan</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    {genres && genres.length > 0 ? (
-                      genres.map((genre, idx) => {
-                        const isSelected = selectedGenreId === genre.id;
-                        const isTrendUp = genre.trendDirection === "UP";
-                        const isTrendDown = genre.trendDirection === "DOWN";
-
-                        return (
-                          <tr
-                            key={genre.id}
-                            onClick={() => setSelectedGenreId(selectedGenreId === genre.id ? "ALL" : genre.id)}
-                            className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer ${
-                              isSelected ? "bg-indigo-50/50 dark:bg-indigo-950/20 font-semibold" : ""
-                            }`}
-                          >
-                            <td className="py-3.5 px-2">
-                              <div className="flex items-center gap-3">
-                                <span className="w-5 text-center font-bold text-zinc-400">
-                                  {idx + 1}
-                                </span>
-                                <div className="space-y-0.5">
-                                  <div className="font-bold text-sm text-zinc-800 dark:text-zinc-200">
-                                    {genre.name}
-                                  </div>
-                                  <p className="text-[11px] text-zinc-400 truncate max-w-[200px]" title={genre.movieTitles.join(", ")}>
-                                    {genre.moviesCount} film: {genre.movieTitles.slice(0, 2).join(", ")}
-                                    {genre.movieTitles.length > 2 ? "..." : ""}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-3 text-center text-zinc-600 dark:text-zinc-300 font-medium">
-                              {genre.totalShowtimes} {t("analytics.sessionsUnit")}
-                            </td>
-                            <td className="py-3.5 px-3 text-right font-bold text-zinc-900 dark:text-zinc-100">
-                              {formatNumber(genre.totalTickets)}
-                            </td>
-                            <td className="py-3.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                              {genre.ticketsPerShow} <span className="text-[10px] font-normal text-zinc-400">tkt/show</span>
-                            </td>
-                            <td className="py-3.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                              {formatCurrency(genre.totalRevenue)}
-                            </td>
-                            <td className="py-3.5 px-3 text-right font-semibold text-zinc-700 dark:text-zinc-300 font-mono">
-                              {genre.revenueShare}%
-                            </td>
-                            <td className="py-3.5 px-3 text-center">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                                  isTrendUp
-                                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50"
-                                    : isTrendDown
-                                    ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50"
-                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
-                                }`}
-                              >
-                                {isTrendUp ? (
-                                  <>
-                                    <TrendingUp className="w-3 h-3" />
-                                    <span>{t("analytics.trendUp")} (+{genre.trendPercentage}%)</span>
-                                  </>
-                                ) : isTrendDown ? (
-                                  <>
-                                    <TrendingDown className="w-3 h-3" />
-                                    <span>{t("analytics.trendDown")} ({genre.trendPercentage}%)</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Minus className="w-3 h-3" />
-                                    <span>{t("analytics.trendStable")}</span>
-                                  </>
-                                )}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="py-6 text-center text-zinc-400">
-                          Belum ada data genre.
+                    {studioPerformance.map((st: any) => (
+                      <tr key={st.studioId} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                        <td className="py-3 px-3 font-bold text-zinc-900 dark:text-zinc-100">
+                          {st.studioName}
+                        </td>
+                        <td className="py-3 px-3 text-right text-zinc-500">
+                          {st.capacity} kursi
+                        </td>
+                        <td className="py-3 px-3 text-right text-zinc-600 dark:text-zinc-300">
+                          {st.totalShowtimes}
+                        </td>
+                        <td className="py-3 px-3 text-right font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {formatNumber(st.totalTickets)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                          {st.occupancyRate}%
+                        </td>
+                        <td className="py-3 px-3 text-right font-black text-zinc-900 dark:text-zinc-100">
+                          {formatCurrency(st.totalRevenue)}
                         </td>
                       </tr>
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Right 1 Col: Market Share Progress Bars per Genre */}
-            <div className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm space-y-5">
+      {/* TAB 2: GENRE ANALYTICS */}
+      {activeTab === "genres" && (
+        <div className="space-y-8">
+          {/* KPI Cards (4 Cards) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Top Grossing Genre */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {t("analytics.topGenre") || "Genre Terlaris"}
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <Shapes className="w-4 h-4" />
+                </div>
+              </div>
               <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-                  {t("analytics.genreMarketShareTitle")}
-                </h2>
+                <div className="text-xl font-black text-zinc-900 dark:text-zinc-50 truncate">
+                  {summary?.topGenre?.name || "-"}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Pangsa Pasar: <span className="font-bold text-indigo-600">{summary?.topGenre?.revenueShare || 0}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 2: Total Genre Aktif */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  {t("analytics.activeGenres") || "Total Genre Aktif"}
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Layers className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                  {genres.length}
+                  <span className="text-xs font-normal text-zinc-400 ml-1.5">kategori</span>
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Mencakup {summary?.activeMoviesCount || 0} judul film tayang
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 3: Rata-rata Tiket / Genre */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  Rata-rata Tiket / Genre
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <Ticket className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                  {genres.length > 0 ? formatNumber(Math.round((summary?.totalTickets || 0) / genres.length)) : 0}
+                  <span className="text-xs font-normal text-zinc-400 ml-1.5">tiket</span>
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Rata-rata per kategori genre
+                </div>
+              </div>
+            </div>
+
+            {/* KPI 4: Total Pendapatan Genre */}
+            <div className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                  Total Omset Terkumpul
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xl font-black text-zinc-900 dark:text-zinc-50">
+                  {formatCurrency(summary?.totalRevenue || 0)}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  {formatNumber(summary?.totalTickets || 0)} tiket terjual
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Market Share Visualization (Toggle: Revenue Share vs Ticket Share) */}
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Percent className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.genreMarketShareTitle") || "Pangsa Pasar Genre"}
+                </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  {t("analytics.genreMarketShareSubtitle")}
+                  {t("analytics.genreMarketShareSubtitle") || "Perbandingan kontribusi omset dan volume tiket masing-masing kategori"}
                 </p>
               </div>
 
-              <div className="space-y-4">
-                {genres && genres.length > 0 ? (
-                  genres.map((genre) => (
-                    <div key={genre.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate max-w-[170px]" title={genre.name}>
-                          {genre.name}
-                        </span>
-                        <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">
-                          {genre.revenueShare}%
+              <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+                <button
+                  onClick={() => setGenreShareMode("revenue")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    genreShareMode === "revenue"
+                      ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  Pangsa Pendapatan (Revenue Share)
+                </button>
+                <button
+                  onClick={() => setGenreShareMode("ticket")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    genreShareMode === "ticket"
+                      ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  Pangsa Tiket (Ticket Share)
+                </button>
+              </div>
+            </div>
+
+            {/* Progress Bars per Genre */}
+            <div className="space-y-4 pt-2">
+              {genres.map((g: any, idx: number) => {
+                const sharePercent = genreShareMode === "revenue" ? g.revenueShare : g.ticketShare;
+                const colors = [
+                  "bg-indigo-500",
+                  "bg-emerald-500",
+                  "bg-amber-500",
+                  "bg-pink-500",
+                  "bg-purple-500",
+                  "bg-cyan-500",
+                  "bg-rose-500",
+                  "bg-orange-500",
+                ];
+                const barColor = colors[idx % colors.length];
+
+                return (
+                  <div key={g.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-900 dark:text-zinc-100">{g.name}</span>
+                        <span className="text-[11px] font-normal text-zinc-400">
+                          ({g.moviesCount} film tayang)
                         </span>
                       </div>
-                      <div className="w-full h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 transition-all duration-500"
-                          style={{ width: `${Math.max(genre.revenueShare, 3)}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                        <span>{formatNumber(genre.totalTickets)} tiket</span>
-                        <span>{formatCurrency(genre.totalRevenue)}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-zinc-500 font-medium">
+                          {genreShareMode === "revenue" ? formatCurrency(g.totalRevenue) : `${formatNumber(g.totalTickets)} tiket`}
+                        </span>
+                        <span className="font-extrabold text-zinc-900 dark:text-zinc-100 min-w-[45px] text-right">
+                          {sharePercent}%
+                        </span>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-zinc-400 py-6 text-center">Belum ada data genre.</p>
-                )}
+                    <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${barColor} rounded-full transition-all duration-700`}
+                        style={{ width: `${Math.min(100, Math.max(1, sharePercent))}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* D3 Genre Trend Chart */}
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  {t("analytics.genreTrendChartTitle") || "Tren Penjualan Harian Berdasarkan Genre"}
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {t("analytics.genreTrendChartSubtitle") || "Analisis komparatif harian antar kategori genre film"}
+                </p>
               </div>
+
+              {/* Chart Controls */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+                  <button
+                    onClick={() => setActiveMetric("revenue")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      activeMetric === "revenue"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    Omset (Rp)
+                  </button>
+                  <button
+                    onClick={() => setActiveMetric("tickets")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      activeMetric === "tickets"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    Tiket
+                  </button>
+                </div>
+
+                <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80">
+                  <button
+                    onClick={() => setChartType("line")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      chartType === "line"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    Garis
+                  </button>
+                  <button
+                    onClick={() => setChartType("bar")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      chartType === "bar"
+                        ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                        : "text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    Batang
+                  </button>
+                </div>
+
+                <select
+                  value={selectedGenreId}
+                  onChange={(e) => setSelectedGenreId(e.target.value)}
+                  className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="ALL">{t("analytics.allGenres") || "Semua Genre"}</option>
+                  {genres.map((g: any) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <MovieAnalyticsChart
+              dailyTotals={dailyTotals}
+              items={genreChartItems}
+              activeMetric={activeMetric}
+              chartType={chartType}
+              selectedItemId={selectedGenreId}
+              onSelectItem={(id) => setSelectedGenreId(id)}
+              allLabel={t("analytics.allGenres") || "Semua Genre"}
+            />
+          </div>
+
+          {/* Genre Performance Table */}
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden space-y-4">
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800/80">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <Shapes className="w-5 h-5 text-indigo-600" />
+                {t("analytics.genrePerformanceTitle") || "Kinerja & Pangsa Pasar Genre Film"}
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {t("analytics.genrePerformanceSubtitle") || "Peringkat dan kontribusi omset per kategori genre"}
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-zinc-50/80 dark:bg-zinc-800/50 text-zinc-500 font-bold border-b border-zinc-200 dark:border-zinc-800">
+                    <th className="py-3 px-4">{t("analytics.tableGenreName") || "Kategori Genre"}</th>
+                    <th className="py-3 px-3">{t("analytics.tableMoviesInGenre") || "Judul Film Tayang"}</th>
+                    <th className="py-3 px-3 text-right">Shows</th>
+                    <th className="py-3 px-3 text-right">Tiket</th>
+                    <th className="py-3 px-3 text-right">Tiket/Show</th>
+                    <th className="py-3 px-3 text-right">Okupansi</th>
+                    <th className="py-3 px-3 text-right">Pendapatan</th>
+                    <th className="py-3 px-3 text-right">Share %</th>
+                    <th className="py-3 px-4 text-center">Momentum</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                  {genres.map((g: any) => (
+                    <tr key={g.id} className="hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-zinc-900 dark:text-zinc-100">
+                        {g.name}
+                      </td>
+                      <td className="py-3.5 px-3 text-zinc-500 max-w-[220px] truncate" title={g.movieTitles?.join(", ")}>
+                        {g.movieTitles?.join(", ") || "-"}
+                      </td>
+                      <td className="py-3.5 px-3 text-right text-zinc-600 dark:text-zinc-300">
+                        {g.totalShowtimes}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-extrabold text-zinc-900 dark:text-zinc-100">
+                        {formatNumber(g.totalTickets)}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                        {g.ticketsPerShow}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-bold text-zinc-700 dark:text-zinc-300">
+                        {g.occupancy}%
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-black text-zinc-900 dark:text-zinc-100">
+                        {formatCurrency(g.totalRevenue)}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-bold text-indigo-600">
+                        {g.revenueShare}%
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {getMomentumBadge(g.momentum)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

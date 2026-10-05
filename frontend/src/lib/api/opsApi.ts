@@ -194,7 +194,10 @@ export const opsApi = api.injectEndpoints({
       transformResponse: (response: any) => response.data,
       providesTags: ["Report"],
     }),
-    getMovieAnalytics: builder.query<MovieAnalyticsData, { days?: number; endDate?: string } | void>({
+    getMovieAnalytics: builder.query<
+      MovieAnalyticsData,
+      { days?: number; endDate?: string; startDate?: string } | void
+    >({
       query: (params) => ({
         url: "/reports/movie-analytics",
         params: params || { days: 7 },
@@ -250,6 +253,22 @@ export interface MovieAnalyticsDailyItem {
   showtimesCount: number;
 }
 
+export type MomentumDirection = "UP" | "SLIGHT_UP" | "STABLE" | "SLIGHT_DOWN" | "DOWN" | "NONE";
+export type MomentumLabel = "Naik" | "Cenderung Naik" | "Stabil" | "Cenderung Turun" | "Turun" | "Tidak tersedia";
+
+export interface MovieStudioBreakdownItem {
+  studioId: string;
+  studioName: string;
+  studioCode: string;
+  shows: number;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+  ticketsPerShow: number;
+  revenuePerShow: number;
+}
+
 export interface MovieAnalyticsMovieItem {
   id: string;
   title: string;
@@ -260,12 +279,33 @@ export interface MovieAnalyticsMovieItem {
   totalTickets: number;
   totalRevenue: number;
   totalShowtimes: number;
+  totalCapacity: number;
+  occupancy: number;
   ticketsPerShow: number;
+  revenuePerShow: number;
   averageTicketPrice: number;
   revenueShare: number;
   ticketShare: number;
-  trendDirection: "UP" | "DOWN" | "STABLE";
-  trendPercentage: number;
+  peakHour: string;
+  bestStudio: string;
+  momentum: {
+    direction: MomentumDirection;
+    label: MomentumLabel;
+    growthPercentage: number;
+    currentTickets: number;
+    previousTickets: number;
+  };
+  recommendation: {
+    action: "INCREASE" | "MAINTAIN" | "REDUCE" | "MONITOR";
+    label: string;
+    reason: string;
+  };
+  healthScore: {
+    score: number;
+    status: "STRONG" | "NORMAL" | "WEAK" | "CRITICAL";
+    label: string;
+  };
+  studiosBreakdown: MovieStudioBreakdownItem[];
   daily: MovieAnalyticsDailyItem[];
 }
 
@@ -277,11 +317,19 @@ export interface GenreAnalyticsItem {
   totalTickets: number;
   totalRevenue: number;
   totalShowtimes: number;
+  totalCapacity: number;
+  occupancy: number;
   ticketsPerShow: number;
+  revenuePerShow: number;
   revenueShare: number;
   ticketShare: number;
-  trendDirection: "UP" | "DOWN" | "STABLE";
-  trendPercentage: number;
+  momentum: {
+    direction: MomentumDirection;
+    label: MomentumLabel;
+    growthPercentage: number;
+    currentTickets: number;
+    previousTickets: number;
+  };
   daily: MovieAnalyticsDailyItem[];
 }
 
@@ -292,8 +340,10 @@ export interface StudioPerformanceItem {
   capacity: number;
   totalShowtimes: number;
   totalTickets: number;
+  totalCapacity: number;
   totalRevenue: number;
   averageTicketsPerShow: number;
+  averageRevenuePerShow: number;
   occupancyRate: number;
   revenueShare: number;
 }
@@ -305,9 +355,77 @@ export interface TimeSlotPerformanceItem {
   totalTickets: number;
   totalRevenue: number;
   showtimesCount: number;
+  totalCapacity: number;
+  occupancy: number;
   averageTicketsPerShow: number;
+  revenuePerShow: number;
   revenueShare: number;
   isPeak: boolean;
+}
+
+export interface ShowtimeHeatmapCell {
+  dayOfWeek: number;
+  dayName: string;
+  dayShort: string;
+  timeSlot: string;
+  slotKey: string;
+  showsCount: number;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+  ticketsPerShow: number;
+  revenuePerShow: number;
+}
+
+export interface IndividualShowAnalyticsItem {
+  showtimeId: string;
+  movieId: string;
+  movieTitle: string;
+  date: string;
+  displayDate: string;
+  time: string;
+  studioId: string;
+  studioName: string;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+}
+
+export interface DayOfWeekAnalyticsItem {
+  dayOfWeek: number;
+  dayName: string;
+  dayShort: string;
+  shows: number;
+  tickets: number;
+  capacity: number;
+  occupancy: number;
+  revenue: number;
+  ticketsPerShow: number;
+  revenuePerShow: number;
+}
+
+export interface WeekdayWeekendComparison {
+  weekday: {
+    shows: number;
+    tickets: number;
+    capacity: number;
+    occupancy: number;
+    revenue: number;
+    ticketsPerShow: number;
+    revenuePerShow: number;
+  };
+  weekend: {
+    shows: number;
+    tickets: number;
+    capacity: number;
+    occupancy: number;
+    revenue: number;
+    ticketsPerShow: number;
+    revenuePerShow: number;
+  };
+  weekendLiftPercentage: number;
 }
 
 export interface MovieAnalyticsData {
@@ -316,11 +434,15 @@ export interface MovieAnalyticsData {
     endDate: string;
     days: number;
     timezone: string;
+    previousStartDate: string;
+    previousEndDate: string;
   };
   summary: {
     totalRevenue: number;
     totalTickets: number;
     totalShowtimes: number;
+    totalCapacity: number;
+    averageOccupancy: number;
     activeMoviesCount: number;
     averageTicketsPerShow: number;
     averageRevenuePerShow: number;
@@ -332,12 +454,15 @@ export interface MovieAnalyticsData {
       poster: string | null;
       revenue: number;
       tickets: number;
+      occupancy: number;
+      recommendation: string;
     } | null;
     topGenre: {
       name: string;
       revenue: number;
       tickets: number;
       moviesCount: number;
+      revenueShare: number;
     } | null;
     highestSalesDay: {
       date: string;
@@ -350,6 +475,7 @@ export interface MovieAnalyticsData {
       timeRange: string;
       revenue: number;
       tickets: number;
+      occupancy: number;
     } | null;
   };
   dailyTotals: Array<{
@@ -360,6 +486,8 @@ export interface MovieAnalyticsData {
     totalTickets: number;
     totalRevenue: number;
     totalShowtimes: number;
+    totalCapacity: number;
+    occupancy: number;
     movieBreakdown: Array<{
       movieId: string;
       title: string;
@@ -371,6 +499,11 @@ export interface MovieAnalyticsData {
   genres: GenreAnalyticsItem[];
   studioPerformance: StudioPerformanceItem[];
   timeSlotPerformance: TimeSlotPerformanceItem[];
+  showtimeHeatmap: ShowtimeHeatmapCell[];
+  bestShows: IndividualShowAnalyticsItem[];
+  underperformingShows: IndividualShowAnalyticsItem[];
+  dayOfWeekAnalytics: DayOfWeekAnalyticsItem[];
+  weekdayWeekendComparison: WeekdayWeekendComparison;
 }
 
 

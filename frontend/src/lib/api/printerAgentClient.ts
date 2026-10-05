@@ -30,6 +30,25 @@ export interface PrinterAgentHealth {
   canAutoCut: boolean;
 }
 
+export interface ShiftSummaryPrintPayload {
+  jobId?: string;
+  drawerId?: string;
+  cashierName?: string;
+  closedByName?: string;
+  openedAt: string;
+  closedAt?: string;
+  openingBalance: number;
+  expectedBalance: number;
+  actualBalance: number;
+  difference: number;
+  notes?: string | null;
+  totalCashSales?: number;
+  totalQrisSales?: number;
+  totalOtherSales?: number;
+  totalSales?: number;
+  totalTransactions?: number;
+}
+
 export class PrinterAgentClient {
   private readonly baseUrl: string;
   private readonly deviceId: string;
@@ -99,6 +118,19 @@ export class PrinterAgentClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error?.error?.message || "Ticket print failed");
+    }
+    return response.json();
+  }
+
+  async printShiftSummary(payload: ShiftSummaryPrintPayload): Promise<{ jobId: string; status: string }> {
+    const response = await fetch(`${this.baseUrl}/api/print/shift-summary`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.error?.message || "Shift summary print failed");
     }
     return response.json();
   }

@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { loginSchema } from "./validation";
 import { authenticateUser, ssoService, ssoSyncService } from "./service";
 import { responseHandler } from "../../utils/responseHandler";
-import { COOKIE_NAME, NODE_ENV } from "../../config/constant";
+import { COOKIE_NAME, NODE_ENV, JWT_SECRET } from "../../config/constant";
 import { AppError } from "../../utils/errorHandler";
+import { prisma } from "../../utils/prisma";
 
 export const loginController = async (req: Request, res: Response) => {
   const result = loginSchema.safeParse(req.body);
@@ -27,6 +29,31 @@ export const loginController = async (req: Request, res: Response) => {
 };
 
 export const logoutController = async (req: Request, res: Response) => {
+  const token = req.cookies?.[COOKIE_NAME] || req.headers["authorization"]?.toString().replace("Bearer ", "");
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+      if (decoded?.userId) {
+        const activeDrawer = await prisma.cashDrawer.findFirst({
+          where: {
+            openedById: decoded.userId,
+            status: "OPEN",
+          },
+        });
+
+        if (activeDrawer) {
+          throw new AppError(
+            "BAD_REQUEST",
+            "Anda masih memiliki sesi laci kas (Cash Drawer) yang aktif. Silakan tutup sesi laci kas terlebih dahulu sebelum logout."
+          );
+        }
+      }
+    } catch (err: any) {
+      if (err instanceof AppError) throw err;
+      // If token invalid, proceed with clearing cookie
+    }
+  }
+
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
     secure: NODE_ENV === "production",

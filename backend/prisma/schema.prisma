@@ -485,6 +485,7 @@ model CashDrawer {
   expectedBalance Float?
   actualBalance  Float?
   difference     Float?
+  notes          String?
   openedById     String
   closedById     String?
   openedAt       DateTime  @default(now())

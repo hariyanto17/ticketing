@@ -7,6 +7,12 @@ export interface CashDrawer {
   expectedBalance?: number;
   actualBalance?: number;
   difference?: number;
+  notes?: string | null;
+  totalCashSales?: number;
+  totalQrisSales?: number;
+  totalOtherSales?: number;
+  totalSales?: number;
+  totalTransactions?: number;
   openedById: string;
   closedById?: string;
   openedAt: string;
@@ -93,7 +99,7 @@ export const opsApi = api.injectEndpoints({
       transformResponse: (response: any) => response.data,
       invalidatesTags: ["CashDrawer"],
     }),
-    closeDrawer: builder.mutation<CashDrawer, { actualBalance: number }>({
+    closeDrawer: builder.mutation<CashDrawer, { actualBalance: number; notes?: string | null }>({
       query: (body) => ({
         url: "/cash-drawers/close",
         method: "POST",

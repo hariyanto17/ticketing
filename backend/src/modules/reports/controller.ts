@@ -10,7 +10,8 @@ export const getReportsController = async (req: Request, res: Response) => {
 
 export const getFilmShowingDatesController = async (req: Request, res: Response) => {
   const movieId = req.query.movieId as string;
-  const dates = await service.getFilmShowingDates(movieId);
+  const branchId = (req.user as any)?.branchId;
+  const dates = await service.getFilmShowingDates(movieId, branchId);
   return responseHandler.ok(res, dates, "Showing dates retrieved successfully");
 };
 

@@ -18,7 +18,8 @@ export const loginController = async (req: Request, res: Response) => {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
+    path: "/",
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
   });
 
@@ -29,7 +30,8 @@ export const logoutController = async (req: Request, res: Response) => {
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
+    path: "/",
   });
   return responseHandler.ok(res, null, "Logout successful");
 };
@@ -53,7 +55,8 @@ export const ssoController = async (req: Request, res: Response) => {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
+    path: "/",
     maxAge: 24 * 60 * 60 * 1000,
   });
 

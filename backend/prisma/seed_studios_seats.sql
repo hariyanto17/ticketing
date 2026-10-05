@@ -22,11 +22,14 @@ DECLARE
     row_list TEXT[] := ARRAY['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
 BEGIN
     -- 1. Ambil atau Buat Branch Utama
-    SELECT id INTO v_branch_id FROM "Branch" WHERE code IN ('MAIN', 'BONE') LIMIT 1;
+    SELECT id INTO v_branch_id FROM "Branch" WHERE code IN ('PLANET', 'MAIN', 'BONE') LIMIT 1;
+    IF v_branch_id IS NULL THEN
+        SELECT id INTO v_branch_id FROM "Branch" ORDER BY "createdAt" ASC LIMIT 1;
+    END IF;
     IF v_branch_id IS NULL THEN
         v_branch_id := gen_random_uuid()::text;
         INSERT INTO "Branch" (id, name, code, address, city, province, phone, email, timezone, status, "createdAt", "updatedAt")
-        VALUES (v_branch_id, 'Main Branch', 'MAIN', 'Jl. Veteran No. 1', 'Bone', 'Sulawesi Selatan', '+62811000001', 'info@planetcinema.co.id', 'Asia/Makassar', 'ACTIVE', NOW(), NOW());
+        VALUES (v_branch_id, 'Planet Cinema', 'PLANET', 'Jl. Veteran No. 1', 'Bone', 'Sulawesi Selatan', '+62811000001', 'info@planetcinema.co.id', 'Asia/Makassar', 'ACTIVE', NOW(), NOW());
     END IF;
 
     -- 2. Upsert Studio 1 (18 Kolom Auditorium, Aisle di 11-12)

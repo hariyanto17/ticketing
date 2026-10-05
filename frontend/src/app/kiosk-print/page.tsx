@@ -11,7 +11,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearCredentials } from "@/store/authSlice";
 import { useLogoutMutation } from "@/services/authApi";
 import { useToast } from "@/components/ui/toast";
-import { SOCKET_BASE_URL } from "@/lib/api/api";
+import { SOCKET_BASE_URL, api } from "@/lib/api/api";
 
 // Modular Subcomponents
 import { KioskHeader } from "@/components/kiosk/KioskHeader";
@@ -295,10 +295,12 @@ function KioskPrintContent() {
     try {
       await logout().unwrap();
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       toastSuccess("Berhasil keluar.");
       router.push("/login");
     } catch {
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       router.push("/login");
     }
   };

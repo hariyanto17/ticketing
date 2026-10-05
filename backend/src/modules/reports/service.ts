@@ -88,17 +88,32 @@ export const getOperationalReports = async () => {
   };
 };
 
-export const getFilmShowingDates = async (movieId: string) => {
+export const getFilmShowingDates = async (movieId: string, branchId?: string) => {
   if (!movieId) return [];
 
-  const settingsRecords = await prisma.setting.findMany();
-  const timezone = settingsRecords.find((s) => s.key === "timezone")?.value || "Asia/Jakarta";
+  const branch = branchId
+    ? await prisma.branch.findUnique({ where: { id: branchId } })
+    : await prisma.branch.findFirst();
 
-  const showtimes = await prisma.showtime.findMany({
-    where: { movieId },
+  const settingsRecords = await prisma.setting.findMany();
+  const timezone = settingsRecords.find((s) => s.key === "timezone")?.value || branch?.timezone || process.env.TZ || "Asia/Makassar";
+
+  let showtimes = await prisma.showtime.findMany({
+    where: {
+      movieId,
+      ...(branchId && { studio: { branchId } }),
+    },
     select: { businessDate: true, startTime: true },
     orderBy: { startTime: "asc" },
   });
+
+  if (showtimes.length === 0 && branchId) {
+    showtimes = await prisma.showtime.findMany({
+      where: { movieId },
+      select: { businessDate: true, startTime: true },
+      orderBy: { startTime: "asc" },
+    });
+  }
 
   const dateSet = new Set<string>();
   for (const s of showtimes) {
@@ -117,8 +132,12 @@ export const getFilmSalesReport = async (movieId: string, showingDate: string, b
     throw new (require("../../utils/errorHandler").AppError)("BAD_REQUEST", "Movie ID and showing date are required");
   }
 
+  const branch = branchId
+    ? await prisma.branch.findUnique({ where: { id: branchId } })
+    : await prisma.branch.findFirst();
+
   const settingsRecords = await prisma.setting.findMany();
-  const timezone = settingsRecords.find((s) => s.key === "timezone")?.value || "Asia/Jakarta";
+  const timezone = settingsRecords.find((s) => s.key === "timezone")?.value || branch?.timezone || process.env.TZ || "Asia/Makassar";
   const cinemaNameSetting = settingsRecords.find((s) => s.key === "cinemaName")?.value;
 
   const movie = await prisma.movie.findUnique({
@@ -133,30 +152,36 @@ export const getFilmSalesReport = async (movieId: string, showingDate: string, b
     throw new (require("../../utils/errorHandler").AppError)("NOT_FOUND", "Movie not found");
   }
 
-  // Determine date bounds in the target timezone
-  const startOfDay = new Date(`${showingDate}T00:00:00`);
-  const endOfDay = new Date(`${showingDate}T23:59:59.999`);
-
-  const branch = branchId
-    ? await prisma.branch.findUnique({ where: { id: branchId } })
-    : await prisma.branch.findFirst();
-
   const cinemaName = cinemaNameSetting || branch?.name || "PLANET CINEMA";
 
-  // Find showtimes matching this movie and date
-  const showtimes = await prisma.showtime.findMany({
+  // Find showtimes matching this movie (and branch)
+  let allShowtimes = await prisma.showtime.findMany({
     where: {
       movieId,
       ...(branchId && { studio: { branchId } }),
-      OR: [
-        { businessDate: { gte: startOfDay, lte: endOfDay } },
-        { startTime: { gte: startOfDay, lte: endOfDay } },
-      ],
     },
     include: {
       studio: { select: { id: true, name: true, code: true, type: true, capacity: true } },
     },
     orderBy: { startTime: "asc" },
+  });
+
+  if (allShowtimes.length === 0 && branchId) {
+    allShowtimes = await prisma.showtime.findMany({
+      where: { movieId },
+      include: {
+        studio: { select: { id: true, name: true, code: true, type: true, capacity: true } },
+      },
+      orderBy: { startTime: "asc" },
+    });
+  }
+
+  // Filter showtimes matching showingDate in the specified timezone
+  const showtimes = allShowtimes.filter((s) => {
+    const rawDate = s.businessDate || s.startTime;
+    if (!rawDate) return false;
+    const dateStr = new Intl.DateTimeFormat("sv-SE", { timeZone: timezone }).format(new Date(rawDate));
+    return dateStr === showingDate;
   });
 
   const showtimeIds = showtimes.map((s) => s.id);
@@ -272,7 +297,7 @@ export interface FilmSalesReportData {
 }
 
 export const getScheduledMovies = async (branchId?: string) => {
-  const movies = await prisma.movie.findMany({
+  let movies = await prisma.movie.findMany({
     where: {
       showtimes: {
         some: {
@@ -290,6 +315,26 @@ export const getScheduledMovies = async (branchId?: string) => {
     },
     orderBy: { title: "asc" },
   });
+
+  if (movies.length === 0 && branchId) {
+    movies = await prisma.movie.findMany({
+      where: {
+        showtimes: {
+          some: {},
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        poster: true,
+        censorshipRating: true,
+        durationMinutes: true,
+        status: true,
+      },
+      orderBy: { title: "asc" },
+    });
+  }
+
   return movies;
 };
 

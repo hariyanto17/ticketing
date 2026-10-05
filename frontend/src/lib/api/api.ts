@@ -30,6 +30,7 @@ export const api = createApi({
 
     if (result.error?.status === 401) {
       apiContext.dispatch(clearCredentials());
+      apiContext.dispatch(api.util.resetApiState());
     }
 
     return result;

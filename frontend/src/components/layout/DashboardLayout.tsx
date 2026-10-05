@@ -33,6 +33,8 @@ import Link from "next/link";
 import { useTheme } from "@/components/ThemeProvider";
 import { useTranslation } from "@/lib/i18n";
 
+import { api } from "@/lib/api/api";
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
@@ -43,7 +45,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const dispatch = useAppDispatch();
   const { error: toastError, success: toastSuccess } = useToast();
   const [logout] = useLogoutMutation();
-  const { data: sessionResponse, isLoading: isSessionLoading, isError: isSessionError } = useMeQuery();
+  const { data: sessionResponse, isLoading: isSessionLoading, isError: isSessionError } = useMeQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
 
   const user = useAppSelector((state) => state.auth.user);
   const authStatus = useAppSelector((state) => state.auth.status);
@@ -76,7 +80,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { t, locale, setLocale, localeLabel } = useTranslation();
 
   useEffect(() => {
-    if (sessionResponse?.data.user) {
+    if (sessionResponse?.data?.user) {
       dispatch(setSessionUser(sessionResponse.data.user));
     }
   }, [dispatch, sessionResponse]);
@@ -84,6 +88,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     if (isSessionError) {
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       router.replace("/login");
     }
   }, [dispatch, isSessionError, router]);
@@ -135,10 +140,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     try {
       await logout().unwrap();
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       toastSuccess(t("auth.logoutSuccess"));
       router.push("/login");
     } catch (err: any) {
+      dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       toastError(t("auth.logoutFailed"));
+      router.push("/login");
     }
   };
 

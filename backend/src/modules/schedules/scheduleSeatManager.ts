@@ -1,6 +1,7 @@
 import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { emitSeatUpdate } from "../../utils/socket";
+import { invalidateScheduleSeatCache } from "../../utils/redis";
 
 export const holdSeats = async (scheduleId: string, seatIds: string[], minutes = 10) => {
   const now = new Date();
@@ -79,6 +80,7 @@ export const holdSeats = async (scheduleId: string, seatIds: string[], minutes =
     );
   }
 
+  await invalidateScheduleSeatCache(scheduleId);
   emitSeatUpdate("seats_held", { showtimeId: scheduleId, seatIds });
 
   return { reservedUntil };
@@ -97,7 +99,9 @@ export const releaseSeats = async (scheduleId: string, seatIds: string[]) => {
     },
   });
 
+  await invalidateScheduleSeatCache(scheduleId);
   emitSeatUpdate("seats_released", { showtimeId: scheduleId, seatIds });
 
   return true;
 };
+

@@ -1,6 +1,7 @@
 import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { emitSeatUpdate } from "../../utils/socket";
+import { invalidateScheduleSeatCache } from "../../utils/redis";
 
 export const voidOrder = async (orderId: string) => {
   const order = await prisma.order.findUnique({
@@ -16,7 +17,7 @@ export const voidOrder = async (orderId: string) => {
     throw new AppError("BAD_REQUEST", "Order is already cancelled or refunded");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Restore Promotion Quota if applicable
     if (order.promotionId && order.promoSnapshot) {
       const snap: any = order.promoSnapshot;
@@ -79,7 +80,11 @@ export const voidOrder = async (orderId: string) => {
 
     return updatedOrder;
   });
+
+  await invalidateScheduleSeatCache(order.scheduleId);
+  return result;
 };
+
 
 export const refundTicket = async (ticketId: string, reason: string) => {
   const ticket = await prisma.ticket.findUnique({
@@ -98,8 +103,9 @@ export const refundTicket = async (ticketId: string, reason: string) => {
   if (ticket.status !== "ACTIVE") {
     throw new AppError("BAD_REQUEST", "Only ACTIVE tickets can be refunded");
   }
+  const scheduleId = ticket.order.scheduleId;
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Cancel Ticket
     const updatedTicket = await tx.ticket.update({
       where: { id: ticketId },
@@ -144,10 +150,16 @@ export const refundTicket = async (ticketId: string, reason: string) => {
 
     // Broadcast live seat updates
     emitSeatUpdate("seats_released", {
-      showtimeId: ticket.order.scheduleId,
+      showtimeId: scheduleId,
       seatIds: [ticket.showtimeSeat.seatId],
     });
 
     return updatedTicket;
   });
+
+  await invalidateScheduleSeatCache(scheduleId);
+  return result;
 };
+
+
+

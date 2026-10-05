@@ -3,6 +3,7 @@ import { AppError } from "../../utils/errorHandler";
 import { CheckoutInput } from "./validation";
 import { emitSeatUpdate } from "../../utils/socket";
 import { calculatePromotionDiscount } from "../promotions/service";
+import { invalidateScheduleSeatCache } from "../../utils/redis";
 
 interface GetOrdersQuery {
   page?: number;
@@ -407,6 +408,9 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
       showtimeId: input.scheduleId,
       seatIds: input.seatIds,
     });
+
+    // Invalidate cached seat map
+    await invalidateScheduleSeatCache(input.scheduleId);
 
     return {
       order,

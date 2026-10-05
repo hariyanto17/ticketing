@@ -1,6 +1,7 @@
 import { prisma } from "../../utils/prisma";
 import { AppError } from "../../utils/errorHandler";
 import { emitSeatUpdate } from "../../utils/socket";
+import { invalidateScheduleSeatCache } from "../../utils/redis";
 
 export const cleanupExpiredBookings = async () => {
   const now = new Date();
@@ -32,6 +33,7 @@ export const cleanupExpiredBookings = async () => {
 
     for (const [showtimeId, seatIds] of Object.entries(grouped)) {
       emitSeatUpdate("seats_released", { showtimeId, seatIds });
+      await invalidateScheduleSeatCache(showtimeId);
     }
   }
 
@@ -123,7 +125,7 @@ export const confirmBookingPayment = async (
     );
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Update Order status to PAID
     const updatedOrder = await tx.order.update({
       where: { id: orderId },
@@ -199,6 +201,9 @@ export const confirmBookingPayment = async (
 
     return updatedOrder;
   });
+
+  await invalidateScheduleSeatCache(order.scheduleId);
+  return result;
 };
 
 export const cancelBooking = async (orderId: string) => {
@@ -217,7 +222,7 @@ export const cancelBooking = async (orderId: string) => {
     throw new AppError("BAD_REQUEST", "Only PENDING bookings can be cancelled");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Cancel Tickets
     await tx.ticket.updateMany({
       where: { orderId },
@@ -261,4 +266,8 @@ export const cancelBooking = async (orderId: string) => {
 
     return updatedOrder;
   });
+
+  await invalidateScheduleSeatCache(order.scheduleId);
+  return result;
 };
+

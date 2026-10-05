@@ -12,8 +12,10 @@ import { useAppSelector } from "@/store/hooks";
 export default function TransactionHistory() {
   const { t, formatDate, formatCurrency } = useTranslation();
   const user = useAppSelector((state) => state.auth.user);
+  const userRoleStr = (typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "").toUpperCase();
   const isCashier = Boolean(
-    user?.role?.toUpperCase().includes("CASHIER") ||
+    userRoleStr.includes("CASHIER") ||
+    userRoleStr.includes("KASIR") ||
     user?.username?.toLowerCase().includes("kasir") ||
     user?.username?.toLowerCase().includes("cashier")
   );

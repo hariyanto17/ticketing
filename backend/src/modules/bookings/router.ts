@@ -85,7 +85,7 @@ router.get("/lookup", catchAsync(controller.lookupBookingController));
 // ADMIN SECURED ROUTES
 // ====================
 router.use(catchAsync(authMiddleware));
-router.use(authorize("Admin"));
+router.use(authorize("Admin", "ADMIN", "Report", "REPORT"));
 
 router.get("/admin/list", catchAsync(controller.getAdminBookingsController));
 router.put("/admin/:id/payment", catchAsync(controller.confirmBookingPaymentController));

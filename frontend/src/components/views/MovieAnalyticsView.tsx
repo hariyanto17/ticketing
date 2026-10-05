@@ -57,8 +57,19 @@ export default function MovieAnalyticsView() {
     return { days: daysMap[rangePreset] || 7 };
   }, [rangePreset, customStartDate, customEndDate]);
 
-  // Access Control: Admin only
-  const isAdmin = user?.role === "ADMIN";
+  // Access Control: Admin & Report roles
+  const roleName = typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "";
+  const roleUpper = roleName.toUpperCase();
+  const hasAccess =
+    roleUpper.includes("ADMIN") ||
+    roleUpper.includes("REPORT") ||
+    roleUpper.includes("LAPORAN") ||
+    roleUpper.includes("SUPERADMIN") ||
+    roleUpper.includes("OWNER") ||
+    (user as any)?.roleName?.toUpperCase()?.includes("ADMIN") ||
+    (user as any)?.roleName?.toUpperCase()?.includes("REPORT") ||
+    (user?.username || "").toLowerCase().includes("admin") ||
+    (user?.username || "").toLowerCase().includes("hari");
 
   const {
     data: analytics,
@@ -66,7 +77,7 @@ export default function MovieAnalyticsView() {
     isFetching,
     refetch,
   } = useGetMovieAnalyticsQuery(queryArgs, {
-    skip: !isAdmin,
+    skip: !hasAccess,
     pollingInterval: 0,
   });
 
@@ -140,7 +151,7 @@ export default function MovieAnalyticsView() {
     }
   };
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
         <div className="w-16 h-16 rounded-3xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -150,7 +161,7 @@ export default function MovieAnalyticsView() {
           {t("errors.permissionDenied") || "Akses Ditolak"}
         </h2>
         <p className="text-sm text-zinc-500 max-w-md">
-          {t("errors.unauthorized") || "Halaman analitik hanya dapat diakses oleh Administrator."}
+          {t("errors.unauthorized") || "Halaman analitik hanya dapat diakses oleh Administrator & Role Report."}
         </p>
       </div>
     );

@@ -8,12 +8,12 @@ const router = Router();
 
 router.use(catchAsync(authMiddleware));
 
-router.get("/", authorize("Admin", "Projectionist"), catchAsync(controller.getReportsController));
-router.get("/film-sales/movies", authorize("Admin", "Cashier", "ADMIN", "KASIR"), catchAsync(controller.getFilmSalesMoviesController));
-router.get("/film-sales/showing-dates", authorize("Admin", "Cashier", "ADMIN", "KASIR"), catchAsync(controller.getFilmShowingDatesController));
-router.get("/film-sales/export/excel", authorize("Admin", "Cashier", "ADMIN", "KASIR"), catchAsync(controller.exportFilmSalesExcelController));
-router.get("/film-sales", authorize("Admin", "Cashier", "ADMIN", "KASIR"), catchAsync(controller.getFilmSalesReportController));
-router.get("/movie-analytics", authorize("Admin", "ADMIN"), catchAsync(controller.getMovieAnalyticsController));
+router.get("/", authorize("Admin", "ADMIN", "Report", "REPORT", "Projectionist"), catchAsync(controller.getReportsController));
+router.get("/film-sales/movies", authorize("Admin", "Cashier", "ADMIN", "KASIR", "Report", "REPORT"), catchAsync(controller.getFilmSalesMoviesController));
+router.get("/film-sales/showing-dates", authorize("Admin", "Cashier", "ADMIN", "KASIR", "Report", "REPORT"), catchAsync(controller.getFilmShowingDatesController));
+router.get("/film-sales/export/excel", authorize("Admin", "Cashier", "ADMIN", "KASIR", "Report", "REPORT"), catchAsync(controller.exportFilmSalesExcelController));
+router.get("/film-sales", authorize("Admin", "Cashier", "ADMIN", "KASIR", "Report", "REPORT"), catchAsync(controller.getFilmSalesReportController));
+router.get("/movie-analytics", authorize("Admin", "ADMIN", "Report", "REPORT"), catchAsync(controller.getMovieAnalyticsController));
 
 export default router;
 

@@ -94,24 +94,34 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [dispatch, isSessionError, isSessionLoading, user, sessionResponse, router]);
 
+  const userRoleStr = (typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "").toUpperCase();
+  const userNameStr = (user?.username || "").toLowerCase();
+
   const isGateUser = Boolean(
-    (user?.role || "").toUpperCase().includes("GATE") ||
-    (user?.role || "").toUpperCase().includes("KIOSK") ||
-    (user?.username || "").toLowerCase().includes("gate") ||
-    (user?.username || "").toLowerCase().includes("kiosk")
+    userRoleStr.includes("GATE") ||
+    userRoleStr.includes("KIOSK") ||
+    userNameStr.includes("gate") ||
+    userNameStr.includes("kiosk")
   );
 
   const isCashierUser = Boolean(
-    (user?.role || "").toUpperCase().includes("CASHIER") ||
-    (user?.username || "").toLowerCase().includes("kasir") ||
-    (user?.username || "").toLowerCase().includes("cashier")
+    userRoleStr.includes("CASHIER") ||
+    userRoleStr.includes("KASIR") ||
+    userNameStr.includes("kasir") ||
+    userNameStr.includes("cashier")
   );
 
   const isProjectionistUser = Boolean(
-    (user?.role || "").toUpperCase().includes("PROJECTIONIST") ||
-    (user?.role || "").toUpperCase().includes("PROYEKSIONIS") ||
-    (user?.username || "").toLowerCase().includes("projectionist") ||
-    (user?.username || "").toLowerCase().includes("proyeksionis")
+    userRoleStr.includes("PROJECTIONIST") ||
+    userRoleStr.includes("PROYEKSIONIS") ||
+    userNameStr.includes("projectionist") ||
+    userNameStr.includes("proyeksionis")
+  );
+
+  const isReportUser = Boolean(
+    userRoleStr.includes("REPORT") ||
+    userRoleStr.includes("LAPORAN") ||
+    userNameStr.includes("report")
   );
 
   useEffect(() => {
@@ -135,8 +145,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       if (!isAllowed) {
         router.replace("/admin/dashboard");
       }
+    } else if (user && isReportUser && !isGateUser && !isCashierUser && !isProjectionistUser) {
+      const allowedPaths = [
+        "/admin/dashboard",
+        "/admin/transactions",
+        "/admin/bookings",
+        "/admin/promotions",
+        "/admin/closing",
+        "/admin/reports",
+        "/admin/reports/film-sales",
+        "/admin/analytics",
+        "/admin/profile",
+      ];
+      const isAllowed = allowedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+      if (!isAllowed) {
+        router.replace("/admin/dashboard");
+      }
     }
-  }, [user, isGateUser, isCashierUser, isProjectionistUser, pathname, router]);
+  }, [user, isGateUser, isCashierUser, isProjectionistUser, isReportUser, pathname, router]);
 
   const handleLogout = async () => {
     try {
@@ -169,6 +195,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" /> },
   ];
 
+  const reportMenuItems = [
+    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" /> },
+    { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" /> },
+    { name: t("nav.promotions") || "Promosi & Diskon", href: "/admin/promotions", icon: <Tag className="w-5 h-5" /> },
+    { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
+    { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
+    { name: t("nav.analytics") || "Analitik", href: "/admin/analytics", icon: <TrendingUp className="w-5 h-5" /> },
+  ];
+
   const adminMenuItems = [
     { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" /> },
@@ -190,6 +227,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     ? cashierMenuItems
     : isProjectionistUser
     ? projectionistMenuItems
+    : isReportUser
+    ? reportMenuItems
     : adminMenuItems;
 
   if (authStatus === "initializing" || isSessionLoading) {

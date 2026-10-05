@@ -35,7 +35,7 @@ function SsoCallbackInner() {
           })
         );
 
-        const roleUpper = (response.data.user.role || "").toUpperCase();
+        const roleUpper = (typeof response.data.user.role === "string" ? response.data.user.role : (response.data.user.role as any)?.name || "").toUpperCase();
         const usernameLower = (response.data.user.username || "").toLowerCase();
         const isKiosk =
           roleUpper.includes("GATE") ||

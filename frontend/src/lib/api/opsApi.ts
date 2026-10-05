@@ -260,10 +260,38 @@ export interface MovieAnalyticsMovieItem {
   totalTickets: number;
   totalRevenue: number;
   totalShowtimes: number;
+  ticketsPerShow: number;
   averageTicketPrice: number;
   revenueShare: number;
   ticketShare: number;
+  trendDirection: "UP" | "DOWN" | "STABLE";
+  trendPercentage: number;
   daily: MovieAnalyticsDailyItem[];
+}
+
+export interface StudioPerformanceItem {
+  studioId: string;
+  studioName: string;
+  studioCode: string;
+  capacity: number;
+  totalShowtimes: number;
+  totalTickets: number;
+  totalRevenue: number;
+  averageTicketsPerShow: number;
+  occupancyRate: number;
+  revenueShare: number;
+}
+
+export interface TimeSlotPerformanceItem {
+  slotKey: string;
+  label: string;
+  timeRange: string;
+  totalTickets: number;
+  totalRevenue: number;
+  showtimesCount: number;
+  averageTicketsPerShow: number;
+  revenueShare: number;
+  isPeak: boolean;
 }
 
 export interface MovieAnalyticsData {
@@ -278,6 +306,8 @@ export interface MovieAnalyticsData {
     totalTickets: number;
     totalShowtimes: number;
     activeMoviesCount: number;
+    averageTicketsPerShow: number;
+    averageRevenuePerShow: number;
     averageTicketsPerDay: number;
     averageRevenuePerDay: number;
     topMovie: {
@@ -290,6 +320,12 @@ export interface MovieAnalyticsData {
     highestSalesDay: {
       date: string;
       dayName: string;
+      revenue: number;
+      tickets: number;
+    } | null;
+    peakTimeSlot: {
+      label: string;
+      timeRange: string;
       revenue: number;
       tickets: number;
     } | null;
@@ -310,7 +346,10 @@ export interface MovieAnalyticsData {
     }>;
   }>;
   movies: MovieAnalyticsMovieItem[];
+  studioPerformance: StudioPerformanceItem[];
+  timeSlotPerformance: TimeSlotPerformanceItem[];
 }
+
 
 export const {
   useGetActiveDrawerQuery,

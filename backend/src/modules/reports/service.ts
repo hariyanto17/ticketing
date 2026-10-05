@@ -316,10 +316,38 @@ export interface MovieAnalyticsMovieItem {
   totalTickets: number;
   totalRevenue: number;
   totalShowtimes: number;
+  ticketsPerShow: number;
   averageTicketPrice: number;
   revenueShare: number;
   ticketShare: number;
+  trendDirection: "UP" | "DOWN" | "STABLE";
+  trendPercentage: number;
   daily: MovieAnalyticsDailyItem[];
+}
+
+export interface StudioPerformanceItem {
+  studioId: string;
+  studioName: string;
+  studioCode: string;
+  capacity: number;
+  totalShowtimes: number;
+  totalTickets: number;
+  totalRevenue: number;
+  averageTicketsPerShow: number;
+  occupancyRate: number;
+  revenueShare: number;
+}
+
+export interface TimeSlotPerformanceItem {
+  slotKey: string;
+  label: string;
+  timeRange: string;
+  totalTickets: number;
+  totalRevenue: number;
+  showtimesCount: number;
+  averageTicketsPerShow: number;
+  revenueShare: number;
+  isPeak: boolean;
 }
 
 export interface MovieAnalyticsResponse {
@@ -334,6 +362,8 @@ export interface MovieAnalyticsResponse {
     totalTickets: number;
     totalShowtimes: number;
     activeMoviesCount: number;
+    averageTicketsPerShow: number;
+    averageRevenuePerShow: number;
     averageTicketsPerDay: number;
     averageRevenuePerDay: number;
     topMovie: {
@@ -346,6 +376,12 @@ export interface MovieAnalyticsResponse {
     highestSalesDay: {
       date: string;
       dayName: string;
+      revenue: number;
+      tickets: number;
+    } | null;
+    peakTimeSlot: {
+      label: string;
+      timeRange: string;
       revenue: number;
       tickets: number;
     } | null;
@@ -366,6 +402,8 @@ export interface MovieAnalyticsResponse {
     }>;
   }>;
   movies: MovieAnalyticsMovieItem[];
+  studioPerformance: StudioPerformanceItem[];
+  timeSlotPerformance: TimeSlotPerformanceItem[];
 }
 
 export const getMovieAnalytics = async (
@@ -508,6 +546,52 @@ export const getMovieAnalytics = async (
     }
   >();
 
+  // Map to hold studio performance
+  const studiosMap = new Map<
+    string,
+    {
+      studioId: string;
+      studioName: string;
+      studioCode: string;
+      capacity: number;
+      totalShowtimes: number;
+      totalTickets: number;
+      totalRevenue: number;
+    }
+  >();
+
+  // Map to hold time slot performance (slots by hour)
+  const slotDefinitions = [
+    { key: "MORNING", label: "Pagi / Siang Awal", timeRange: "10:00 - 13:00", startHour: 10, endHour: 13 },
+    { key: "AFTERNOON", label: "Siang / Sore", timeRange: "13:00 - 16:30", startHour: 13, endHour: 16.5 },
+    { key: "LATE_AFTERNOON", label: "Sore / Senja", timeRange: "16:30 - 19:00", startHour: 16.5, endHour: 19 },
+    { key: "PRIME_TIME", label: "Prime Time Malam", timeRange: "19:00 - 21:30", startHour: 19, endHour: 21.5 },
+    { key: "LATE_NIGHT", label: "Malam / Late Night", timeRange: "21:30+", startHour: 21.5, endHour: 24 },
+  ];
+
+  const timeSlotsMap = new Map<
+    string,
+    {
+      slotKey: string;
+      label: string;
+      timeRange: string;
+      totalTickets: number;
+      totalRevenue: number;
+      showtimesCount: number;
+    }
+  >();
+
+  for (const sDef of slotDefinitions) {
+    timeSlotsMap.set(sDef.key, {
+      slotKey: sDef.key,
+      label: sDef.label,
+      timeRange: sDef.timeRange,
+      totalTickets: 0,
+      totalRevenue: 0,
+      showtimesCount: 0,
+    });
+  }
+
   // Map to hold daily aggregate totals
   const dailyTotalsMap = new Map<
     string,
@@ -561,6 +645,32 @@ export const getMovieAnalytics = async (
     const movieDaily = movieEntry.dailyMap.get(dateStr)!;
     const dailyTotal = dailyTotalsMap.get(dateStr)!;
 
+    // Studio tracking
+    const studio = s.studio;
+    if (studio && !studiosMap.has(studio.id)) {
+      studiosMap.set(studio.id, {
+        studioId: studio.id,
+        studioName: studio.name,
+        studioCode: studio.code,
+        capacity: studio.capacity || 100,
+        totalShowtimes: 0,
+        totalTickets: 0,
+        totalRevenue: 0,
+      });
+    }
+
+    // Time Slot tracking
+    const startDate = new Date(s.startTime);
+    const startHour = startDate.getUTCHours() + startDate.getUTCMinutes() / 60; // approximate or local
+    let matchedSlotKey = "PRIME_TIME";
+    if (startHour < 13) matchedSlotKey = "MORNING";
+    else if (startHour < 16.5) matchedSlotKey = "AFTERNOON";
+    else if (startHour < 19) matchedSlotKey = "LATE_AFTERNOON";
+    else if (startHour < 21.5) matchedSlotKey = "PRIME_TIME";
+    else matchedSlotKey = "LATE_NIGHT";
+
+    const timeSlotEntry = timeSlotsMap.get(matchedSlotKey);
+
     // Count tickets & revenue for this showtime
     let showtimeTickets = 0;
     let showtimeRevenue = 0;
@@ -579,6 +689,21 @@ export const getMovieAnalytics = async (
     movieDaily.tickets += showtimeTickets;
     movieDaily.revenue += showtimeRevenue;
     movieDaily.showtimesCount += 1;
+
+    // Accumulate to studio
+    if (studio && studiosMap.has(studio.id)) {
+      const studioEntry = studiosMap.get(studio.id)!;
+      studioEntry.totalShowtimes += 1;
+      studioEntry.totalTickets += showtimeTickets;
+      studioEntry.totalRevenue += showtimeRevenue;
+    }
+
+    // Accumulate to time slot
+    if (timeSlotEntry) {
+      timeSlotEntry.showtimesCount += 1;
+      timeSlotEntry.totalTickets += showtimeTickets;
+      timeSlotEntry.totalRevenue += showtimeRevenue;
+    }
 
     // Accumulate to daily totals
     dailyTotal.tickets += showtimeTickets;
@@ -619,11 +744,12 @@ export const getMovieAnalytics = async (
     };
   });
 
-  // Convert moviesMap to array and compute shares
+  // Convert moviesMap to array and compute shares & momentum trend (Naik / Turun)
   const moviesArray = Array.from(moviesMap.values()).map((m) => {
     const revenueShare = grandTotalRevenue > 0 ? (m.totalRevenue / grandTotalRevenue) * 100 : 0;
     const ticketShare = grandTotalTickets > 0 ? (m.totalTickets / grandTotalTickets) * 100 : 0;
     const averageTicketPrice = m.totalTickets > 0 ? Math.round(m.totalRevenue / m.totalTickets) : 0;
+    const ticketsPerShow = m.totalShowtimes > 0 ? Number((m.totalTickets / m.totalShowtimes).toFixed(1)) : 0;
 
     const daily = dateList.map((dl) => {
       const dm = m.dailyMap.get(dl.date)!;
@@ -638,6 +764,23 @@ export const getMovieAnalytics = async (
       };
     });
 
+    // Calculate trend momentum: compare last 3 days vs first 3 days of the 7-day period
+    const earlyRevenue = daily.slice(0, 3).reduce((sum, d) => sum + d.revenue, 0);
+    const recentRevenue = daily.slice(-3).reduce((sum, d) => sum + d.revenue, 0);
+
+    let trendPercentage = 0;
+    let trendDirection: "UP" | "DOWN" | "STABLE" = "STABLE";
+
+    if (earlyRevenue > 0) {
+      trendPercentage = Number((((recentRevenue - earlyRevenue) / earlyRevenue) * 100).toFixed(1));
+    } else if (recentRevenue > 0) {
+      trendPercentage = 100;
+    }
+
+    if (trendPercentage > 5) trendDirection = "UP";
+    else if (trendPercentage < -5) trendDirection = "DOWN";
+    else trendDirection = "STABLE";
+
     return {
       id: m.id,
       title: m.title,
@@ -648,15 +791,70 @@ export const getMovieAnalytics = async (
       totalTickets: m.totalTickets,
       totalRevenue: m.totalRevenue,
       totalShowtimes: m.totalShowtimes,
+      ticketsPerShow,
       averageTicketPrice,
       revenueShare: Number(revenueShare.toFixed(1)),
       ticketShare: Number(ticketShare.toFixed(1)),
+      trendDirection,
+      trendPercentage,
       daily,
     };
   });
 
-  // Sort movies by total revenue descending (or total tickets)
+  // Sort movies by total revenue descending
   moviesArray.sort((a, b) => b.totalRevenue - a.totalRevenue || b.totalTickets - a.totalTickets);
+
+  // Convert studio performance to array
+  const studioPerformance: StudioPerformanceItem[] = Array.from(studiosMap.values()).map((st) => {
+    const revenueShare = grandTotalRevenue > 0 ? Number(((st.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
+    const totalPotentialSeats = st.totalShowtimes * st.capacity;
+    const occupancyRate = totalPotentialSeats > 0 ? Number(((st.totalTickets / totalPotentialSeats) * 100).toFixed(1)) : 0;
+    const averageTicketsPerShow = st.totalShowtimes > 0 ? Number((st.totalTickets / st.totalShowtimes).toFixed(1)) : 0;
+
+    return {
+      studioId: st.studioId,
+      studioName: st.studioName,
+      studioCode: st.studioCode,
+      capacity: st.capacity,
+      totalShowtimes: st.totalShowtimes,
+      totalTickets: st.totalTickets,
+      totalRevenue: st.totalRevenue,
+      averageTicketsPerShow,
+      occupancyRate,
+      revenueShare,
+    };
+  });
+
+  studioPerformance.sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  // Convert time slot performance to array
+  const timeSlotPerformance: TimeSlotPerformanceItem[] = Array.from(timeSlotsMap.values()).map((slot) => {
+    const revenueShare = grandTotalRevenue > 0 ? Number(((slot.totalRevenue / grandTotalRevenue) * 100).toFixed(1)) : 0;
+    const averageTicketsPerShow = slot.showtimesCount > 0 ? Number((slot.totalTickets / slot.showtimesCount).toFixed(1)) : 0;
+
+    return {
+      slotKey: slot.slotKey,
+      label: slot.label,
+      timeRange: slot.timeRange,
+      totalTickets: slot.totalTickets,
+      totalRevenue: slot.totalRevenue,
+      showtimesCount: slot.showtimesCount,
+      averageTicketsPerShow,
+      revenueShare,
+      isPeak: false,
+    };
+  });
+
+  // Find peak time slot
+  let peakTimeSlotItem: TimeSlotPerformanceItem | null = null;
+  for (const slot of timeSlotPerformance) {
+    if (!peakTimeSlotItem || slot.totalRevenue > peakTimeSlotItem.totalRevenue) {
+      peakTimeSlotItem = slot;
+    }
+  }
+  if (peakTimeSlotItem && peakTimeSlotItem.totalRevenue > 0) {
+    peakTimeSlotItem.isPeak = true;
+  }
 
   // Top movie
   const topMovie =
@@ -683,15 +881,30 @@ export const getMovieAnalytics = async (
     }
   }
 
+  const averageTicketsPerShow =
+    grandTotalShowtimes > 0 ? Number((grandTotalTickets / grandTotalShowtimes).toFixed(1)) : 0;
+  const averageRevenuePerShow =
+    grandTotalShowtimes > 0 ? Math.round(grandTotalRevenue / grandTotalShowtimes) : 0;
+
   const summary = {
     totalRevenue: grandTotalRevenue,
     totalTickets: grandTotalTickets,
     totalShowtimes: grandTotalShowtimes,
     activeMoviesCount: moviesArray.length,
+    averageTicketsPerShow,
+    averageRevenuePerShow,
     averageTicketsPerDay: Math.round(grandTotalTickets / daysCount),
     averageRevenuePerDay: Math.round(grandTotalRevenue / daysCount),
     topMovie,
     highestSalesDay,
+    peakTimeSlot: peakTimeSlotItem && peakTimeSlotItem.totalRevenue > 0
+      ? {
+          label: peakTimeSlotItem.label,
+          timeRange: peakTimeSlotItem.timeRange,
+          revenue: peakTimeSlotItem.totalRevenue,
+          tickets: peakTimeSlotItem.totalTickets,
+        }
+      : null,
   };
 
   return {
@@ -704,8 +917,11 @@ export const getMovieAnalytics = async (
     summary,
     dailyTotals,
     movies: moviesArray,
+    studioPerformance,
+    timeSlotPerformance,
   };
 };
+
 
 export const getScheduledMovies = async (branchId?: string) => {
   let movies = await prisma.movie.findMany({

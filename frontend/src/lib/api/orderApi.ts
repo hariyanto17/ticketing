@@ -1,5 +1,7 @@
 import { api } from "./api";
 
+export type PaymentMethod = "CASH" | "QRIS" | "DEBIT_CARD" | "CREDIT_CARD";
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -9,7 +11,7 @@ export interface Order {
   branchId: string;
   channel?: "POS" | "ONLINE" | "MOBILE" | "KIOSK" | string;
   totalAmount: number;
-  paymentMethod: "CASH" | "QRIS";
+  paymentMethod: PaymentMethod | string;
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
   orderStatus: "PENDING" | "PAID" | "CANCELLED" | "REFUNDED";
   customerName?: string | null;
@@ -136,7 +138,7 @@ export const orderApi = api.injectEndpoints({
     getOrderById: builder.query<ApiResponse<Order>, string>({
       query: (id) => `/orders/${id}`,
     }),
-    checkoutOrder: builder.mutation<ApiResponse<CheckoutResult>, { scheduleId: string; seatIds: string[]; paymentMethod: "CASH" | "QRIS"; amountReceived?: number | null; promotionId?: string | null; promoCode?: string | null }>({
+    checkoutOrder: builder.mutation<ApiResponse<CheckoutResult>, { scheduleId: string; seatIds: string[]; paymentMethod: PaymentMethod; amountReceived?: number | null; promotionId?: string | null; promoCode?: string | null }>({
       query: (body) => ({
         url: "/orders/checkout",
         method: "POST",

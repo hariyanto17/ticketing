@@ -99,8 +99,42 @@ export default function TransactionHistory() {
         </div>
       ),
     },
-    { key: "totalAmount", header: t("transactions.total"), render: (o: Order) => formatCurrency(o.totalAmount) },
-    { key: "paymentMethod", header: t("transactions.method"), render: (o: Order) => o.paymentMethod },
+    {
+      key: "paymentMethod",
+      header: t("transactions.method"),
+      render: (o: Order) => {
+        const method = o.paymentMethod;
+        if (method === "CASH") {
+          return (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              TUNAI (CASH)
+            </span>
+          );
+        }
+        if (method === "QRIS") {
+          return (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              QRIS
+            </span>
+          );
+        }
+        if (method === "DEBIT_CARD") {
+          return (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              KARTU DEBIT
+            </span>
+          );
+        }
+        if (method === "CREDIT_CARD") {
+          return (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+              KARTU KREDIT
+            </span>
+          );
+        }
+        return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{method || "-"}</span>;
+      },
+    },
     {
       key: "paymentStatus",
       header: t("transactions.status"),

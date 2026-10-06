@@ -169,72 +169,72 @@ export function CheckoutSeatMatrix({
                 }}
                 className="flex flex-col items-center justify-center select-none"
               >
-                {/* Screen Curve */}
-                <div className="w-full max-w-sm shrink-0 mb-4 flex flex-col items-center">
-                  <div className="w-full h-3 bg-gradient-to-b from-indigo-500/40 via-indigo-500/20 to-transparent rounded-t-[120px] border-t-2 border-indigo-500 dark:border-indigo-400 shadow-md shadow-indigo-500/20" />
-                  <span className="text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300/80 tracking-[0.28em] uppercase mt-1">
-                    {t("cashier.screen") || "LAYAR / SCREEN"}
-                  </span>
-                </div>
+                  {/* Rows & Seats */}
+                  <div className="flex flex-col gap-1.5 justify-center items-center w-full mb-6">
+                    {rows.map((row) => (
+                      <div key={row} className="flex gap-1.5 items-center justify-center">
+                        <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
+                          {row}
+                        </span>
+                        {cols.map((col) => {
+                          const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
 
-                {/* Rows & Seats */}
-                <div className="flex flex-col gap-1.5 justify-center items-center w-full">
-                  {rows.map((row) => (
-                    <div key={row} className="flex gap-1.5 items-center justify-center">
-                      <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
-                        {row}
-                      </span>
-                      {cols.map((col) => {
-                        const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
+                          if (!seat) {
+                            return <div key={`gap-${row}-${col}`} className="w-9 h-9" />;
+                          }
 
-                        if (!seat) {
-                          return <div key={`gap-${row}-${col}`} className="w-9 h-9" />;
-                        }
+                          const isSelected = selectedSeats.some((s) => s.id === seat.id);
+                          const isHold = seat.status === "HOLD" && !isSelected;
 
-                        const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                        const isHold = seat.status === "HOLD" && !isSelected;
+                          let seatClasses =
+                            "bg-emerald-600 dark:bg-emerald-600/90 text-white border-emerald-500/50 hover:bg-emerald-700 active:scale-95 cursor-pointer shadow-sm";
+                          let seatTooltip = seat.seat.seatLabel;
 
-                        let seatClasses =
-                          "bg-emerald-600 dark:bg-emerald-600/90 text-white border-emerald-500/50 hover:bg-emerald-700 active:scale-95 cursor-pointer shadow-sm";
-                        let seatTooltip = seat.seat.seatLabel;
+                          if (seat.status === "DISABLED") {
+                            seatClasses =
+                              "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700/50 opacity-40 cursor-not-allowed";
+                            seatTooltip = `${seat.seat.seatLabel} • Nonaktif`;
+                          } else if (seat.status === "SOLD") {
+                            seatClasses =
+                              "bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800/70 opacity-80 cursor-not-allowed line-through";
+                            seatTooltip = `${seat.seat.seatLabel} • Terisi`;
+                          } else if (isHold) {
+                            seatClasses =
+                              "bg-amber-500 dark:bg-amber-500/90 text-white border-amber-400/60 animate-pulse cursor-not-allowed";
+                            seatTooltip = `${seat.seat.seatLabel} • Sedang Diproses`;
+                          } else if (isSelected) {
+                            seatClasses =
+                              "bg-indigo-600 text-white border-indigo-400 ring-4 ring-indigo-500/30 scale-105 shadow-md shadow-indigo-500/40 font-black cursor-pointer";
+                            seatTooltip = `${seat.seat.seatLabel} • Dipilih`;
+                          }
 
-                        if (seat.status === "DISABLED") {
-                          seatClasses =
-                            "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-400 dark:text-zinc-600 border-zinc-200 dark:border-zinc-700/50 opacity-40 cursor-not-allowed";
-                          seatTooltip = `${seat.seat.seatLabel} • Nonaktif`;
-                        } else if (seat.status === "SOLD") {
-                          seatClasses =
-                            "bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800/70 opacity-80 cursor-not-allowed line-through";
-                          seatTooltip = `${seat.seat.seatLabel} • Terisi`;
-                        } else if (isHold) {
-                          seatClasses =
-                            "bg-amber-500 dark:bg-amber-500/90 text-white border-amber-400/60 animate-pulse cursor-not-allowed";
-                          seatTooltip = `${seat.seat.seatLabel} • Sedang Diproses`;
-                        } else if (isSelected) {
-                          seatClasses =
-                            "bg-indigo-600 text-white border-indigo-400 ring-4 ring-indigo-500/30 scale-105 shadow-md shadow-indigo-500/40 font-black cursor-pointer";
-                          seatTooltip = `${seat.seat.seatLabel} • Dipilih`;
-                        }
+                          return (
+                            <button
+                              key={seat.id}
+                              type="button"
+                              onClick={() => onSeatClick(seat)}
+                              disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
+                              title={seatTooltip}
+                              className={`w-9 h-9 rounded-xl text-xs font-bold border transition-transform duration-100 flex items-center justify-center ${seatClasses}`}
+                            >
+                              {seat.seat.seatLabel}
+                            </button>
+                          );
+                        })}
+                        <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
+                          {row}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
 
-                        return (
-                          <button
-                            key={seat.id}
-                            type="button"
-                            onClick={() => onSeatClick(seat)}
-                            disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
-                            title={seatTooltip}
-                            className={`w-9 h-9 rounded-xl text-xs font-bold border transition-transform duration-100 flex items-center justify-center ${seatClasses}`}
-                          >
-                            {seat.seat.seatLabel}
-                          </button>
-                        );
-                      })}
-                      <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
-                        {row}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                  {/* Screen Curve (Below Seats) */}
+                  <div className="w-full max-w-sm shrink-0 mt-1 flex flex-col items-center">
+                    <span className="text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300/80 tracking-[0.28em] uppercase mb-1">
+                      {t("cashier.screen") || "LAYAR / SCREEN"}
+                    </span>
+                    <div className="w-full h-3 bg-gradient-to-t from-indigo-500/40 via-indigo-500/20 to-transparent rounded-b-[120px] border-b-2 border-indigo-500 dark:border-indigo-400 shadow-md shadow-indigo-500/20" />
+                  </div>
               </div>
             </div>
           )}

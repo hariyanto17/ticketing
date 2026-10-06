@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { Ticket, Tag, Gift, Check } from "lucide-react";
+import { Ticket, Tag, Gift, Check, Banknote, QrCode, CreditCard } from "lucide-react";
 import { Button, Select } from "@/components/ui/form-controls";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Movie } from "@/services/movieApi";
 import { Schedule, ShowtimeSeat } from "@/services/studioApi";
 import { Promotion } from "@/services/promotionApi";
+import { PaymentMethod } from "@/lib/api/orderApi";
 import { useTranslation } from "@/lib/i18n";
 
 interface CashierOrderSummaryProps {
@@ -29,8 +30,8 @@ interface CashierOrderSummaryProps {
   promoDiscount: number;
   freeTicketsCount: number;
   totalAmount: number;
-  paymentMethod: "CASH" | "QRIS";
-  setPaymentMethod: (method: "CASH" | "QRIS") => void;
+  paymentMethod: PaymentMethod;
+  setPaymentMethod: (method: PaymentMethod) => void;
   amountReceived: number | "";
   setAmountReceived: (val: number | "") => void;
   change: number;
@@ -273,24 +274,52 @@ export function CashierOrderSummary({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
+                type="button"
                 onClick={() => setPaymentMethod("CASH")}
-                className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-all ${
+                className={`py-2.5 px-2 text-xs font-bold rounded-xl border cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
                   paymentMethod === "CASH"
-                    ? "border-indigo-600 bg-indigo-50/20 text-indigo-600 dark:text-indigo-400 font-bold"
-                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 hover:border-zinc-300"
+                    ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
                 }`}
               >
-                CASH / TUNAI
+                <Banknote className="w-3.5 h-3.5 shrink-0" />
+                <span>CASH / TUNAI</span>
               </button>
               <button
+                type="button"
                 onClick={() => setPaymentMethod("QRIS")}
-                className={`py-2 text-xs font-bold rounded-xl border cursor-pointer transition-all ${
+                className={`py-2.5 px-2 text-xs font-bold rounded-xl border cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
                   paymentMethod === "QRIS"
-                    ? "border-indigo-600 bg-indigo-50/20 text-indigo-600 dark:text-indigo-400 font-bold"
-                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 hover:border-zinc-300"
+                    ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
                 }`}
               >
-                QRIS CODE
+                <QrCode className="w-3.5 h-3.5 shrink-0" />
+                <span>QRIS CODE</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("DEBIT_CARD")}
+                className={`py-2.5 px-2 text-xs font-bold rounded-xl border cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === "DEBIT_CARD"
+                    ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                <span>KARTU DEBIT</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("CREDIT_CARD")}
+                className={`py-2.5 px-2 text-xs font-bold rounded-xl border cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  paymentMethod === "CREDIT_CARD"
+                    ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                <span>KARTU KREDIT</span>
               </button>
             </div>
           </div>
@@ -326,6 +355,52 @@ export function CashierOrderSummary({
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider text-center">
                 {t("cashier.scan")} {formatCurrency(totalAmount)}
               </span>
+            </div>
+          )}
+
+          {/* DEBIT CARD Simulated Display */}
+          {paymentMethod === "DEBIT_CARD" && (
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl flex flex-col items-center gap-2.5 text-center">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  {t("cashier.debitCard") || "Kartu Debit"}
+                </p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {t("cashier.debitPrompt") || "Silakan proses pembayaran kartu debit pada mesin EDC kasir."}
+                </p>
+              </div>
+              <div className="w-full pt-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <span className="text-zinc-500">{t("cashier.edcCharge") || "Tagihan EDC"}:</span>
+                <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">
+                  {formatCurrency(totalAmount)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* CREDIT CARD Simulated Display */}
+          {paymentMethod === "CREDIT_CARD" && (
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl flex flex-col items-center gap-2.5 text-center">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  {t("cashier.creditCard") || "Kartu Kredit"}
+                </p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {t("cashier.creditPrompt") || "Silakan proses pembayaran kartu kredit pada mesin EDC kasir."}
+                </p>
+              </div>
+              <div className="w-full pt-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <span className="text-zinc-500">{t("cashier.edcCharge") || "Tagihan EDC"}:</span>
+                <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">
+                  {formatCurrency(totalAmount)}
+                </span>
+              </div>
             </div>
           )}
 

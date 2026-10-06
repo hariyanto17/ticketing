@@ -11,6 +11,7 @@ import {
   ShowtimeSeat,
 } from "@/services/studioApi";
 import { useCheckoutOrderMutation } from "@/services/orderApi";
+import { PaymentMethod } from "@/lib/api/orderApi";
 import { useGetActivePromotionsQuery, Promotion } from "@/services/promotionApi";
 import { useToast } from "@/components/ui/toast";
 import { io } from "socket.io-client";
@@ -74,7 +75,7 @@ export default function CashierWorkspace() {
 
   // Checkout states
   const [, setLastSelectedSeats] = useState<ShowtimeSeat[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [amountReceived, setAmountReceived] = useState<number | "">("");
   const [, setCheckoutResult] = useState<any | null>(null);
 

@@ -50,8 +50,16 @@ export const closeCashDrawer = async (userId: string, actualBalance: number, not
     .filter((o) => o.paymentMethod === "QRIS")
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
+  const totalDebitSales = orders
+    .filter((o) => o.paymentMethod === "DEBIT_CARD")
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+
+  const totalCreditSales = orders
+    .filter((o) => o.paymentMethod === "CREDIT_CARD")
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+
   const totalOtherSales = orders
-    .filter((o) => o.paymentMethod !== "CASH" && o.paymentMethod !== "QRIS")
+    .filter((o) => !["CASH", "QRIS", "DEBIT_CARD", "CREDIT_CARD"].includes(o.paymentMethod))
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
   const totalSales = orders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -82,6 +90,8 @@ export const closeCashDrawer = async (userId: string, actualBalance: number, not
     ...updatedDrawer,
     totalCashSales,
     totalQrisSales,
+    totalDebitSales,
+    totalCreditSales,
     totalOtherSales,
     totalSales,
     totalTransactions,

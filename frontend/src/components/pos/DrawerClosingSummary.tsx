@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Banknote,
   QrCode,
+  CreditCard,
   Layers,
   Receipt,
   Printer,
@@ -40,8 +41,12 @@ export function DrawerClosingSummary({ summary, onFinish }: DrawerClosingSummary
     summary.totalCashSales ?? (expectedBalance - openingBalance >= 0 ? expectedBalance - openingBalance : 0)
   );
   const totalQrisSales = Number(summary.totalQrisSales ?? 0);
+  const totalDebitSales = Number(summary.totalDebitSales ?? 0);
+  const totalCreditSales = Number(summary.totalCreditSales ?? 0);
   const totalOtherSales = Number(summary.totalOtherSales ?? 0);
-  const totalSales = Number(summary.totalSales ?? (totalCashSales + totalQrisSales + totalOtherSales));
+  const totalSales = Number(
+    summary.totalSales ?? (totalCashSales + totalQrisSales + totalDebitSales + totalCreditSales + totalOtherSales)
+  );
   const totalTransactions = summary.totalTransactions;
 
   // Determine difference status & visual styling
@@ -80,6 +85,8 @@ export function DrawerClosingSummary({ summary, onFinish }: DrawerClosingSummary
         notes: summary.notes || null,
         totalCashSales,
         totalQrisSales,
+        totalDebitSales,
+        totalCreditSales,
         totalOtherSales,
         totalSales,
         totalTransactions,
@@ -215,7 +222,39 @@ export function DrawerClosingSummary({ summary, onFinish }: DrawerClosingSummary
               {formatCurrency(totalQrisSales)}
             </div>
             <p className="text-[11px] text-purple-700/80 dark:text-purple-400/70">
-              Non-tunai (masuk bank/rekening)
+              Non-tunai (masuk rekening)
+            </p>
+          </div>
+
+          {/* Debit Card Sales Card */}
+          <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 space-y-1">
+            <div className="flex items-center justify-between text-xs text-blue-800 dark:text-blue-400 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Kartu Debit (EDC)
+              </span>
+            </div>
+            <div className="text-base font-extrabold text-blue-900 dark:text-blue-200">
+              {formatCurrency(totalDebitSales)}
+            </div>
+            <p className="text-[11px] text-blue-700/80 dark:text-blue-400/70">
+              Settlement EDC Debit
+            </p>
+          </div>
+
+          {/* Credit Card Sales Card */}
+          <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/40 space-y-1">
+            <div className="flex items-center justify-between text-xs text-indigo-800 dark:text-indigo-400 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                Kartu Kredit (EDC)
+              </span>
+            </div>
+            <div className="text-base font-extrabold text-indigo-900 dark:text-indigo-200">
+              {formatCurrency(totalCreditSales)}
+            </div>
+            <p className="text-[11px] text-indigo-700/80 dark:text-indigo-400/70">
+              Settlement EDC Kredit
             </p>
           </div>
         </div>

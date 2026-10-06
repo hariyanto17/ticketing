@@ -3,7 +3,7 @@ import { z } from "zod";
 export const checkoutSchema = z.object({
   scheduleId: z.string().uuid("Schedule ID is required"),
   seatIds: z.array(z.string().uuid("Invalid seat ID")).min(1, "Select at least one seat"),
-  paymentMethod: z.enum(["CASH", "QRIS"]),
+  paymentMethod: z.enum(["CASH", "QRIS", "DEBIT_CARD", "CREDIT_CARD"]),
   amountReceived: z.number().nonnegative().optional().nullable(),
   promotionId: z.string().uuid().optional().nullable(),
   promoCode: z.string().trim().toUpperCase().optional().nullable(),

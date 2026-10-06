@@ -10,6 +10,8 @@ export interface CashDrawer {
   notes?: string | null;
   totalCashSales?: number;
   totalQrisSales?: number;
+  totalDebitSales?: number;
+  totalCreditSales?: number;
   totalOtherSales?: number;
   totalSales?: number;
   totalTransactions?: number;
@@ -29,6 +31,8 @@ export interface DailyClosing {
   totalRevenue: number;
   cashRevenue: number;
   qrisRevenue: number;
+  debitRevenue?: number;
+  creditRevenue?: number;
   posRevenue?: number;
   onlineRevenue?: number;
   totalRefunds: number;
@@ -44,9 +48,13 @@ export interface ClosingSummary {
   totalRevenue: number;
   cashRevenue: number;
   qrisRevenue: number;
+  debitRevenue?: number;
+  creditRevenue?: number;
   posRevenue?: number;
   posCashRevenue?: number;
   posQrisRevenue?: number;
+  posDebitRevenue?: number;
+  posCreditRevenue?: number;
   posTicketsSold?: number;
   posTransactions?: number;
   onlineRevenue?: number;

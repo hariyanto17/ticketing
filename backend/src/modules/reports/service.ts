@@ -16,7 +16,7 @@ export const getOperationalReports = async () => {
   });
 
   // 1. Daily Sales Report aggregation
-  const dailySalesMap = new Map<string, { date: string; ticketCount: number; revenue: number; cash: number; qris: number; refund: number }>();
+  const dailySalesMap = new Map<string, { date: string; ticketCount: number; revenue: number; cash: number; qris: number; debit: number; credit: number; refund: number }>();
 
   // 2. Cashier Report aggregation
   const cashierMap = new Map<string, { cashierName: string; ticketsSold: number; revenue: number }>();
@@ -42,11 +42,13 @@ export const getOperationalReports = async () => {
     const refundAmt = cancelledTicketsCount * ticketPriceVal;
 
     // --- DAILY SALES ---
-    const dailyEntry = dailySalesMap.get(dateStr) || { date: dateStr, ticketCount: 0, revenue: 0, cash: 0, qris: 0, refund: 0 };
+    const dailyEntry = dailySalesMap.get(dateStr) || { date: dateStr, ticketCount: 0, revenue: 0, cash: 0, qris: 0, debit: 0, credit: 0, refund: 0 };
     dailyEntry.ticketCount += activeTicketsCount;
     dailyEntry.revenue += order.totalAmount;
     if (order.paymentMethod === "CASH") dailyEntry.cash += order.totalAmount;
-    if (order.paymentMethod === "QRIS") dailyEntry.qris += order.totalAmount;
+    else if (order.paymentMethod === "QRIS") dailyEntry.qris += order.totalAmount;
+    else if (order.paymentMethod === "DEBIT_CARD") dailyEntry.debit += order.totalAmount;
+    else if (order.paymentMethod === "CREDIT_CARD") dailyEntry.credit += order.totalAmount;
     dailyEntry.refund += refundAmt;
     dailySalesMap.set(dateStr, dailyEntry);
 

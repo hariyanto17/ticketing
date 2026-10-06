@@ -44,6 +44,8 @@ export interface ShiftSummaryPrintPayload {
   notes?: string | null;
   totalCashSales?: number;
   totalQrisSales?: number;
+  totalDebitSales?: number;
+  totalCreditSales?: number;
   totalOtherSales?: number;
   totalSales?: number;
   totalTransactions?: number;

@@ -48,7 +48,13 @@ export const getDailyClosingSummary = async (businessDate: Date) => {
   const posQrisRevenue = posPaidOrders
     .filter((o) => o.paymentMethod === "QRIS")
     .reduce((sum, o) => sum + o.totalAmount, 0);
-  const posRevenue = posCashRevenue + posQrisRevenue;
+  const posDebitRevenue = posPaidOrders
+    .filter((o) => o.paymentMethod === "DEBIT_CARD")
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+  const posCreditRevenue = posPaidOrders
+    .filter((o) => o.paymentMethod === "CREDIT_CARD")
+    .reduce((sum, o) => sum + o.totalAmount, 0);
+  const posRevenue = posPaidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
   const posTicketsSold = posPaidOrders.reduce(
     (sum, o) => sum + o.tickets.filter((t) => t.status === "ACTIVE" || t.status === "USED").length,
     0
@@ -68,6 +74,8 @@ export const getDailyClosingSummary = async (businessDate: Date) => {
   const totalRevenue = posRevenue + onlineRevenue;
   const cashRevenue = posCashRevenue;
   const qrisRevenue = posQrisRevenue + onlineQrisRevenue;
+  const debitRevenue = posDebitRevenue;
+  const creditRevenue = posCreditRevenue;
   const totalTicketsSold = posTicketsSold + onlineTicketsSold;
   const totalTransactions = paidOrders.length;
 
@@ -85,9 +93,13 @@ export const getDailyClosingSummary = async (businessDate: Date) => {
     totalRevenue,
     cashRevenue,
     qrisRevenue,
+    debitRevenue,
+    creditRevenue,
     posRevenue,
     posCashRevenue,
     posQrisRevenue,
+    posDebitRevenue,
+    posCreditRevenue,
     posTicketsSold,
     posTransactions,
     onlineRevenue,

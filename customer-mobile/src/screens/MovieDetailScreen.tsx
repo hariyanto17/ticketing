@@ -83,39 +83,14 @@ export const MovieDetailScreen: React.FC = () => {
           )}
           <View style={styles.backdropGradient} pointerEvents="none" />
 
-          {/* Floating Watch Fullscreen Trailer Pill on Backdrop */}
-          {movie.trailerUrl && (
-            <TouchableOpacity
-              style={styles.backdropTrailerButton}
-              onPress={() => setIsFullscreenTrailer(true)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.playIconCircle}>
-                <Play size={14} color="#ffffff" fill="#ffffff" />
-              </View>
-              <Text style={styles.backdropTrailerText}>{t("movieDetail.watchTrailer")}</Text>
-            </TouchableOpacity>
-          )}
-
           <View style={styles.floatingPosterContainer}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => {
-                if (movie.trailerUrl) setIsFullscreenTrailer(true);
-              }}
-              style={styles.posterWrapper}
-            >
+            <View style={styles.posterWrapper}>
               <Image
                 source={{ uri: movie.poster || "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80" }}
                 style={[styles.floatingPoster, { borderColor: colors.cardBorder }]}
                 resizeMode="cover"
               />
-              {movie.trailerUrl && (
-                <View style={styles.posterPlayOverlay}>
-                  <Play size={20} color="#ffffff" fill="#ffffff" />
-                </View>
-              )}
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.metaColumn}>
               <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
@@ -288,33 +263,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.4)",
   },
-  backdropTrailerButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.65)",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    gap: 6,
-  },
-  playIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#e11d48",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backdropTrailerText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
   floatingPosterContainer: {
     position: "absolute",
     bottom: 0,
@@ -332,22 +280,6 @@ const styles = StyleSheet.create({
     height: 155,
     borderRadius: 14,
     borderWidth: 2,
-  },
-  posterPlayOverlay: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#e11d48",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
   },
   metaColumn: {
     flex: 1,

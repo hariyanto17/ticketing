@@ -60,7 +60,13 @@ export const getAllOrders = async (query: GetOrdersQuery) => {
         promotion: true,
         schedule: {
           include: {
-            movie: { select: { id: true, title: true } },
+            movie: {
+              select: {
+                id: true,
+                title: true,
+                distributor: { select: { id: true, name: true } },
+              },
+            },
             studio: { select: { id: true, name: true, code: true } },
           },
         },

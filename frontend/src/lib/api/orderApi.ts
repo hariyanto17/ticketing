@@ -10,6 +10,8 @@ export interface Order {
   scheduleId: string;
   branchId: string;
   channel?: "POS" | "ONLINE" | "MOBILE" | "KIOSK" | string;
+  subtotal?: number;
+  discountAmount?: number;
   totalAmount: number;
   paymentMethod: PaymentMethod | string;
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
@@ -17,14 +19,21 @@ export interface Order {
   customerName?: string | null;
   customerPhone?: string | null;
   customerEmail?: string | null;
+  promotionId?: string | null;
+  promoSnapshot?: any | null;
   createdAt: string;
   cashier?: { id: string; name: string; username: string } | null;
+  promotion?: { id: string; name?: string; code?: string } | null;
   schedule: {
     id: string;
     startTime: string;
     businessDate: string;
     ticketPrice?: number;
-    movie: { id: string; title: string };
+    movie: {
+      id: string;
+      title: string;
+      distributor?: { id: string; name: string } | null;
+    };
     studio: { id: string; name: string; code: string };
   };
   tickets: Ticket[];
@@ -35,6 +44,9 @@ export interface Ticket {
   ticketNumber: string;
   orderId: string;
   showtimeSeatId: string;
+  price?: number;
+  discountAmount?: number;
+  isFree?: boolean;
   qrCode: string;
   status: "ACTIVE" | "USED" | "CANCELLED";
   createdAt: string;

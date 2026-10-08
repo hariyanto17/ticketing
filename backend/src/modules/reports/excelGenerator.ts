@@ -204,46 +204,23 @@ export const generateFilmSalesExcel = async (reportData: FilmSalesReportData): P
   dateCell.value = `Date of Showing : ${formattedDate}`;
   dateCell.font = { name: "Calibri", size: 10, bold: true };
 
-  // 2. Group showtimes into rows by Studio & Price combination
-  // A row represents a Studio/Cinema + Price + Format combination
-  interface StudioRowGroup {
-    studioCode: string;
-    studioName: string;
-    seatGrade: string;
-    ticketPrice: number;
-    showtimes: Array<{ time: string; paidTickets: number }>;
-  }
-
-  const rowGroupsMap = new Map<string, StudioRowGroup>();
-
-  for (const st of reportData.showtimes) {
-    const key = `${st.studioCode}_${st.ticketPrice}`;
-    if (!rowGroupsMap.has(key)) {
-      rowGroupsMap.set(key, {
-        studioCode: st.studioCode,
-        studioName: st.studioName,
-        seatGrade: st.seatGrade || "176",
-        ticketPrice: st.ticketPrice,
-        showtimes: [],
-      });
-    }
-    rowGroupsMap.get(key)!.showtimes.push({
-      time: st.time,
-      paidTickets: st.paidTickets,
-    });
-  }
-
-  // If no showtimes exist, create 1 empty row for template compliance
-  const rowGroups: StudioRowGroup[] =
-    rowGroupsMap.size > 0
-      ? Array.from(rowGroupsMap.values())
+  // 2. One row per actual showtime, while preserving the report's original 1-5 showtime columns
+  const rows =
+    reportData.showtimes.length > 0
+      ? reportData.showtimes
       : [
           {
-            studioCode: "1",
+            index: 1,
+            scheduleId: "",
+            time: "",
+            startTime: "",
             studioName: "Studio 1",
+            studioCode: "1",
             seatGrade: "176",
             ticketPrice: 45000,
-            showtimes: [],
+            paidTickets: 0,
+            freeTickets: 0,
+            sales: 0,
           },
         ];
 
@@ -257,15 +234,21 @@ export const generateFilmSalesExcel = async (reportData: FilmSalesReportData): P
     right: { style: "thin" },
   };
 
-  for (let i = 0; i < rowGroups.length; i++) {
-    const group = rowGroups[i];
+  const showtimeColStarts = [6, 8, 10, 12, 14]; // F, H, J, L, N
+
+  for (let i = 0; i < rows.length; i++) {
+    const st = rows[i];
     const r = currentRowIndex;
     const row = worksheet.getRow(r);
     row.height = 20;
 
+    const assignedIndex = Number.isFinite(st.index) ? Math.min(Math.max(st.index, 1), 5) : i + 1;
+    const timeCol = showtimeColStarts[assignedIndex - 1] ?? 6;
+    const paidCol = timeCol + 1;
+
     // Col A: Cinema
     const cellA = row.getCell(1);
-    cellA.value = group.studioCode || String(i + 1);
+    cellA.value = st.studioCode || String(i + 1);
     cellA.alignment = { vertical: "middle", horizontal: "center" };
     cellA.font = { name: "Calibri", size: 10 };
     cellA.border = thinBorder;
@@ -286,66 +269,71 @@ export const generateFilmSalesExcel = async (reportData: FilmSalesReportData): P
 
     // Col D: Seat Grade
     const cellD = row.getCell(4);
-    cellD.value = group.seatGrade || "176";
+    cellD.value = st.seatGrade || "176";
     cellD.alignment = { vertical: "middle", horizontal: "center" };
     cellD.font = { name: "Calibri", size: 10 };
     cellD.border = thinBorder;
 
     // Col E: Sales Price
     const cellE = row.getCell(5);
-    cellE.value = group.ticketPrice;
+    cellE.value = st.ticketPrice ?? 0;
     cellE.numFmt = "#,##0";
     cellE.alignment = { vertical: "middle", horizontal: "right" };
     cellE.font = { name: "Calibri", size: 10 };
     cellE.border = thinBorder;
 
-    // Showtimes 1 to 5 (Pairs F:G, H:I, J:K, L:M, N:O)
-    const showtimeColStarts = [6, 8, 10, 12, 14]; // F, H, J, L, N
+    // Clear all showtime slots first and then populate the actual assigned slot only.
     for (let slot = 0; slot < 5; slot++) {
-      const timeCol = showtimeColStarts[slot];
-      const paidCol = timeCol + 1;
-      const st = group.showtimes[slot];
+      const slotTimeCol = showtimeColStarts[slot];
+      const slotPaidCol = slotTimeCol + 1;
+      const clearTimeCell = row.getCell(slotTimeCol);
+      const clearPaidCell = row.getCell(slotPaidCol);
 
-      const cellTime = row.getCell(timeCol);
-      const cellPaid = row.getCell(paidCol);
+      clearTimeCell.value = "";
+      clearTimeCell.alignment = { vertical: "middle", horizontal: "center" };
+      clearTimeCell.font = { name: "Calibri", size: 10 };
+      clearTimeCell.border = thinBorder;
 
-      cellTime.value = st ? st.time : "";
-      cellTime.alignment = { vertical: "middle", horizontal: "center" };
-      cellTime.font = { name: "Calibri", size: 10 };
-      cellTime.border = thinBorder;
-
-      cellPaid.value = st ? st.paidTickets : "";
-      cellPaid.numFmt = "#,##0";
-      cellPaid.alignment = { vertical: "middle", horizontal: "center" };
-      cellPaid.font = { name: "Calibri", size: 10 };
-      cellPaid.border = thinBorder;
+      clearPaidCell.value = "";
+      clearPaidCell.numFmt = "#,##0";
+      clearPaidCell.alignment = { vertical: "middle", horizontal: "center" };
+      clearPaidCell.font = { name: "Calibri", size: 10 };
+      clearPaidCell.border = thinBorder;
     }
 
-    // Col P: Total Paid formula
+    const cellTime = row.getCell(timeCol);
+    const cellPaid = row.getCell(paidCol);
+
+    cellTime.value = st.time || "";
+    cellTime.alignment = { vertical: "middle", horizontal: "center" };
+    cellTime.font = { name: "Calibri", size: 10 };
+    cellTime.border = thinBorder;
+
+    cellPaid.value = st.paidTickets ?? 0;
+    cellPaid.numFmt = "#,##0";
+    cellPaid.alignment = { vertical: "middle", horizontal: "center" };
+    cellPaid.font = { name: "Calibri", size: 10 };
+    cellPaid.border = thinBorder;
+
+    // Col P: Total Paid for this showtime row only
     const cellP = row.getCell(16);
-    cellP.value = {
-      formula: `SUM(G${r},I${r},K${r},M${r},O${r})`,
-      date1904: false,
-    };
+    cellP.value = st.paidTickets ?? 0;
     cellP.numFmt = "#,##0";
     cellP.alignment = { vertical: "middle", horizontal: "center" };
     cellP.font = { name: "Calibri", size: 10, bold: true };
     cellP.border = thinBorder;
 
-    // Col Q: Total Free
+    // Col Q: Total Free for this showtime row only
     const cellQ = row.getCell(17);
-    cellQ.value = 0;
+    cellQ.value = st.freeTickets ?? 0;
     cellQ.numFmt = "#,##0";
     cellQ.alignment = { vertical: "middle", horizontal: "center" };
     cellQ.font = { name: "Calibri", size: 10 };
     cellQ.border = thinBorder;
 
-    // Col R: Total Sales formula
+    // Col R: Total Sales for this showtime row only
     const cellR = row.getCell(18);
-    cellR.value = {
-      formula: `P${r}*E${r}`,
-      date1904: false,
-    };
+    cellR.value = st.sales ?? 0;
     cellR.numFmt = "#,##0";
     cellR.alignment = { vertical: "middle", horizontal: "right" };
     cellR.font = { name: "Calibri", size: 10, bold: true };

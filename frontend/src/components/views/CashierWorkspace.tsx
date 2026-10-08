@@ -32,9 +32,17 @@ import { CashierScheduleSelector } from "@/components/pos/CashierScheduleSelecto
 import { CashierSeatMatrix } from "@/components/pos/CashierSeatMatrix";
 import { CashierOrderSummary } from "@/components/pos/CashierOrderSummary";
 import { CashierDrawerModals } from "@/components/pos/CashierDrawerModals";
+import { Modal } from "@/components/ui/modal";
 import { filterTodayTomorrowSchedules, calculatePromoDiscount } from "@/components/pos/cashierPromoCalculations";
 import { printTicketsViaAgent } from "@/components/pos/cashierPrintHelper";
 import { useCustomerDisplaySync } from "@/components/pos/useCustomerDisplaySync";
+
+type PendingTicketPrint = {
+  order: any;
+  tickets: any[];
+  schedule: Schedule;
+  seatsToUse: ShowtimeSeat[];
+};
 
 export default function CashierWorkspace() {
   const { success: toastSuccess, error: toastError } = useToast();
@@ -78,6 +86,8 @@ export default function CashierWorkspace() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [amountReceived, setAmountReceived] = useState<number | "">("");
   const [, setCheckoutResult] = useState<any | null>(null);
+  const [pendingTicketPrint, setPendingTicketPrint] = useState<PendingTicketPrint | null>(null);
+  const [isRetryingPrint, setIsRetryingPrint] = useState(false);
 
   // Today's date string in YYYY-MM-DD
   const todayStr = useMemo(() => {
@@ -385,21 +395,92 @@ export default function CashierWorkspace() {
       setSelectedPromo(null);
       setAmountReceived("");
 
-      void printTicketsViaAgent({
+      const printRequest = {
         order: finalResult.order,
         tickets: enrichedTickets,
         schedule: selectedSchedule,
         seatsToUse: seatsSnapshot,
+      };
+      setPendingTicketPrint(printRequest);
+
+      const ticketsPrinted = await printTicketsViaAgent({
+        ...printRequest,
         toastSuccess,
         toastError,
       });
+
+      if (ticketsPrinted) {
+        setPendingTicketPrint(null);
+        setLastSelectedSeats([]);
+        setCheckoutResult(null);
+        setSelectedMovie(null);
+        setSelectedSchedule(null);
+        setSelectedSeats([]);
+        setShowTomorrow(false);
+        setPaymentMethod("CASH");
+        setAmountReceived("");
+        setSelectedPromo(null);
+      }
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
     }
   };
 
+  const handleRetryTicketPrint = async () => {
+    if (!pendingTicketPrint || isRetryingPrint) return;
+
+    const printRequest = pendingTicketPrint;
+    setPendingTicketPrint(null);
+    setIsRetryingPrint(true);
+
+    try {
+      const ticketsPrinted = await printTicketsViaAgent({
+        ...printRequest,
+        toastSuccess,
+        toastError,
+      });
+
+      if (ticketsPrinted) {
+        setLastSelectedSeats([]);
+        setCheckoutResult(null);
+        setSelectedMovie(null);
+        setSelectedSchedule(null);
+        setSelectedSeats([]);
+        setShowTomorrow(false);
+        setPaymentMethod("CASH");
+        setAmountReceived("");
+        setSelectedPromo(null);
+      }
+    } finally {
+      setIsRetryingPrint(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 font-sans items-start">
+      <Modal
+        isOpen={Boolean(pendingTicketPrint)}
+        onClose={() => setPendingTicketPrint(null)}
+        title="Gagal mencetak tiket"
+        size="sm"
+      >
+        <div className="space-y-5">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
+            Periksa dan isi ulang kertas printer. Setelah siap, Anda dapat mencoba mencetak ulang semua tiket satu kali.
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleRetryTicketPrint}
+              disabled={isRetryingPrint || !pendingTicketPrint}
+              className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isRetryingPrint ? "Mencetak ulang..." : "Coba cetak ulang semua tiket"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <CashierTopBar
         isCustomerDisplayConnected={isCustomerDisplayConnected}
         onOpenCustomerDisplay={handleOpenCustomerDisplay}

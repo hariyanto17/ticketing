@@ -15,15 +15,15 @@ export async function printTicketsViaAgent({
   seatsToUse: ShowtimeSeat[];
   toastSuccess: (msg: string) => void;
   toastError: (msg: string) => void;
-}) {
+}): Promise<boolean> {
   if (!order || !schedule || !tickets?.length) {
     toastError("Data tiket belum tersedia untuk dicetak.");
-    return;
+    return false;
   }
 
   if (!getPrinterAgentDeviceId()) {
     toastError("Printer agent belum terhubung ke perangkat ini.");
-    return;
+    return false;
   }
 
   try {
@@ -62,7 +62,9 @@ export async function printTicketsViaAgent({
     }
 
     toastSuccess(`${tickets.length} tiket berhasil dikirim ke printer.`);
+    return true;
   } catch (error: any) {
     toastError(error?.message || "Gagal mencetak tiket melalui printer agent.");
+    return false;
   }
 }

@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Film, Ticket, ArrowRight, Clock } from "lucide-react";
+import { Film, Ticket, ArrowRight, Clock, Calendar } from "lucide-react";
 import { Movie } from "@/lib/api/movieApi";
 import { formatDuration, getCensorshipBadgeClass } from "@/lib/formatDuration";
 
@@ -19,9 +19,10 @@ interface MovieCardProps {
   activeTab: "NOW_SHOWING" | "COMING_SOON";
   locale: string;
   t: (key: string) => string;
+  formatDate: (value: string | Date, options?: Intl.DateTimeFormatOptions) => string;
 }
 
-export function MovieCard({ movie, activeTab, locale, t }: MovieCardProps) {
+export function MovieCard({ movie, activeTab, locale, t, formatDate }: MovieCardProps) {
   const genresStr = movie.genres?.map((g) => g.genre.name).join(", ") || "-";
   const isComingSoon = activeTab === "COMING_SOON" || movie.status === "COMING_SOON";
 
@@ -92,14 +93,33 @@ export function MovieCard({ movie, activeTab, locale, t }: MovieCardProps) {
         </div>
 
         <div className="pt-1.5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 text-zinc-400" />
-            <span>
-              {movie.durationMinutes
-                ? formatDuration(movie.durationMinutes, locale)
-                : t("home.detailsUnspecified")}
-            </span>
-          </div>
+          {isComingSoon ? (
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 text-zinc-400">
+                <Calendar className="w-3 h-3" />
+                <span>{t("movieDetail.releaseDate")}</span>
+              </div>
+              <span className="mt-0.5 block truncate font-semibold text-zinc-700 dark:text-zinc-300">
+                {movie.releaseDate
+                  ? formatDate(movie.releaseDate, {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })
+                  : t("home.detailsUnspecified")}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-zinc-400" />
+              <span>
+                {movie.durationMinutes
+                  ? formatDuration(movie.durationMinutes, locale)
+                  : t("home.detailsUnspecified")}
+              </span>
+            </div>
+          )}
 
           {movie.language && (
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">

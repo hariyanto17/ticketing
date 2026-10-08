@@ -13,7 +13,7 @@ import { HomeHeader } from "@/components/home/HomeHeader";
 const PAGE_LIMIT = 10;
 
 export default function PublicHome() {
-  const { t, locale } = useTranslation();
+  const { t, locale, formatDate } = useTranslation();
   const [activeTab, setActiveTab] = useState<"NOW_SHOWING" | "COMING_SOON">("NOW_SHOWING");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -318,6 +318,7 @@ export default function PublicHome() {
                   activeTab={activeTab}
                   locale={locale}
                   t={t}
+                  formatDate={formatDate}
                 />
               ))}
 

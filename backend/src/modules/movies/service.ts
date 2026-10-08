@@ -71,11 +71,16 @@ export const getAllMovies = async (query: GetMoviesQuery) => {
     };
   }
 
-  const orderBy: any = {};
+  let orderBy: any;
   if (query.sortBy) {
-    orderBy[query.sortBy] = query.sortOrder || "desc";
+    orderBy = { [query.sortBy]: query.sortOrder || "desc" };
+  } else if (query.status === "COMING_SOON") {
+    orderBy = [
+      { releaseDate: { sort: "asc", nulls: "last" } },
+      { createdAt: "desc" },
+    ];
   } else {
-    orderBy.createdAt = "desc";
+    orderBy = { createdAt: "desc" };
   }
 
   const [movies, total] = await Promise.all([

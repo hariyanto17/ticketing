@@ -21,13 +21,19 @@ export const verifyMidtransSignature = (
   },
   serverKey = MIDTRANS_SERVER_KEY
 ): boolean => {
+  if (!serverKey || !/^[a-f\d]{128}$/i.test(payload.signature_key)) {
+    return false;
+  }
+
   const expectedSignature = generateMidtransSignature(
     payload.order_id,
     payload.status_code,
     payload.gross_amount,
     serverKey
   );
-  return payload.signature_key === expectedSignature;
+  const received = Buffer.from(payload.signature_key, "hex");
+  const expected = Buffer.from(expectedSignature, "hex");
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 };
 
 export const buildMidtransItemDetails = (order: {

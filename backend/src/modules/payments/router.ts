@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as controller from "./controller";
 import { catchAsync } from "../../utils/catchAsync";
+import { MIDTRANS_IS_PRODUCTION, NODE_ENV } from "../../config/constant";
 
 const router = Router();
 
@@ -28,10 +29,11 @@ router.get(
   catchAsync(controller.getPaymentStatusController)
 );
 
-// 5. Simulated QRIS Payment Success (Sandbox/Development Only)
-router.post(
-  "/qris/simulate-success/:orderId",
-  catchAsync(controller.simulateQrisPaymentSuccessController)
-);
+if (NODE_ENV !== "production" && !MIDTRANS_IS_PRODUCTION) {
+  router.post(
+    "/qris/simulate-success/:orderId",
+    catchAsync(controller.simulateQrisPaymentSuccessController)
+  );
+}
 
 export default router;

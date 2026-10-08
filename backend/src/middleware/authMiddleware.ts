@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { prisma } from "../utils/prisma";
 import { AppError } from "../utils/errorHandler";
-import { JWT_SECRET, COOKIE_NAME } from "../config/constant";
+import { JWT_SECRET, COOKIE_NAME, PLATFORM_INTERNAL_API_KEY } from "../config/constant";
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies?.[COOKIE_NAME] || req.headers["authorization"]?.toString().replace("Bearer ", "");
@@ -26,7 +26,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     if (user.platformUserId) {
       try {
         const platformApiUrl = process.env.PLATFORM_API_URL || process.env.PLATFORM_URL || "http://localhost:4000";
-        const apiKey = process.env.PLATFORM_INTERNAL_API_KEY || "platform-internal-secret-key-123";
+        const apiKey = PLATFORM_INTERNAL_API_KEY;
+        if (!apiKey) {
+          return next(new AppError("SERVICE_UNAVAILABLE", "Platform identity verification is not configured"));
+        }
 
         const platformRes = await fetch(
           `${platformApiUrl}/api/applications/users/${user.platformUserId}/context?application=TICKETING`,

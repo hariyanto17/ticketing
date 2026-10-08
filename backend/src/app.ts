@@ -8,7 +8,7 @@ import { createServer } from "http";
 import routes from "./routes";
 import { errorHandler } from "./utils/errorHandler";
 import { initSocket } from "./utils/socket";
-import { PORT } from "./config/constant";
+import { assertRequiredSecurityConfig, PORT } from "./config/constant";
 import internalRouter from "./modules/internal/router";
 import { initMovieScheduler } from "./modules/movies/movieScheduler";
 import { initCleanupScheduler } from "./modules/cleanup/cleanupScheduler";
@@ -16,6 +16,7 @@ import { initCleanupScheduler } from "./modules/cleanup/cleanupScheduler";
 import path from "path";
 
 dotenv.config();
+assertRequiredSecurityConfig();
 
 const app = express();
 const server = createServer(app);

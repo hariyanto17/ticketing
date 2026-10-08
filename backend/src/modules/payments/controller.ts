@@ -4,6 +4,7 @@ import * as midtransService from "./midtransService";
 import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
 import { prisma } from "../../utils/prisma";
+import { NODE_ENV, MIDTRANS_IS_PRODUCTION } from "../../config/constant";
 
 export const midtransNotificationController = async (req: Request, res: Response) => {
   const result = midtransNotificationSchema.safeParse(req.body);
@@ -76,6 +77,10 @@ export const getPaymentStatusController = async (req: Request, res: Response) =>
 };
 
 export const simulateQrisPaymentSuccessController = async (req: Request, res: Response) => {
+  if (NODE_ENV === "production" || MIDTRANS_IS_PRODUCTION) {
+    throw new AppError("NOT_FOUND", "Not found");
+  }
+
   const { orderId } = req.params;
   const order = await prisma.order.findUnique({
     where: { id: orderId },

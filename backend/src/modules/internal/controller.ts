@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { AppError } from "../../utils/errorHandler";
 import { responseHandler } from "../../utils/responseHandler";
 import * as internalService from "./service";
+import { midtransNotificationSchema } from "../payments/validation";
+import * as midtransService from "../payments/midtransService";
 
 export const getOperationalSummaryHandler = async (req: Request, res: Response) => {
   const dateStr = req.query.date ? req.query.date.toString() : new Date().toISOString().split("T")[0];
@@ -51,6 +53,10 @@ export const getTransactionsListHandler = async (req: Request, res: Response) =>
 
 export const handlePlatformPaymentNotificationHandler = async (req: Request, res: Response) => {
   const payload = req.body;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new AppError("BAD_REQUEST", "Payment notification payload must be an object");
+  }
+
   const targetId = payload.targetOrderId || payload.externalOrderId;
 
   if (!targetId) {
@@ -65,19 +71,26 @@ export const handlePlatformPaymentNotificationHandler = async (req: Request, res
   const status = (payload.status || "").toUpperCase();
 
   if (status === "SETTLEMENT") {
-    if (order.orderStatus !== "PAID") {
-      await internalService.confirmOrderPayment(order.id, {
-        provider: payload.provider || "MIDTRANS",
-        paymentType: payload.paymentType || "QRIS",
-        providerTransactionId: payload.providerTransactionId || payload.masterTransactionNumber,
-        rawResponse: payload.rawPayload || payload,
-      });
+    const notification = midtransNotificationSchema.safeParse(payload.rawPayload);
+    if (!notification.success) {
+      throw new AppError("BAD_REQUEST", "A valid signed Midtrans notification is required");
     }
 
+    if (
+      notification.data.order_id !== order.orderNumber &&
+      notification.data.order_id !== order.bookingNumber
+    ) {
+      throw new AppError("BAD_REQUEST", "Payment notification does not match the target order");
+    }
+    if (notification.data.transaction_status.toUpperCase() !== status) {
+      throw new AppError("BAD_REQUEST", "Payment notification status does not match the signed Midtrans status");
+    }
+
+    const result = await midtransService.handleMidtransNotification(notification.data);
     return responseHandler.ok(
       res,
-      { orderId: order.id, orderNumber: order.orderNumber, status: "PAID" },
-      "Payment confirmed and tickets issued successfully"
+      { orderId: order.id, orderNumber: order.orderNumber, status: result.status },
+      result.message
     );
   }
 

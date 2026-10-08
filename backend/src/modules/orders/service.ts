@@ -3,6 +3,7 @@ import { AppError } from "../../utils/errorHandler";
 import { CheckoutInput } from "./validation";
 import { emitSeatUpdate } from "../../utils/socket";
 import { calculatePromotionDiscount } from "../promotions/service";
+import { invalidateScheduleSeatCache } from "../../utils/redis";
 
 interface GetOrdersQuery {
   page?: number;
@@ -59,7 +60,13 @@ export const getAllOrders = async (query: GetOrdersQuery) => {
         promotion: true,
         schedule: {
           include: {
-            movie: { select: { id: true, title: true } },
+            movie: {
+              select: {
+                id: true,
+                title: true,
+                distributor: { select: { id: true, name: true } },
+              },
+            },
             studio: { select: { id: true, name: true, code: true } },
           },
         },
@@ -407,6 +414,9 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
       showtimeId: input.scheduleId,
       seatIds: input.seatIds,
     });
+
+    // Invalidate cached seat map
+    await invalidateScheduleSeatCache(input.scheduleId);
 
     return {
       order,

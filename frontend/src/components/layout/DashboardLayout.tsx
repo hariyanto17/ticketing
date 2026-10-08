@@ -5,7 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearCredentials, setSessionUser } from "@/store/authSlice";
 import { useLogoutMutation, useMeQuery } from "@/services/authApi";
+import { useGetActiveDrawerQuery } from "@/services/opsApi";
 import { useToast } from "@/components/ui/toast";
+import { Modal } from "@/components/ui/modal";
 import {
   LayoutDashboard,
   Users,
@@ -27,11 +29,16 @@ import {
   Printer,
   FileSpreadsheet,
   Tag,
+  TrendingUp,
+  AlertTriangle,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 
 import { useTheme } from "@/components/ThemeProvider";
 import { useTranslation } from "@/lib/i18n";
+
+import { api } from "@/lib/api/api";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -43,10 +50,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const dispatch = useAppDispatch();
   const { error: toastError, success: toastSuccess } = useToast();
   const [logout] = useLogoutMutation();
-  const { data: sessionResponse, isLoading: isSessionLoading, isError: isSessionError } = useMeQuery();
+  const { data: sessionResponse, isLoading: isSessionLoading, isError: isSessionError } = useMeQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
 
   const user = useAppSelector((state) => state.auth.user);
   const authStatus = useAppSelector((state) => state.auth.status);
+
+  const { data: activeDrawer, refetch: refetchActiveDrawer } = useGetActiveDrawerQuery(undefined, {
+    skip: !user,
+  });
+  const [isOpenDrawerWarningOpen, setIsOpenDrawerWarningOpen] = useState(false);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -76,36 +91,47 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { t, locale, setLocale, localeLabel } = useTranslation();
 
   useEffect(() => {
-    if (sessionResponse?.data.user) {
+    if (sessionResponse?.data?.user) {
       dispatch(setSessionUser(sessionResponse.data.user));
     }
   }, [dispatch, sessionResponse]);
 
   useEffect(() => {
-    if (isSessionError) {
+    if (isSessionError || (!isSessionLoading && !user && !sessionResponse?.data?.user)) {
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       router.replace("/login");
     }
-  }, [dispatch, isSessionError, router]);
+  }, [dispatch, isSessionError, isSessionLoading, user, sessionResponse, router]);
+
+  const userRoleStr = (typeof user?.role === "string" ? user.role : (user?.role as any)?.name || "").toUpperCase();
+  const userNameStr = (user?.username || "").toLowerCase();
 
   const isGateUser = Boolean(
-    (user?.role || "").toUpperCase().includes("GATE") ||
-    (user?.role || "").toUpperCase().includes("KIOSK") ||
-    (user?.username || "").toLowerCase().includes("gate") ||
-    (user?.username || "").toLowerCase().includes("kiosk")
+    userRoleStr.includes("GATE") ||
+    userRoleStr.includes("KIOSK") ||
+    userNameStr.includes("gate") ||
+    userNameStr.includes("kiosk")
   );
 
   const isCashierUser = Boolean(
-    (user?.role || "").toUpperCase().includes("CASHIER") ||
-    (user?.username || "").toLowerCase().includes("kasir") ||
-    (user?.username || "").toLowerCase().includes("cashier")
+    userRoleStr.includes("CASHIER") ||
+    userRoleStr.includes("KASIR") ||
+    userNameStr.includes("kasir") ||
+    userNameStr.includes("cashier")
   );
 
   const isProjectionistUser = Boolean(
-    (user?.role || "").toUpperCase().includes("PROJECTIONIST") ||
-    (user?.role || "").toUpperCase().includes("PROYEKSIONIS") ||
-    (user?.username || "").toLowerCase().includes("projectionist") ||
-    (user?.username || "").toLowerCase().includes("proyeksionis")
+    userRoleStr.includes("PROJECTIONIST") ||
+    userRoleStr.includes("PROYEKSIONIS") ||
+    userNameStr.includes("projectionist") ||
+    userNameStr.includes("proyeksionis")
+  );
+
+  const isReportUser = Boolean(
+    userRoleStr.includes("REPORT") ||
+    userRoleStr.includes("LAPORAN") ||
+    userNameStr.includes("report")
   );
 
   useEffect(() => {
@@ -120,25 +146,69 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         else if (pathname === "/admin/closing") router.replace("/cashier/closing");
         else if (pathname === "/admin/tickets/validate") router.replace("/cashier/tickets/validate");
         else if (pathname === "/admin/reports/film-sales") router.replace("/cashier/reports/film-sales");
+        else if (pathname === "/admin/profile") router.replace("/cashier/profile");
         else router.replace("/cashier/dashboard");
       }
     } else if (user && isProjectionistUser && !isGateUser && !isCashierUser) {
-      const allowedPaths = ["/admin/dashboard", "/admin/studios", "/admin/movies", "/admin/schedules"];
+      const allowedPaths = ["/admin/dashboard", "/admin/studios", "/admin/movies", "/admin/schedules", "/admin/profile"];
+      const isAllowed = allowedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+      if (!isAllowed) {
+        router.replace("/admin/dashboard");
+      }
+    } else if (user && isReportUser && !isGateUser && !isCashierUser && !isProjectionistUser) {
+      const allowedPaths = [
+        "/admin/dashboard",
+        "/admin/transactions",
+        "/admin/bookings",
+        "/admin/promotions",
+        "/admin/closing",
+        "/admin/reports",
+        "/admin/reports/film-sales",
+        "/admin/analytics",
+        "/admin/profile",
+      ];
       const isAllowed = allowedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
       if (!isAllowed) {
         router.replace("/admin/dashboard");
       }
     }
-  }, [user, isGateUser, isCashierUser, isProjectionistUser, pathname, router]);
+  }, [user, isGateUser, isCashierUser, isProjectionistUser, isReportUser, pathname, router]);
 
   const handleLogout = async () => {
+    // Check if there is an active open cash drawer session
+    try {
+      const drawerQuery = await refetchActiveDrawer();
+      const currentDrawer = drawerQuery.data;
+      if (currentDrawer && currentDrawer.status === "OPEN") {
+        setIsOpenDrawerWarningOpen(true);
+        toastError("Tidak dapat keluar: Sesi laci kas masih aktif. Tutup laci kas terlebih dahulu.");
+        return;
+      }
+    } catch {
+      if (activeDrawer && activeDrawer.status === "OPEN") {
+        setIsOpenDrawerWarningOpen(true);
+        toastError("Tidak dapat keluar: Sesi laci kas masih aktif. Tutup laci kas terlebih dahulu.");
+        return;
+      }
+    }
+
     try {
       await logout().unwrap();
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       toastSuccess(t("auth.logoutSuccess"));
       router.push("/login");
     } catch (err: any) {
-      toastError(t("auth.logoutFailed"));
+      const msg = err?.data?.message || t("auth.logoutFailed");
+      if (err?.data?.message?.includes("laci kas") || err?.data?.message?.includes("drawer")) {
+        setIsOpenDrawerWarningOpen(true);
+        toastError(msg);
+      } else {
+        dispatch(clearCredentials());
+        dispatch(api.util.resetApiState());
+        toastError(msg);
+        router.push("/login");
+      }
     }
   };
 
@@ -158,6 +228,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.schedules"), href: "/admin/schedules", icon: <Calendar className="w-5 h-5" /> },
   ];
 
+  const reportMenuItems = [
+    { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.transactions"), href: "/admin/transactions", icon: <Receipt className="w-5 h-5" /> },
+    { name: t("nav.onlineBookings"), href: "/admin/bookings", icon: <Ticket className="w-5 h-5" /> },
+    { name: t("nav.promotions") || "Promosi & Diskon", href: "/admin/promotions", icon: <Tag className="w-5 h-5" /> },
+    { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
+    { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
+    { name: t("nav.analytics") || "Analitik", href: "/admin/analytics", icon: <TrendingUp className="w-5 h-5" /> },
+  ];
+
   const adminMenuItems = [
     { name: t("nav.dashboard"), href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.users"), href: "/admin/users", icon: <Users className="w-5 h-5" /> },
@@ -172,12 +253,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: t("nav.dailyClosing"), href: "/admin/closing", icon: <Calendar className="w-5 h-5" /> },
     { name: t("nav.reports"), href: "/admin/reports", icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: t("nav.filmSalesReport") || "Laporan Penjualan Film", href: "/admin/reports/film-sales", icon: <FileSpreadsheet className="w-5 h-5" /> },
+    { name: t("nav.analytics") || "Analitik", href: "/admin/analytics", icon: <TrendingUp className="w-5 h-5" /> },
   ];
 
   const menuItems = isCashierUser
     ? cashierMenuItems
     : isProjectionistUser
     ? projectionistMenuItems
+    : isReportUser
+    ? reportMenuItems
     : adminMenuItems;
 
   if (authStatus === "initializing" || isSessionLoading) {
@@ -464,6 +548,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       <p className="text-xs text-zinc-400">Signed in as</p>
                       <p className="font-semibold text-sm truncate">{user?.email || "admin"}</p>
                     </div>
+                    <div className="py-1 border-b border-zinc-150 dark:border-zinc-800">
+                      <Link
+                        href={isCashierUser ? "/cashier/profile" : "/admin/profile"}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <UserIcon className="w-4 h-4 text-indigo-500" />
+                        <span>{t("common.profile")}</span>
+                      </Link>
+                    </div>
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
@@ -488,6 +582,61 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* Warning Modal: Active Cash Drawer Open */}
+      <Modal
+        isOpen={isOpenDrawerWarningOpen}
+        onClose={() => setIsOpenDrawerWarningOpen(false)}
+        title="Sesi Laci Kas Masih Terbuka"
+      >
+        <div className="space-y-4 py-3">
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-start gap-3.5">
+            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Peringatan: Tidak Dapat Logout
+              </h4>
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                Anda masih memiliki sesi laci kas (*Cash Drawer*) yang berstatus <strong>AKTIF (OPEN)</strong>. Anda wajib melakukan tutup laci kas (*End Shift / Rekonsiliasi*) terlebih dahulu sebelum dapat keluar dari sistem.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
+            <div className="font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-1.5">
+              <span>Langkah Penutupan:</span>
+            </div>
+            <p className="text-zinc-500 dark:text-zinc-400">
+              1. Buka halaman Kasir / Dashboard Shift.<br />
+              2. Klik tombol <strong>&quot;Tutup Sesi Laci Kas&quot;</strong>.<br />
+              3. Masukkan jumlah uang tunai fisik aktual dan selesaikan rekonsiliasi.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 pt-2 justify-end">
+            <button
+              type="button"
+              onClick={() => setIsOpenDrawerWarningOpen(false)}
+              className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300 text-xs font-semibold cursor-pointer"
+            >
+              Batalkan Logout
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpenDrawerWarningOpen(false);
+                router.push(isCashierUser ? "/cashier/dashboard" : "/admin/cashier");
+              }}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
+            >
+              <span>Buka Menu Tutup Laci</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

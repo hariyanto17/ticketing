@@ -2,7 +2,8 @@ import { PrintQueue, type PrintJobResult } from "./PrintQueue.js";
 import type { PrinterInfo } from "./PrinterDiscovery.js";
 import { getPrinterPlatformCapabilities, type PrinterPlatformCapabilities } from "./PrinterPlatform.js";
 import { TicketRenderer } from "./TicketRenderer.js";
-import type { TicketPrintPayload, PrinterService, PrintStatus } from "./PrinterService.js";
+import { ShiftSummaryRenderer } from "./ShiftSummaryRenderer.js";
+import type { TicketPrintPayload, ShiftSummaryPrintPayload, PrinterService, PrintStatus } from "./PrinterService.js";
 import type { PrinterTransport } from "./PrinterTransport.js";
 import { WindowsPrinterTransport } from "./WindowsPrinterTransport.js";
 import { UnsupportedPrinterTransport } from "./UnsupportedPrinterTransport.js";
@@ -10,6 +11,7 @@ import { UnsupportedPrinterTransport } from "./UnsupportedPrinterTransport.js";
 export class EscPosPrinterService implements PrinterService {
   private readonly queue = new PrintQueue();
   private readonly renderer = new TicketRenderer();
+  private readonly summaryRenderer = new ShiftSummaryRenderer();
   private config: { ticketPrinter: string | null; paperWidth: 58 | 80; autoCut: boolean };
 
   constructor(
@@ -80,6 +82,33 @@ export class EscPosPrinterService implements PrinterService {
 
     if (result.status === "failed") {
       console.error(`[ERROR] Print job failed jobId=${jobId} printer=${selected.name} error=${result.error || "unknown"}`);
+    }
+    return result;
+  }
+
+  async printShiftSummary(payload: ShiftSummaryPrintPayload): Promise<PrintJobResult> {
+    const jobId = payload.jobId || `shift-summary-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    if (!this.capabilities.hardwarePrintingSupported) {
+      return { jobId, status: "failed", error: "HARDWARE_PRINTING_UNSUPPORTED" };
+    }
+
+    const selected = this.findSelectedPrinter();
+    if (!selected) return { jobId, status: "failed", error: "PRINTER_NOT_READY" };
+
+    const data = this.summaryRenderer.render(payload, {
+      paperWidth: this.config.paperWidth,
+      autoCut: this.config.autoCut,
+    });
+
+    const result = await this.queue.enqueue(jobId, async () => {
+      const started = Date.now();
+      console.info(`[INFO] Shift summary print job queued jobId=${jobId} printer=${selected.name}`);
+      await this.transport.print(selected, data, jobId);
+      console.info(`[INFO] Shift summary print job completed jobId=${jobId} printer=${selected.name} duration=${Date.now() - started}ms`);
+    });
+
+    if (result.status === "failed") {
+      console.error(`[ERROR] Shift summary print job failed jobId=${jobId} printer=${selected.name} error=${result.error || "unknown"}`);
     }
     return result;
   }

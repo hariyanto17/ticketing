@@ -105,6 +105,26 @@ export class PrinterAgentServer {
       }
     });
 
+    this.app.post("/api/print/shift-summary", async (req, res) => {
+      const payload = req.body || {};
+      const valid = this.validateShiftSummaryPayload(payload);
+      if (!valid.ok) {
+        return res.status(400).json({ error: { code: valid.code, message: valid.message } });
+      }
+
+      try {
+        const result = await this.printerService.printShiftSummary(payload);
+        if (result.status === "failed") {
+          const code = result.error || "PRINT_ERROR";
+          return res.status(code === "HARDWARE_PRINTING_UNSUPPORTED" ? 501 : 409).json({ error: { code, message: code } });
+        }
+
+        res.json({ jobId: result.jobId, status: result.status });
+      } catch (error: any) {
+        res.status(500).json({ error: { code: "PRINT_ERROR", message: error.message || "Shift summary print failed." } });
+      }
+    });
+
     this.app.use((error: any, req: Request, res: Response, next: NextFunction) => {
       if (error?.message === "Origin not allowed") {
         return res.status(403).json({ error: { code: "CORS_FORBIDDEN", message: "Origin not allowed." } });
@@ -145,6 +165,30 @@ export class PrinterAgentServer {
     }
     if (payload.totalAmount !== undefined && (typeof payload.totalAmount !== "number" || !Number.isFinite(payload.totalAmount) || payload.totalAmount < 0)) {
       return { ok: false, code: "INVALID_PAYLOAD", message: "totalAmount must be a non-negative number when provided." };
+    }
+
+    return { ok: true };
+  }
+
+  private validateShiftSummaryPayload(payload: any): { ok: boolean; code?: string; message?: string } {
+    if (!payload || typeof payload !== "object") {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "Payload must be an object." };
+    }
+
+    if (typeof payload.openedAt !== "string" || !payload.openedAt.trim()) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "openedAt is required." };
+    }
+    if (typeof payload.openingBalance !== "number" || !Number.isFinite(payload.openingBalance) || payload.openingBalance < 0) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "openingBalance must be a non-negative number." };
+    }
+    if (typeof payload.expectedBalance !== "number" || !Number.isFinite(payload.expectedBalance) || payload.expectedBalance < 0) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "expectedBalance must be a non-negative number." };
+    }
+    if (typeof payload.actualBalance !== "number" || !Number.isFinite(payload.actualBalance) || payload.actualBalance < 0) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "actualBalance must be a non-negative number." };
+    }
+    if (typeof payload.difference !== "number" || !Number.isFinite(payload.difference)) {
+      return { ok: false, code: "INVALID_PAYLOAD", message: "difference must be a number." };
     }
 
     return { ok: true };

@@ -26,6 +26,8 @@ export interface MeResponse {
   };
 }
 
+import { setCredentials, clearCredentials } from "../store/authSlice";
+
 export const authApi = api.injectEndpoints({
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, any>({
@@ -34,15 +36,35 @@ export const authApi = api.injectEndpoints({
         method: "POST",
         body: credentials,
       }),
+      invalidatesTags: ["User", "CashDrawer", "DailyClosing", "Order", "Report", "Setting"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(api.util.resetApiState());
+          if (data?.data?.user && data?.data?.token) {
+            dispatch(setCredentials({ user: data.data.user, token: data.data.token }));
+          }
+        } catch {}
+      },
     }),
     logout: builder.mutation<{ status: string; message: string }, void>({
       query: () => ({
         url: "/auth/logout",
         method: "POST",
       }),
+      invalidatesTags: ["User", "CashDrawer", "DailyClosing", "Order", "Report", "Setting"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+        } finally {
+          dispatch(clearCredentials());
+          dispatch(api.util.resetApiState());
+        }
+      },
     }),
     me: builder.query<MeResponse, void>({
       query: () => "/auth/me",
+      providesTags: ["User"],
     }),
     ssoLogin: builder.mutation<LoginResponse, { code: string }>({
       query: (body) => ({
@@ -50,6 +72,16 @@ export const authApi = api.injectEndpoints({
         method: "POST",
         body,
       }),
+      invalidatesTags: ["User", "CashDrawer", "DailyClosing", "Order", "Report", "Setting"],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(api.util.resetApiState());
+          if (data?.data?.user && data?.data?.token) {
+            dispatch(setCredentials({ user: data.data.user, token: data.data.token }));
+          }
+        } catch {}
+      },
     }),
   }),
 });

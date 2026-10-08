@@ -1,5 +1,7 @@
 import { api } from "./api";
 
+export type PaymentMethod = "CASH" | "QRIS" | "DEBIT_CARD" | "CREDIT_CARD";
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -8,21 +10,30 @@ export interface Order {
   scheduleId: string;
   branchId: string;
   channel?: "POS" | "ONLINE" | "MOBILE" | "KIOSK" | string;
+  subtotal?: number;
+  discountAmount?: number;
   totalAmount: number;
-  paymentMethod: "CASH" | "QRIS";
+  paymentMethod: PaymentMethod | string;
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
   orderStatus: "PENDING" | "PAID" | "CANCELLED" | "REFUNDED";
   customerName?: string | null;
   customerPhone?: string | null;
   customerEmail?: string | null;
+  promotionId?: string | null;
+  promoSnapshot?: any | null;
   createdAt: string;
   cashier?: { id: string; name: string; username: string } | null;
+  promotion?: { id: string; name?: string; code?: string } | null;
   schedule: {
     id: string;
     startTime: string;
     businessDate: string;
     ticketPrice?: number;
-    movie: { id: string; title: string };
+    movie: {
+      id: string;
+      title: string;
+      distributor?: { id: string; name: string } | null;
+    };
     studio: { id: string; name: string; code: string };
   };
   tickets: Ticket[];
@@ -33,6 +44,9 @@ export interface Ticket {
   ticketNumber: string;
   orderId: string;
   showtimeSeatId: string;
+  price?: number;
+  discountAmount?: number;
+  isFree?: boolean;
   qrCode: string;
   status: "ACTIVE" | "USED" | "CANCELLED";
   createdAt: string;
@@ -136,7 +150,7 @@ export const orderApi = api.injectEndpoints({
     getOrderById: builder.query<ApiResponse<Order>, string>({
       query: (id) => `/orders/${id}`,
     }),
-    checkoutOrder: builder.mutation<ApiResponse<CheckoutResult>, { scheduleId: string; seatIds: string[]; paymentMethod: "CASH" | "QRIS"; amountReceived?: number | null; promotionId?: string | null; promoCode?: string | null }>({
+    checkoutOrder: builder.mutation<ApiResponse<CheckoutResult>, { scheduleId: string; seatIds: string[]; paymentMethod: PaymentMethod; amountReceived?: number | null; promotionId?: string | null; promoCode?: string | null }>({
       query: (body) => ({
         url: "/orders/checkout",
         method: "POST",

@@ -1,4 +1,6 @@
 import type { PrinterInfo } from "./PrinterDiscovery.js";
+import type { ShiftSummaryPrintPayload } from "./ShiftSummaryRenderer.js";
+export type { ShiftSummaryPrintPayload } from "./ShiftSummaryRenderer.js";
 
 export type PrintStatus = "ready" | "offline" | "busy" | "error";
 export type PrintMode = "print" | "reprint";
@@ -31,5 +33,6 @@ export abstract class PrinterService {
   abstract listPrinters(): Promise<PrinterInfo[]>;
   abstract printTest(): Promise<{ jobId: string; status: string; error?: string }>;
   abstract printTicket(payload: TicketPrintPayload): Promise<{ jobId: string; status: string; error?: string }>;
+  abstract printShiftSummary(payload: ShiftSummaryPrintPayload): Promise<{ jobId: string; status: string; error?: string }>;
   abstract close(): Promise<void>;
 }

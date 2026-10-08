@@ -3,6 +3,7 @@
 import React from "react";
 import { Search, Building2, Armchair } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Studio } from "@/services/studioApi";
 
 interface ScheduleFiltersProps {
@@ -90,26 +91,6 @@ export function ScheduleFilters({
           </button>
         </div>
 
-        {/* Custom Date Range Picker */}
-        {filterMode === "custom" && (
-          <div className="flex flex-wrap items-center gap-2 bg-zinc-50 dark:bg-zinc-800/40 px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t("schedules.filterFrom")}:</span>
-            <input
-              type="date"
-              value={customStartDate}
-              onChange={(e) => setCustomStartDate(e.target.value)}
-              className="px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
-            />
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t("schedules.filterTo")}:</span>
-            <input
-              type="date"
-              value={customEndDate}
-              onChange={(e) => setCustomEndDate(e.target.value)}
-              className="px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
-            />
-          </div>
-        )}
-
         {/* Search Box */}
         <div className="relative min-w-[220px]">
           <Search className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -122,6 +103,26 @@ export function ScheduleFilters({
           />
         </div>
       </div>
+
+      {/* Custom Date Range Picker */}
+      {filterMode === "custom" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/60">
+          <DateTimePicker
+            mode="date"
+            label={t("schedules.filterFrom")}
+            placeholder={t("schedules.filterFrom")}
+            value={customStartDate || null}
+            onChange={(value) => setCustomStartDate(value || "")}
+          />
+          <DateTimePicker
+            mode="date"
+            label={t("schedules.filterTo")}
+            placeholder={t("schedules.filterTo")}
+            value={customEndDate || null}
+            onChange={(value) => setCustomEndDate(value || "")}
+          />
+        </div>
+      )}
 
       {/* Row 2: Studio Selector Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto pt-1 border-t border-zinc-100 dark:border-zinc-800/60 scrollbar-none">

@@ -1,10 +1,12 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useGetSettingsQuery, useGetReportsQuery, useGetDrawersHistoryQuery } from "@/services/opsApi";
-import { DollarSign, Ticket, Calendar, ShieldCheck, Armchair, HelpCircle } from "lucide-react";
+import { DollarSign, Ticket, Calendar, ShieldCheck, Armchair, HelpCircle, TrendingUp } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n";
+
 
 export default function DashboardHome() {
   const { t, formatDate, formatNumber, formatCurrency } = useTranslation();
@@ -93,18 +95,45 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Info Card */}
-      <div className="p-8 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-950/30 rounded-3xl flex items-start gap-4">
-        <HelpCircle className="w-6 h-6 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <h3 className="font-semibold text-indigo-950 dark:text-indigo-300">
-            {t("dashboard.operationsCenterLive")}
-          </h3>
-          <p className="text-sm text-indigo-700/80 dark:text-indigo-400/80 leading-relaxed max-w-2xl">
-            {t("dashboard.operationsCenterText")}
-          </p>
+      {/* Info Card & Movie Analytics Callout */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="p-7 bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-3xl shadow-md flex flex-col justify-between space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-indigo-200 text-xs font-bold uppercase tracking-wider">
+              <TrendingUp className="w-4 h-4" />
+              <span>{t("nav.movieAnalytics")}</span>
+            </div>
+            <h3 className="text-xl font-extrabold tracking-tight">
+              {t("analytics.title")}
+            </h3>
+            <p className="text-xs text-indigo-100/90 leading-relaxed">
+              {t("analytics.subtitle")}
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/admin/analytics"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-950 hover:bg-indigo-50 font-bold text-xs rounded-2xl shadow-xs transition-colors"
+            >
+              <span>Lihat Analitik 7 Hari</span>
+              <TrendingUp className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="p-7 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-950/30 rounded-3xl flex items-start gap-4">
+          <HelpCircle className="w-6 h-6 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h3 className="font-semibold text-indigo-950 dark:text-indigo-300">
+              {t("dashboard.operationsCenterLive")}
+            </h3>
+            <p className="text-xs text-indigo-700/80 dark:text-indigo-400/80 leading-relaxed">
+              {t("dashboard.operationsCenterText")}
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

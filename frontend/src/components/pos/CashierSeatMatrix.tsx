@@ -183,16 +183,8 @@ export function CashierSeatMatrix({
                   }}
                   className="flex flex-col items-center justify-center select-none"
                 >
-                  {/* Screen Curve */}
-                  <div className="w-full max-w-sm shrink-0 mb-4 flex flex-col items-center">
-                    <div className="w-full h-3 bg-gradient-to-b from-indigo-500/40 via-indigo-500/20 to-transparent rounded-t-[120px] border-t-2 border-indigo-500 dark:border-indigo-400 shadow-md shadow-indigo-500/20" />
-                    <span className="text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300/80 tracking-[0.28em] uppercase mt-1">
-                      {t("cashier.screen")}
-                    </span>
-                  </div>
-
                   {/* Rows & Seats Grid */}
-                  <div className="flex flex-col gap-1.5 justify-center items-center w-full">
+                  <div className="flex flex-col gap-1.5 justify-center items-center w-full mb-6">
                     {rows.map((row) => (
                       <div key={row} className="flex gap-1.5 items-center justify-center">
                         <span className="w-6 text-center font-bold text-zinc-400 dark:text-zinc-500 text-xs select-none">
@@ -261,6 +253,14 @@ export function CashierSeatMatrix({
                         </span>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Screen Curve (Below Seats) */}
+                  <div className="w-full max-w-sm shrink-0 mt-1 flex flex-col items-center">
+                    <span className="text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300/80 tracking-[0.28em] uppercase mb-1">
+                      {t("cashier.screen")}
+                    </span>
+                    <div className="w-full h-3 bg-gradient-to-t from-indigo-500/40 via-indigo-500/20 to-transparent rounded-b-[120px] border-b-2 border-indigo-500 dark:border-indigo-400 shadow-md shadow-indigo-500/20" />
                   </div>
                 </div>
               </div>

@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/form-controls";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { useToast } from "@/components/ui/toast";
 import { useTranslation } from "@/lib/i18n";
+import { DrawerClosingSummary } from "@/components/pos/DrawerClosingSummary";
 
 export default function CashierDashboardView() {
   const { t, formatDate, formatNumber, formatCurrency } = useTranslation();
@@ -51,6 +52,7 @@ export default function CashierDashboardView() {
   const [isCloseDrawerModalOpen, setIsCloseDrawerModalOpen] = useState(false);
   const [drawerOpeningBalance, setDrawerOpeningBalance] = useState<number>(0);
   const [drawerActualBalance, setDrawerActualBalance] = useState<number>(0);
+  const [drawerNotes, setDrawerNotes] = useState<string>("");
   const [drawerSummary, setDrawerSummary] = useState<any | null>(null);
 
   const businessDate = settings?.businessDate || new Date().toISOString().split("T")[0];
@@ -72,7 +74,10 @@ export default function CashierDashboardView() {
   const handleCloseDrawer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await closeDrawer({ actualBalance: Number(drawerActualBalance) }).unwrap();
+      const res = await closeDrawer({
+        actualBalance: Number(drawerActualBalance),
+        notes: drawerNotes,
+      }).unwrap();
       setDrawerSummary(res);
       toastSuccess(t("cashier.drawerClosed"));
       refetchDrawer();
@@ -336,7 +341,7 @@ export default function CashierDashboardView() {
           setIsCloseDrawerModalOpen(false);
           setDrawerSummary(null);
         }}
-        title="Tutup Sesi Laci Kas (End Shift)"
+        title={drawerSummary ? "Ringkasan Rekonsiliasi Tutup Laci Kas" : "Tutup Sesi Laci Kas (End Shift)"}
       >
         {!drawerSummary ? (
           <form onSubmit={handleCloseDrawer} className="space-y-4">
@@ -351,11 +356,28 @@ export default function CashierDashboardView() {
               onChange={(val) => setDrawerActualBalance(val)}
               placeholder="1.500.000"
             />
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                Catatan Kasir / Alasan Selisih <span className="text-zinc-400 font-normal">(Wajib diisi jika ada selisih)</span>
+              </label>
+              <textarea
+                value={drawerNotes}
+                onChange={(e) => setDrawerNotes(e.target.value)}
+                placeholder="Contoh: Kembalian pelanggan tertinggal Rp 2.000, atau Kas klop pas 100%..."
+                rows={2}
+                className="w-full px-3.5 py-2.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"
+              />
+            </div>
+
             <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setIsCloseDrawerModalOpen(false)}
+                onClick={() => {
+                  setIsCloseDrawerModalOpen(false);
+                  setDrawerNotes("");
+                }}
               >
                 Batal
               </Button>
@@ -365,37 +387,13 @@ export default function CashierDashboardView() {
             </div>
           </form>
         ) : (
-          <div className="space-y-4">
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Modal Awal:</span>
-                <span className="font-bold">{formatCurrency(Number(drawerSummary.openingBalance))}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Ekspektasi Kas:</span>
-                <span className="font-bold">{formatCurrency(Number(drawerSummary.expectedBalance || 0))}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Fisik Kas Aktual:</span>
-                <span className="font-bold">{formatCurrency(Number(drawerSummary.actualBalance || 0))}</span>
-              </div>
-              <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-700 pt-2">
-                <span className="text-zinc-500">Selisih Kas:</span>
-                <span className={`font-bold ${(Number(drawerSummary.difference || 0)) < 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                  {formatCurrency(Number(drawerSummary.difference || 0))}
-                </span>
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              onClick={() => {
-                setIsCloseDrawerModalOpen(false);
-                setDrawerSummary(null);
-              }}
-            >
-              Selesai
-            </Button>
-          </div>
+          <DrawerClosingSummary
+            summary={drawerSummary}
+            onFinish={() => {
+              setIsCloseDrawerModalOpen(false);
+              setDrawerSummary(null);
+            }}
+          />
         )}
       </Modal>
     </div>

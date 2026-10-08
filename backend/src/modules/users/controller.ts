@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createUserSchema, updateUserSchema } from "./validation";
+import { createUserSchema, updateUserSchema, updateProfileSchema } from "./validation";
 import * as userService from "./service";
 import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
@@ -73,4 +73,39 @@ export const deleteUserController = async (req: Request, res: Response) => {
   }
 
   return responseHandler.ok(res, null, "User soft-deleted successfully");
+};
+
+export const getProfileController = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new AppError("UNAUTHORIZED", "Not authenticated");
+  }
+  const user = await userService.getUserProfile(userId);
+  return responseHandler.ok(res, user, "Profile retrieved successfully");
+};
+
+export const updateProfileController = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new AppError("UNAUTHORIZED", "Not authenticated");
+  }
+
+  const result = updateProfileSchema.safeParse(req.body);
+  if (!result.success) {
+    const errorMsg = result.error.issues.map((e) => e.message).join(", ");
+    throw new AppError("BAD_REQUEST", errorMsg);
+  }
+
+  const oldUser = await userService.getUserProfile(userId);
+  const updatedUser = await userService.updateUserProfile(userId, result.data);
+
+  await logActivity({
+    userId,
+    module: "USER",
+    action: "UPDATE_PROFILE",
+    oldData: oldUser,
+    newData: updatedUser,
+  });
+
+  return responseHandler.ok(res, updatedUser, "Profile updated successfully");
 };

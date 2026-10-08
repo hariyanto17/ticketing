@@ -159,6 +159,7 @@ export const updateMovie = async (id: string, input: UpdateMovieParsed) => {
     where: { id },
     data: {
       ...rest,
+      manualUpdatedAt: new Date(),
       ...(cast !== undefined && { cast }),
       ...(genreIds && {
         genres: {

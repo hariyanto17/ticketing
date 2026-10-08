@@ -50,7 +50,7 @@ export default function LoginPage() {
       );
       toastSuccess(t("common.welcome"));
 
-      const roleUpper = (user.role || "").toUpperCase();
+      const roleUpper = (typeof user.role === "string" ? user.role : (user.role as any)?.name || "").toUpperCase();
       const usernameLower = (user.username || "").toLowerCase();
       const isKiosk =
         roleUpper.includes("GATE") ||

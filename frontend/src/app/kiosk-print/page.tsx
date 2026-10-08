@@ -11,7 +11,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearCredentials } from "@/store/authSlice";
 import { useLogoutMutation } from "@/services/authApi";
 import { useToast } from "@/components/ui/toast";
-import { SOCKET_BASE_URL } from "@/lib/api/api";
+import { SOCKET_BASE_URL, api } from "@/lib/api/api";
 
 // Modular Subcomponents
 import { KioskHeader } from "@/components/kiosk/KioskHeader";
@@ -295,10 +295,12 @@ function KioskPrintContent() {
     try {
       await logout().unwrap();
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       toastSuccess("Berhasil keluar.");
       router.push("/login");
     } catch {
       dispatch(clearCredentials());
+      dispatch(api.util.resetApiState());
       router.push("/login");
     }
   };
@@ -321,7 +323,7 @@ function KioskPrintContent() {
   const pairingQrValue =
     typeof window !== "undefined"
       ? `${window.location.origin}/kiosk-print/mobile-scan?kiosk=${encodeURIComponent(kioskId)}`
-      : `https://ticket.168billiard.online/kiosk-print/mobile-scan?kiosk=${encodeURIComponent(kioskId)}`;
+      : `https://planetsinemaid.com/kiosk-print/mobile-scan?kiosk=${encodeURIComponent(kioskId)}`;
 
   return (
     <main className="min-h-screen w-full bg-zinc-950 text-white flex flex-col justify-between overflow-hidden select-none font-sans">

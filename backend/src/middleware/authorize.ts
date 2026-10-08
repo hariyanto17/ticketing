@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/errorHandler";
 
-const normalizeRole = (role: string): string => {
-  const r = (role || "").toUpperCase().replace(/[_\s-]/g, "");
+const normalizeRole = (role: any): string => {
+  const roleStr = typeof role === "string" ? role : role?.name || "";
+  const r = roleStr.toUpperCase().replace(/[_\s-]/g, "");
   if (r.includes("PROJECTIONIST") || r.includes("PROYEKSIONIS")) return "PROJECTIONIST";
   if (r.includes("ADMIN")) return "ADMIN";
+  if (r.includes("REPORT") || r.includes("LAPORAN")) return "REPORT";
   if (r.includes("CASHIER") || r.includes("KASIR")) return "CASHIER";
   if (r.includes("GATE") || r.includes("KIOSK") || r.includes("VALIDATOR")) return "GATE_VALIDATOR";
   return r;

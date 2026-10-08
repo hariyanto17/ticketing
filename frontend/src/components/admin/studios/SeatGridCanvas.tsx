@@ -22,16 +22,6 @@ export function SeatGridCanvas({
 }: SeatGridCanvasProps) {
   return (
     <div className="p-6 sm:p-10 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-x-auto flex flex-col items-center shadow-inner">
-      {/* Modern Curved Cinema Screen Bar */}
-      <div className="w-full max-w-3xl mb-12 flex flex-col items-center">
-        <div className="w-full h-3 bg-gradient-to-r from-transparent via-indigo-500/80 to-transparent rounded-full shadow-[0_0_24px_rgba(99,102,241,0.5)] border-t border-indigo-300/40" />
-        <div className="mt-2 text-[11px] font-extrabold tracking-[0.3em] text-zinc-500 dark:text-zinc-400 uppercase text-center flex items-center gap-2">
-          <span>—</span>
-          <span>LAYAR BIOSKOP / SCREEN</span>
-          <span>—</span>
-        </div>
-      </div>
-
       {/* Column Number Headers (Top) */}
       <div className="flex gap-2 items-center mb-3 select-none">
         <div className="w-8 text-center text-[10px] font-bold text-zinc-400">ROW</div>
@@ -126,6 +116,16 @@ export function SeatGridCanvas({
           );
         })}
         <div className="w-8 text-center text-[10px] font-bold text-zinc-400">ROW</div>
+      </div>
+
+      {/* Modern Curved Cinema Screen Bar (Below Seats) */}
+      <div className="w-full max-w-2xl mt-10 mb-2 flex flex-col items-center">
+        <div className="mb-2 text-[11px] font-extrabold tracking-[0.3em] text-indigo-700 dark:text-indigo-400 uppercase text-center flex items-center gap-2">
+          <span>—</span>
+          <span>LAYAR BIOSKOP / SCREEN</span>
+          <span>—</span>
+        </div>
+        <div className="w-full h-3.5 bg-gradient-to-t from-indigo-500/40 via-indigo-500/20 to-transparent rounded-b-[120px] border-b-2 border-indigo-500 dark:border-indigo-400 shadow-lg shadow-indigo-500/20" />
       </div>
 
       {/* Legend */}

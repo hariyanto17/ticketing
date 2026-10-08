@@ -11,6 +11,7 @@ import {
   ShowtimeSeat,
 } from "@/services/studioApi";
 import { useCheckoutOrderMutation } from "@/services/orderApi";
+import { PaymentMethod } from "@/lib/api/orderApi";
 import { useGetActivePromotionsQuery, Promotion } from "@/services/promotionApi";
 import { useToast } from "@/components/ui/toast";
 import { io } from "socket.io-client";
@@ -46,9 +47,10 @@ export default function CashierWorkspace() {
   const [closeDrawer, { isLoading: isClosingDrawer }] = useCloseDrawerMutation();
   const [drawerOpeningBalance, setDrawerOpeningBalance] = useState<number>(0);
   const [drawerActualBalance, setDrawerActualBalance] = useState<number>(0);
+  const [drawerNotes, setDrawerNotes] = useState<string>("");
   const [isOpenDrawerModalOpen, setIsOpenDrawerModalOpen] = useState(false);
   const [isCloseDrawerModalOpen, setIsCloseDrawerModalOpen] = useState(false);
-  const [, setDrawerSummary] = useState<any | null>(null);
+  const [drawerSummary, setDrawerSummary] = useState<any | null>(null);
   const hasPromptedDrawerRef = useRef(false);
 
   // Auto-prompt to open cash drawer once if there is no active session
@@ -73,7 +75,7 @@ export default function CashierWorkspace() {
 
   // Checkout states
   const [, setLastSelectedSeats] = useState<ShowtimeSeat[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [amountReceived, setAmountReceived] = useState<number | "">("");
   const [, setCheckoutResult] = useState<any | null>(null);
 
@@ -269,9 +271,9 @@ export default function CashierWorkspace() {
   const handleCloseDrawerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const summary = await closeDrawer({ actualBalance: drawerActualBalance }).unwrap();
+      const summary = await closeDrawer({ actualBalance: drawerActualBalance, notes: drawerNotes }).unwrap();
       setDrawerSummary(summary);
-      setIsCloseDrawerModalOpen(false);
+      await refetchActiveDrawer();
       toastSuccess(t("cashier.drawerClosed"));
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.drawerFailed"));
@@ -485,10 +487,18 @@ export default function CashierWorkspace() {
         setDrawerOpeningBalance={setDrawerOpeningBalance}
         drawerActualBalance={drawerActualBalance}
         setDrawerActualBalance={setDrawerActualBalance}
+        drawerNotes={drawerNotes}
+        setDrawerNotes={setDrawerNotes}
         isOpeningDrawer={isOpeningDrawer}
         isClosingDrawer={isClosingDrawer}
         onOpenDrawerSubmit={handleOpenDrawerSubmit}
         onCloseDrawerSubmit={handleCloseDrawerSubmit}
+        drawerSummary={drawerSummary}
+        onCloseSummary={() => {
+          setDrawerSummary(null);
+          setDrawerActualBalance(0);
+          setDrawerNotes("");
+        }}
       />
     </div>
   );

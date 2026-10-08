@@ -223,6 +223,12 @@ export const deleteSchedule = async (id: string) => {
 };
 
 export const getScheduleSeats = async (scheduleId: string, isAdmin = false) => {
+  const cacheKey = `cache:schedule_seats:${scheduleId}:${isAdmin ? "admin" : "pos"}`;
+  const cached = await getCache<any[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const schedule = await prisma.showtime.findUnique({
     where: { id: scheduleId },
     include: { studio: true },
@@ -270,6 +276,7 @@ export const getScheduleSeats = async (scheduleId: string, isAdmin = false) => {
           seatId: s.id,
           status: s.status === "DISABLED" ? "DISABLED" : "AVAILABLE",
         })),
+        skipDuplicates: true,
       });
 
       showtimeSeats = await prisma.showtimeSeat.findMany({
@@ -301,10 +308,16 @@ export const getScheduleSeats = async (scheduleId: string, isAdmin = false) => {
   });
 
   // Sort seats row-column order for consistent display
-  return mappedSeats.sort((a: any, b: any) => {
+  const result = mappedSeats.sort((a: any, b: any) => {
     if (a.seat.row !== b.seat.row) {
       return a.seat.row.localeCompare(b.seat.row);
     }
     return a.seat.column - b.seat.column;
   });
+
+  // Cache seat map for fast sub-millisecond retrieval (60s TTL)
+  await setCache(cacheKey, result, 60);
+
+  return result;
 };
+

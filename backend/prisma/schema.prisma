@@ -134,6 +134,7 @@ model Movie {
   externalMovieId   String?          @unique
   externalDistributorId String?
   externalSnapshot  Json?
+  manualUpdatedAt   DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   slug              String           @unique
@@ -485,6 +486,7 @@ model CashDrawer {
   expectedBalance Float?
   actualBalance  Float?
   difference     Float?
+  notes          String?
   openedById     String
   closedById     String?
   openedAt       DateTime  @default(now())

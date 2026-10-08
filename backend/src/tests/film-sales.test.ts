@@ -156,7 +156,7 @@ test("Film Ticket Sales Report Service Tests", async (t) => {
     assert.strictEqual(worksheet.getCell("F5").value, "Time");
     assert.strictEqual(worksheet.getCell("G5").value, "Paid");
 
-    // Check populated row 6
+    // Check row-per-showtime expansion: each actual showtime must be its own Excel row
     assert.strictEqual(worksheet.getCell("A6").value, "1");
     assert.strictEqual(worksheet.getCell("B6").value, "SUANGGI: ILMU KUTUKAN");
     assert.strictEqual(worksheet.getCell("C6").value, "2D");
@@ -164,7 +164,18 @@ test("Film Ticket Sales Report Service Tests", async (t) => {
     assert.strictEqual(worksheet.getCell("E6").value, 45000);
     assert.strictEqual(worksheet.getCell("F6").value, "14:00");
     assert.strictEqual(worksheet.getCell("G6").value, 15);
-    assert.strictEqual(worksheet.getCell("H6").value, "16:30");
-    assert.strictEqual(worksheet.getCell("I6").value, 25);
+    assert.strictEqual(worksheet.getCell("H6").value, "");
+    assert.strictEqual(worksheet.getCell("I6").value, "");
+    assert.strictEqual(worksheet.getCell("P6").value, 15);
+    assert.strictEqual(worksheet.getCell("Q6").value, 0);
+    assert.strictEqual(worksheet.getCell("R6").value, 675000);
+
+    assert.strictEqual(worksheet.getCell("A7").value, "1");
+    assert.strictEqual(worksheet.getCell("F7").value, "");
+    assert.strictEqual(worksheet.getCell("H7").value, "16:30");
+    assert.strictEqual(worksheet.getCell("I7").value, 25);
+    assert.strictEqual(worksheet.getCell("P7").value, 25);
+    assert.strictEqual(worksheet.getCell("Q7").value, 0);
+    assert.strictEqual(worksheet.getCell("R7").value, 1125000);
   });
 });

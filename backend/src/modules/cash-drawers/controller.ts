@@ -39,7 +39,7 @@ export const closeDrawerController = async (req: Request, res: Response) => {
     throw new AppError("BAD_REQUEST", result.error.issues.map((i) => i.message).join(", "));
   }
 
-  const drawer = await service.closeCashDrawer(req.user.id, result.data.actualBalance);
+  const drawer = await service.closeCashDrawer(req.user.id, result.data.actualBalance, result.data.notes);
 
   await logActivity({
     userId: req.user.id,

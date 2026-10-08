@@ -21,7 +21,7 @@ const ROW_LABEL_WIDTH = 24;
 const SCREEN_BAR_HEIGHT = 44;
 const MATRIX_PADDING = 20;
 
-export function CashierSeatMatrix({
+export const CashierSeatMatrix = React.memo(function CashierSeatMatrix({
   selectedSchedule,
   showtimeSeats,
   seatsLoading,
@@ -35,16 +35,28 @@ export function CashierSeatMatrix({
 
   const { rows, cols, seatsByRow } = useMemo(() => {
     if (!showtimeSeats || showtimeSeats.length === 0) {
-      return { rows: [] as string[], cols: [] as number[], seatsByRow: {} as Record<string, ShowtimeSeat[]> };
+      return {
+        rows: [] as string[],
+        cols: [] as number[],
+        seatsByRow: {} as Record<string, Map<number, ShowtimeSeat>>,
+      };
     }
 
     const grouped = groupSeatsByRow(showtimeSeats.map((s) => ({ ...s, row: s.seat.row })));
     const visualRows = getVisualRowOrder(Object.keys(grouped));
     const maxColumn = Math.max(...showtimeSeats.map((s) => s.seat.column), 12);
     const columns = Array.from({ length: maxColumn }, (_, i) => i + 1);
+    const seatsByRow = Object.fromEntries(
+      Object.entries(grouped).map(([row, seats]) => [
+        row,
+        new Map(seats.map((seat) => [seat.seat.column, seat])),
+      ])
+    ) as Record<string, Map<number, ShowtimeSeat>>;
 
-    return { rows: visualRows, cols: columns, seatsByRow: grouped };
+    return { rows: visualRows, cols: columns, seatsByRow };
   }, [showtimeSeats]);
+
+  const selectedSeatIds = useMemo(() => new Set(selectedSeats.map((seat) => seat.id)), [selectedSeats]);
 
   const naturalWidth = useMemo(() => {
     const numCols = cols.length || 1;
@@ -191,13 +203,13 @@ export function CashierSeatMatrix({
                           {row}
                         </span>
                         {cols.map((col) => {
-                          const seat = seatsByRow[row]?.find((x) => x.seat.column === col) || null;
+                          const seat = seatsByRow[row]?.get(col) || null;
 
                           if (!seat) {
                             return <div key={`gap-${row}-${col}`} className="w-9 h-9" />;
                           }
 
-                          const isSelected = selectedSeats.some((s) => s.id === seat.id);
+                          const isSelected = selectedSeatIds.has(seat.id);
                           const isHold = seat.status === "HOLD" && !isSelected;
 
                           let seatClasses =
@@ -298,4 +310,4 @@ export function CashierSeatMatrix({
       )}
     </div>
   );
-}
+});

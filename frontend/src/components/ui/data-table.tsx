@@ -70,6 +70,7 @@ interface DataTableProps<T> {
   data: T[];
   isLoading?: boolean;
   searchPlaceholder?: string;
+  searchValue?: string;
   onSearch?: (value: string) => void;
   // Optional pagination props
   pagination?: {
@@ -84,6 +85,7 @@ export function DataTable<T extends { id: string | number }>({
   data,
   isLoading = false,
   searchPlaceholder = "Search...",
+  searchValue,
   onSearch,
   pagination,
 }: DataTableProps<T>) {
@@ -92,7 +94,11 @@ export function DataTable<T extends { id: string | number }>({
       {/* Top Controls */}
       {onSearch && (
         <div className="flex items-center justify-between gap-4">
-          <SearchInput onSearchChange={onSearch} placeholder={searchPlaceholder} />
+          <SearchInput
+            onSearchChange={onSearch}
+            placeholder={searchPlaceholder}
+            value={searchValue}
+          />
         </div>
       )}
 

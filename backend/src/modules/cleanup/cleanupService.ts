@@ -8,6 +8,25 @@ export interface CleanupResult {
   deletedSchedules: Array<{ id: string; studioId: string; movieId: string; startTime: Date; createdAt: Date }>;
 }
 
+export const deleteExpiredAvailableShowtimeSeats = async (): Promise<number> => {
+  const now = new Date();
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const result = await prisma.showtimeSeat.deleteMany({
+    where: {
+      status: "AVAILABLE",
+      ticketId: null,
+      ticket: null,
+      createdAt: { lte: threeDaysAgo },
+    },
+  });
+
+  console.log(
+    `[ShowtimeSeatCleanup ${now.toISOString()}] Deleted ${result.count} available seats created on or before ${threeDaysAgo.toISOString()}.`
+  );
+
+  return result.count;
+};
+
 /**
  * Cleans up:
  * 1. Movies without any schedules after 2 months (60 days) of creation.

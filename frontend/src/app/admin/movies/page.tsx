@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   useGetMoviesQuery,
   useCreateMovieMutation,
@@ -38,6 +38,11 @@ import { MovieFormModal } from "@/components/admin/movies/MovieFormModal";
 import { GenreFormModal } from "@/components/admin/movies/GenreFormModal";
 import { OrganizationFormModal } from "@/components/admin/movies/OrganizationFormModal";
 
+const matchesSearch = (search: string, values: (string | null | undefined)[]) => {
+  const query = search.trim().toLocaleLowerCase();
+  return !query || values.some((value) => value?.toLocaleLowerCase().includes(query));
+};
+
 export default function MoviesDashboard() {
   const { t, locale, formatNumber } = useTranslation();
   const movieSchema = movieFormSchema(t);
@@ -51,6 +56,9 @@ export default function MoviesDashboard() {
   const [movieFilterStatus, setMovieFilterStatus] = useState("");
   const [movieFilterGenre, setMovieFilterGenre] = useState("");
   const [moviePage, setMoviePage] = useState(1);
+  const [genreSearch, setGenreSearch] = useState("");
+  const [productionHouseSearch, setProductionHouseSearch] = useState("");
+  const [distributorSearch, setDistributorSearch] = useState("");
 
   const { data: moviesResponse, isLoading: moviesLoading } = useGetMoviesQuery({
     page: moviePage,
@@ -62,6 +70,36 @@ export default function MoviesDashboard() {
   const { data: genresResponse, isLoading: genresLoading } = useGetGenresQuery();
   const { data: phsResponse, isLoading: phsLoading } = useGetPHsQuery();
   const { data: distsResponse, isLoading: distsLoading } = useGetDistributorsQuery();
+  const filteredGenres = useMemo(
+    () => genresResponse?.data.filter((genre) => matchesSearch(genreSearch, [genre.name, genre.description])) || [],
+    [genresResponse?.data, genreSearch]
+  );
+  const filteredProductionHouses = useMemo(
+    () =>
+      phsResponse?.data.filter((house) =>
+        matchesSearch(productionHouseSearch, [
+          house.name,
+          house.contactPerson,
+          house.phone,
+          house.email,
+          house.address,
+        ])
+      ) || [],
+    [phsResponse?.data, productionHouseSearch]
+  );
+  const filteredDistributors = useMemo(
+    () =>
+      distsResponse?.data.filter((distributor) =>
+        matchesSearch(distributorSearch, [
+          distributor.name,
+          distributor.contactPerson,
+          distributor.phone,
+          distributor.email,
+          distributor.address,
+        ])
+      ) || [],
+    [distsResponse?.data, distributorSearch]
+  );
 
   // --- MUTATION HOOKS ---
   const [createMovie, { isLoading: isMovieSaving }] = useCreateMovieMutation();
@@ -399,15 +437,36 @@ export default function MoviesDashboard() {
       )}
 
       {activeTab === "genres" && (
-        <DataTable columns={genreColumns} data={genresResponse?.data || []} isLoading={genresLoading} />
+        <DataTable
+          columns={genreColumns}
+          data={filteredGenres}
+          isLoading={genresLoading}
+          onSearch={setGenreSearch}
+          searchValue={genreSearch}
+          searchPlaceholder={t("common.search")}
+        />
       )}
 
       {activeTab === "phs" && (
-        <DataTable columns={orgColumns} data={phsResponse?.data || []} isLoading={phsLoading} />
+        <DataTable
+          columns={orgColumns}
+          data={filteredProductionHouses}
+          isLoading={phsLoading}
+          onSearch={setProductionHouseSearch}
+          searchValue={productionHouseSearch}
+          searchPlaceholder={t("common.search")}
+        />
       )}
 
       {activeTab === "dists" && (
-        <DataTable columns={orgColumns} data={distsResponse?.data || []} isLoading={distsLoading} />
+        <DataTable
+          columns={orgColumns}
+          data={filteredDistributors}
+          isLoading={distsLoading}
+          onSearch={setDistributorSearch}
+          searchValue={distributorSearch}
+          searchPlaceholder={t("common.search")}
+        />
       )}
 
       {/* Modals */}

@@ -24,6 +24,11 @@ export interface Order {
   createdAt: string;
   cashier?: { id: string; name: string; username: string } | null;
   promotion?: { id: string; name?: string; code?: string } | null;
+  payments?: {
+    paymentType: string | null;
+    status: string;
+    paidAt: string | null;
+  }[];
   schedule: {
     id: string;
     startTime: string;
@@ -191,4 +196,3 @@ export const {
   useKioskLookupMutation,
   useKioskPrintLogMutation,
 } = orderApi;
-

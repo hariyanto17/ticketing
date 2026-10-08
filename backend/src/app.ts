@@ -12,6 +12,7 @@ import { PORT } from "./config/constant";
 import internalRouter from "./modules/internal/router";
 import { initMovieScheduler } from "./modules/movies/movieScheduler";
 import { initCleanupScheduler } from "./modules/cleanup/cleanupScheduler";
+import { initShowtimeSeatCleanupScheduler } from "./modules/cleanup/showtimeSeatCleanupScheduler";
 
 import path from "path";
 
@@ -26,6 +27,7 @@ initSocket(server);
 // Boot Cron Schedulers
 initMovieScheduler();
 initCleanupScheduler();
+initShowtimeSeatCleanupScheduler();
 
 app.use(
   cors({

@@ -25,8 +25,11 @@ export default function TransactionHistory() {
   const [channelFilter, setChannelFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: ordersResponse, isLoading } = useGetOrdersQuery({
+    page,
+    limit: 10,
     search: searchQuery || undefined,
     cashierId: isCashier ? user?.id : (cashierFilter || undefined),
     channel: isCashier ? "POS" : (channelFilter || undefined),
@@ -103,36 +106,43 @@ export default function TransactionHistory() {
       key: "paymentMethod",
       header: t("transactions.method"),
       render: (o: Order) => {
-        const method = o.paymentMethod;
-        if (method === "CASH") {
+        const payment = o.payments?.find((item) => item.status === "PAID" && item.paymentType)
+          ?? o.payments?.find((item) => item.paymentType);
+        const method = (payment?.paymentType || o.paymentMethod || "").trim();
+        const normalizedMethod = method.toUpperCase();
+        if (normalizedMethod === "CASH") {
           return (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               TUNAI (CASH)
             </span>
           );
         }
-        if (method === "QRIS") {
+        if (normalizedMethod === "QRIS") {
           return (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
               QRIS
             </span>
           );
         }
-        if (method === "DEBIT_CARD") {
+        if (normalizedMethod === "DEBIT_CARD") {
           return (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               KARTU DEBIT
             </span>
           );
         }
-        if (method === "CREDIT_CARD") {
+        if (normalizedMethod === "CREDIT_CARD") {
           return (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
               KARTU KREDIT
             </span>
           );
         }
-        return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{method || "-"}</span>;
+        return (
+          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            {normalizedMethod.replace(/[_-]/g, " ") || "-"}
+          </span>
+        );
       },
     },
     {
@@ -182,13 +192,19 @@ export default function TransactionHistory() {
               label={t("transactions.cashier")}
               options={cashierOptions}
               value={cashierFilter}
-              onChange={(e) => setCashierFilter(e.target.value)}
+              onChange={(e) => {
+                setCashierFilter(e.target.value);
+                setPage(1);
+              }}
             />
             <Select
               label="Sumber Transaksi"
               options={channelOptions}
               value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value)}
+              onChange={(e) => {
+                setChannelFilter(e.target.value);
+                setPage(1);
+              }}
             />
           </>
         ) : (
@@ -201,25 +217,43 @@ export default function TransactionHistory() {
           mode="date"
           label={t("transactions.startDate")}
           value={startDate}
-          onChange={(val) => setStartDate(val || "")}
+          onChange={(val) => {
+            setStartDate(val || "");
+            setPage(1);
+          }}
         />
         <DateTimePicker
           mode="date"
           label={t("transactions.endDate")}
           value={endDate}
-          onChange={(val) => setEndDate(val || "")}
+          onChange={(val) => {
+            setEndDate(val || "");
+            setPage(1);
+          }}
         />
         <Input
           label={t("transactions.searchOrder")}
           placeholder={t("transactions.searchPlaceholder")}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setPage(1);
+          }}
         />
       </div>
 
       {/* Table */}
       <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm">
-        <DataTable columns={tableColumns} data={ordersResponse?.data || []} isLoading={isLoading} />
+        <DataTable
+          columns={tableColumns}
+          data={ordersResponse?.data || []}
+          isLoading={isLoading}
+          pagination={{
+            currentPage: ordersResponse?.meta?.page ?? page,
+            totalPages: ordersResponse?.meta?.totalPages ?? 1,
+            onPageChange: setPage,
+          }}
+        />
       </div>
     </div>
   );

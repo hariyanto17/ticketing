@@ -268,6 +268,8 @@ model ShowtimeSeat {
   status       String
   reservedUntil DateTime?
   ticketId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   showtime Showtime @relation(fields: [showtimeId], references: [id])
   seat     Seat     @relation(fields: [seatId], references: [id])

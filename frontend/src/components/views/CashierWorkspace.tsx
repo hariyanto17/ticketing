@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useGetMoviesQuery, Movie } from "@/services/movieApi";
 import {
   useGetSchedulesQuery,
@@ -241,23 +241,23 @@ export default function CashierWorkspace() {
     setSelectedSeats([]);
   };
 
-  const handleSeatClick = async (seat: ShowtimeSeat) => {
-    if (seat.status === "SOLD" || seat.status === "DISABLED") return;
+  const handleSeatClick = useCallback(async (seat: ShowtimeSeat) => {
+    if (!selectedSchedule || seat.status === "SOLD" || seat.status === "DISABLED") return;
 
     const isAlreadySelected = selectedSeats.some((s) => s.id === seat.id);
 
     try {
       if (isAlreadySelected) {
-        await releaseSeats({ scheduleId: selectedSchedule!.id, seatIds: [seat.seatId] }).unwrap();
+        await releaseSeats({ scheduleId: selectedSchedule.id, seatIds: [seat.seatId] }).unwrap();
         setSelectedSeats((prev) => prev.filter((s) => s.id !== seat.id));
       } else {
-        await holdSeats({ scheduleId: selectedSchedule!.id, seatIds: [seat.seatId] }).unwrap();
+        await holdSeats({ scheduleId: selectedSchedule.id, seatIds: [seat.seatId] }).unwrap();
         setSelectedSeats((prev) => [...prev, seat]);
       }
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
     }
-  };
+  }, [selectedSchedule, selectedSeats, releaseSeats, holdSeats, toastError, t]);
 
   const handleClearSelection = async () => {
     if (selectedSchedule && selectedSeats.length > 0) {

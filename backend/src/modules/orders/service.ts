@@ -79,6 +79,14 @@ export const getAllOrders = async (query: GetOrdersQuery) => {
             },
           },
         },
+        payments: {
+          select: {
+            paymentType: true,
+            status: true,
+            paidAt: true,
+          },
+          orderBy: { paidAt: "desc" },
+        },
       },
       skip,
       take: limit,
@@ -426,5 +434,3 @@ export const createCheckoutOrder = async (cashierId: string, branchId: string, i
 };
 
 export { voidOrder, refundTicket } from "./orderRefund";
-
-

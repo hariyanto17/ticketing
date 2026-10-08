@@ -26,6 +26,8 @@ export default {
     cinema: "Cinema",
     settings: "Settings",
     dashboard: "Dashboard",
+    to: "to",
+    days: "days",
     logoutSuccess: "Logged out successfully",
     logoutFailed: "Logout failed. Please try again.",
     welcome: "Welcome to Planet Cinema!",

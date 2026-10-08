@@ -26,6 +26,8 @@ export default {
     cinema: "Cinema",
     settings: "Pengaturan",
     dashboard: "Dasbor",
+    to: "s.d.",
+    days: "hari",
     logoutSuccess: "Berhasil keluar",
     logoutFailed: "Gagal keluar. Silakan coba lagi.",
     welcome: "Selamat datang di Planet Cinema!",

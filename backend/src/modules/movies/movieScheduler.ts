@@ -13,7 +13,7 @@ export const runMovieImportJob = async () => {
       source: "21CINEPLEX",
       type: "BOTH",
       cityId: process.env.DEFAULT_IMPORT_CITY_ID || "72",
-    });
+    }, { skipManuallyUpdated: true });
 
     console.log(
       `[MovieScheduler ${new Date().toISOString()}] Import completed successfully: ` +

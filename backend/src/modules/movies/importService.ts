@@ -156,7 +156,6 @@ const fetchMovieDetail = async (movieId: string): Promise<ExternalMovieDetail | 
     const url = `https://m.21cineplex.com/api/movies?type=getDetail&id=${encodeURIComponent(movieId.trim())}`;
     const response = await fetch(url, {
       headers: HTTP_HEADERS,
-      signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) return null;
     const json: unknown = await response.json();
@@ -329,10 +328,17 @@ const toSnapshot = (
 
 const makeSlug = (title: string) => `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
+const importOne = async (rawMovie: unknown, status: ImportedMovieStatus, skipManuallyUpdated: boolean) => {
   const parsed = externalMovieSchema.safeParse(rawMovie);
   if (!parsed.success) throw new Error(parsed.error.issues.map((issue) => issue.message).join(", "));
   const movie = parsed.data;
+
+  const existingByExternalId = await prisma.movie.findUnique({
+    where: { externalMovieId: movie.parent_movie_id },
+  });
+  if (skipManuallyUpdated && existingByExternalId?.manualUpdatedAt) {
+    return { action: "skipped" as const, movie: existingByExternalId };
+  }
 
   // Enrich with getDetail API
   const detail = await fetchMovieDetail(movie.parent_movie_id || movie.movie_id || "");
@@ -346,14 +352,12 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
   const productionHouseName = IMPORT_PRODUCTION_HOUSE;
   const snapshot = toSnapshot(movie, detail, finalGenreNames, releaseDate, productionHouseName);
 
-  const previous = await prisma.movie.findFirst({
-    where: {
-      OR: [
-        { externalMovieId: movie.parent_movie_id },
-        { title: { equals: snapshot.title, mode: "insensitive" } },
-      ],
-    },
+  const previous = existingByExternalId || await prisma.movie.findFirst({
+    where: { title: { equals: snapshot.title, mode: "insensitive" } },
   });
+  if (skipManuallyUpdated && previous?.manualUpdatedAt) {
+    return { action: "skipped" as const, movie: previous };
+  }
 
   const distributor = await ensureDistributor(
     snapshot.distributorName,
@@ -423,7 +427,10 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus) => {
   return { action: "created" as const, movie: created };
 };
 
-export const importMovies = async (input: ImportMoviesParsed): Promise<ImportSummary> => {
+export const importMovies = async (
+  input: ImportMoviesParsed,
+  options: { skipManuallyUpdated?: boolean } = {}
+): Promise<ImportSummary> => {
   const cityId = input.cityId || DEFAULT_CITY_ID;
   const types = input.type === "BOTH" ? ["UPCOMING", "NOW_PLAYING"] : [input.type];
   const summary: ImportSummary = { total: 0, created: 0, updated: 0, skipped: 0, failed: 0, failures: [] };
@@ -439,7 +446,11 @@ export const importMovies = async (input: ImportMoviesParsed): Promise<ImportSum
     summary.total += records.length;
     for (const record of records) {
       try {
-        const result = await importOne(record, type === "NOW_PLAYING" ? "DRAFT" : "COMING_SOON");
+        const result = await importOne(
+          record,
+          type === "NOW_PLAYING" ? "DRAFT" : "COMING_SOON",
+          options.skipManuallyUpdated === true
+        );
         summary[result.action] += 1;
       } catch (error) {
         const raw = record as { parent_movie_id?: string; title?: string };

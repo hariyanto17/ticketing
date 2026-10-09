@@ -14,8 +14,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kasir Ticket",
-  description: "Kasir Ticket frontend",
+  metadataBase: new URL("https://ticket.168billiard.online"),
+  title: "Planet Sinema Indonesia",
+  description: "Jalan Wahidin Sudirohusoso, Kabupaten Bone",
+  icons: {
+    icon: "/favicon.ico",
+  },
+  openGraph: {
+    title: "Planet Sinema Indonesia",
+    description: "Jalan Wahidin Sudirohusoso, Kabupaten Bone",
+    url: "/",
+    siteName: "Planet Sinema Indonesia",
+    locale: "id_ID",
+    type: "website",
+    images: [
+      {
+        url: "/PLANET-CINEMA-LOGO-2-COLOR.png",
+        width: 1080,
+        height: 445,
+        alt: "Planet Sinema Indonesia",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Planet Sinema Indonesia",
+    description: "Jalan Wahidin Sudirohusoso, Kabupaten Bone",
+    images: ["/PLANET-CINEMA-LOGO-2-COLOR.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -14,15 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ticket.168billiard.online"),
+  metadataBase: new URL("https://planetsinemaid.com/"),
   title: "Planet Sinema Indonesia",
-  description: "Jalan Wahidin Sudirohusoso, Kabupaten Bone",
+  description: "Jalan Wahidin Sudirohusodo, Kabupaten Bone",
   icons: {
     icon: "/favicon.ico",
   },
   openGraph: {
     title: "Planet Sinema Indonesia",
-    description: "Jalan Wahidin Sudirohusoso, Kabupaten Bone",
+    description: "Jalan Wahidin Sudirohusodo, Kabupaten Bone",
     url: "/",
     siteName: "Planet Sinema Indonesia",
     locale: "id_ID",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Planet Sinema Indonesia",
-    description: "Jalan Wahidin Sudirohusoso, Kabupaten Bone",
+    description: "Jalan Wahidin Sudirohusodo, Kabupaten Bone",
     images: ["/PLANET-CINEMA-LOGO-2-COLOR.png"],
   },
 };

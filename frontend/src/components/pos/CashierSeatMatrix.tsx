@@ -12,6 +12,7 @@ interface CashierSeatMatrixProps {
   showtimeSeats: ShowtimeSeat[];
   seatsLoading: boolean;
   selectedSeats: ShowtimeSeat[];
+  pendingSeatIds: Set<string>;
   onSeatClick: (seat: ShowtimeSeat) => void;
 }
 
@@ -26,6 +27,7 @@ export const CashierSeatMatrix = React.memo(function CashierSeatMatrix({
   showtimeSeats,
   seatsLoading,
   selectedSeats,
+  pendingSeatIds,
   onSeatClick,
 }: CashierSeatMatrixProps) {
   const { t } = useTranslation();
@@ -211,6 +213,7 @@ export const CashierSeatMatrix = React.memo(function CashierSeatMatrix({
 
                           const isSelected = selectedSeatIds.has(seat.id);
                           const isHold = seat.status === "HOLD" && !isSelected;
+                          const isPending = pendingSeatIds.has(seat.id);
 
                           let seatClasses =
                             "bg-emerald-600 dark:bg-emerald-600/90 text-white border-emerald-500/50 hover:bg-emerald-700 active:scale-95 cursor-pointer shadow-sm";
@@ -252,9 +255,9 @@ export const CashierSeatMatrix = React.memo(function CashierSeatMatrix({
                               key={seat.id}
                               type="button"
                               onClick={() => onSeatClick(seat)}
-                              disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold}
+                              disabled={seat.status === "SOLD" || seat.status === "DISABLED" || isHold || isPending}
                               title={seatTooltip}
-                              className={`w-9 h-9 rounded-xl text-xs font-bold border transition-transform duration-100 flex items-center justify-center ${seatClasses}`}
+                              className={`w-9 h-9 rounded-xl text-xs font-bold border transition-transform duration-100 flex items-center justify-center ${seatClasses} ${isPending ? "opacity-70 cursor-wait" : ""}`}
                             >
                               {seat.seat.seatLabel}
                             </button>

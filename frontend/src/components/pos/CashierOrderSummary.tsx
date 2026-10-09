@@ -21,6 +21,7 @@ interface CashierOrderSummaryProps {
   selectedMovie: Movie | null;
   selectedSchedule: Schedule | null;
   selectedSeats: ShowtimeSeat[];
+  isSeatActionPending: boolean;
   onClearSelection: () => void;
   activePromos: Promotion[];
   selectedPromo: Promotion | null;
@@ -50,6 +51,7 @@ export function CashierOrderSummary({
   selectedMovie,
   selectedSchedule,
   selectedSeats,
+  isSeatActionPending,
   onClearSelection,
   activePromos,
   selectedPromo,
@@ -161,7 +163,11 @@ export function CashierOrderSummary({
             {t("cashier.seatsSelected")} ({quantity})
           </span>
           {quantity > 0 && (
-            <button onClick={onClearSelection} className="text-rose-500 hover:underline cursor-pointer">
+            <button
+              onClick={onClearSelection}
+              disabled={isSeatActionPending}
+              className="text-rose-500 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {t("cashier.clear")}
             </button>
           )}
@@ -407,7 +413,7 @@ export function CashierOrderSummary({
           {/* Checkout CTA */}
           <Button
             onClick={onCheckoutSubmit}
-            isLoading={isCheckingOut}
+            isLoading={isCheckingOut || isSeatActionPending}
             className="w-full py-2.5 font-bold tracking-wide rounded-2xl flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4" /> {t("cashier.process")}

@@ -79,6 +79,7 @@ export default function CashierWorkspace() {
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<ShowtimeSeat[]>([]);
+  const [pendingSeatIds, setPendingSeatIds] = useState<Set<string>>(new Set());
   const [showTomorrow, setShowTomorrow] = useState<boolean>(false);
 
   // Checkout states
@@ -128,6 +129,7 @@ export default function CashierWorkspace() {
 
   const selectedScheduleRef = useRef<Schedule | null>(null);
   const selectedSeatsRef = useRef<ShowtimeSeat[]>([]);
+  const pendingSeatIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     selectedScheduleRef.current = selectedSchedule;
@@ -243,23 +245,42 @@ export default function CashierWorkspace() {
 
   const handleSeatClick = useCallback(async (seat: ShowtimeSeat) => {
     if (!selectedSchedule || seat.status === "SOLD" || seat.status === "DISABLED") return;
+    if (pendingSeatIdsRef.current.has(seat.id)) return;
 
     const isAlreadySelected = selectedSeats.some((s) => s.id === seat.id);
+    const scheduleId = selectedSchedule.id;
+
+    pendingSeatIdsRef.current.add(seat.id);
+    setPendingSeatIds(new Set(pendingSeatIdsRef.current));
+    setSelectedSeats((prev) =>
+      isAlreadySelected
+        ? prev.filter((s) => s.id !== seat.id)
+        : [...prev, seat]
+    );
 
     try {
       if (isAlreadySelected) {
-        await releaseSeats({ scheduleId: selectedSchedule.id, seatIds: [seat.seatId] }).unwrap();
-        setSelectedSeats((prev) => prev.filter((s) => s.id !== seat.id));
+        await releaseSeats({ scheduleId, seatIds: [seat.seatId] }).unwrap();
       } else {
-        await holdSeats({ scheduleId: selectedSchedule.id, seatIds: [seat.seatId] }).unwrap();
-        setSelectedSeats((prev) => [...prev, seat]);
+        await holdSeats({ scheduleId, seatIds: [seat.seatId] }).unwrap();
       }
     } catch (err: any) {
+      setSelectedSeats((prev) => {
+        const isCurrentlySelected = prev.some((s) => s.id === seat.id);
+        if (isAlreadySelected) {
+          return isCurrentlySelected ? prev : [...prev, seat];
+        }
+        return isCurrentlySelected ? prev.filter((s) => s.id !== seat.id) : prev;
+      });
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
+    } finally {
+      pendingSeatIdsRef.current.delete(seat.id);
+      setPendingSeatIds(new Set(pendingSeatIdsRef.current));
     }
   }, [selectedSchedule, selectedSeats, releaseSeats, holdSeats, toastError, t]);
 
   const handleClearSelection = async () => {
+    if (pendingSeatIdsRef.current.size > 0) return;
     if (selectedSchedule && selectedSeats.length > 0) {
       await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
     }
@@ -330,6 +351,7 @@ export default function CashierWorkspace() {
   });
 
   const handleCheckoutSubmit = async () => {
+    if (pendingSeatIdsRef.current.size > 0) return;
     if (!selectedSchedule || selectedSeats.length === 0) return;
 
     if (paymentMethod === "CASH") {
@@ -525,6 +547,7 @@ export default function CashierWorkspace() {
             showtimeSeats={showtimeSeats}
             seatsLoading={seatsLoading}
             selectedSeats={selectedSeats}
+            pendingSeatIds={pendingSeatIds}
             onSeatClick={handleSeatClick}
           />
         )}
@@ -542,6 +565,7 @@ export default function CashierWorkspace() {
         selectedMovie={selectedMovie}
         selectedSchedule={selectedSchedule}
         selectedSeats={selectedSeats}
+        isSeatActionPending={pendingSeatIds.size > 0}
         onClearSelection={handleClearSelection}
         activePromos={activePromos}
         selectedPromo={selectedPromo}

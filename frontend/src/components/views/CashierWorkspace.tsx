@@ -401,7 +401,6 @@ export default function CashierWorkspace() {
         schedule: selectedSchedule,
         seatsToUse: seatsSnapshot,
       };
-      setPendingTicketPrint(printRequest);
 
       const ticketsPrinted = await printTicketsViaAgent({
         ...printRequest,
@@ -410,7 +409,6 @@ export default function CashierWorkspace() {
       });
 
       if (ticketsPrinted) {
-        setPendingTicketPrint(null);
         setLastSelectedSeats([]);
         setCheckoutResult(null);
         setSelectedMovie(null);
@@ -420,6 +418,8 @@ export default function CashierWorkspace() {
         setPaymentMethod("CASH");
         setAmountReceived("");
         setSelectedPromo(null);
+      } else {
+        setPendingTicketPrint(printRequest);
       }
     } catch (err: any) {
       toastError(err?.data?.message || t("cashier.checkoutFailed"));
@@ -450,6 +450,8 @@ export default function CashierWorkspace() {
         setPaymentMethod("CASH");
         setAmountReceived("");
         setSelectedPromo(null);
+      } else {
+        setPendingTicketPrint(printRequest);
       }
     } finally {
       setIsRetryingPrint(false);

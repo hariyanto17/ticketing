@@ -115,6 +115,14 @@ export default function DailyClosingPage() {
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.posQrisRevenue || 0)}</span>
                       </div>
                       <div className="flex justify-between">
+                        <span>{t("closing.debitRevenue")}:</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.posDebitRevenue || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("closing.creditRevenue")}:</span>
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.posCreditRevenue || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
                         <span>Total Transaksi Loket:</span>
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatNumber(summary.posTransactions || 0)} invoice</span>
                       </div>
@@ -161,6 +169,19 @@ export default function DailyClosingPage() {
                     <span className="text-zinc-500">{t("closing.qrisRevenue")} (Gabungan Loket + Online):</span>
                     <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.qrisRevenue)}</span>
                   </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-500">{t("closing.debitRevenue")}:</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.debitRevenue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-500">{t("closing.creditRevenue")}:</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.creditRevenue || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-500">{t("closing.mobileRevenue")}:</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{formatCurrency(summary.onlineRevenue || 0)}</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">{t("closing.mobileRevenueNote")}</p>
                   <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2.5 text-xs">
                     <span className="text-zinc-500">{t("closing.refunds")}:</span>
                     <span className="font-bold text-rose-500">{formatCurrency(summary.totalRefunds)}</span>

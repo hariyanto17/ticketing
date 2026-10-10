@@ -169,7 +169,7 @@ export const studioApi = api.injectEndpoints({
     // Schedule seat status and hold actions
     getScheduleSeats: builder.query<ApiResponse<ShowtimeSeat[]>, string>({
       query: (scheduleId) => `/schedules/${scheduleId}/seats`,
-      providesTags: ["Seat"],
+      providesTags: (result, error, scheduleId) => [{ type: "Seat", id: scheduleId }],
     }),
     holdSeats: builder.mutation<ApiResponse<{ reservedUntil: string }>, { scheduleId: string; seatIds: string[] }>({
       query: ({ scheduleId, ...body }) => ({
@@ -177,7 +177,7 @@ export const studioApi = api.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Seat"],
+      invalidatesTags: (result, error, { scheduleId }) => [{ type: "Seat", id: scheduleId }],
     }),
     releaseSeats: builder.mutation<ApiResponse<void>, { scheduleId: string; seatIds: string[] }>({
       query: ({ scheduleId, ...body }) => ({
@@ -185,7 +185,7 @@ export const studioApi = api.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Seat"],
+      invalidatesTags: (result, error, { scheduleId }) => [{ type: "Seat", id: scheduleId }],
     }),
   }),
 });

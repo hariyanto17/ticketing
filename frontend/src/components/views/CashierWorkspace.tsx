@@ -117,7 +117,7 @@ export default function CashierWorkspace() {
     [schedulesResponse?.data]
   );
 
-  const { data: seatsResponse, isLoading: seatsLoading, refetch: refetchSeats } = useGetScheduleSeatsQuery(
+  const { currentData: seatsResponse, isLoading: seatsLoading, refetch: refetchSeats } = useGetScheduleSeatsQuery(
     selectedSchedule?.id || "",
     { skip: !selectedSchedule }
   );
@@ -235,12 +235,17 @@ export default function CashierWorkspace() {
     setSelectedPromo(null);
   };
 
-  const handleScheduleSelect = async (sched: Schedule) => {
-    if (selectedSchedule && selectedSeats.length > 0 && selectedSchedule.id !== sched.id) {
-      await releaseHeldSeatsSafely(selectedSchedule.id, selectedSeats);
-    }
+  const handleScheduleSelect = (sched: Schedule) => {
+    if (pendingSeatIdsRef.current.size > 0 || selectedSchedule?.id === sched.id) return;
+
+    const previousSchedule = selectedSchedule;
+    const previousSeats = selectedSeats;
     setSelectedSchedule(sched);
     setSelectedSeats([]);
+
+    if (previousSchedule && previousSeats.length > 0) {
+      void releaseHeldSeatsSafely(previousSchedule.id, previousSeats);
+    }
   };
 
   const handleSeatClick = useCallback(async (seat: ShowtimeSeat) => {
@@ -537,6 +542,7 @@ export default function CashierWorkspace() {
             showTomorrow={showTomorrow}
             setShowTomorrow={setShowTomorrow}
             selectedSchedule={selectedSchedule}
+            isSeatActionPending={pendingSeatIds.size > 0}
             onSelectSchedule={handleScheduleSelect}
           />
         )}

@@ -40,7 +40,7 @@ export class TicketRenderer {
     }
     parts.push(this.renderLine("", width));
 
-    // Row, Seat, and Studio line with large bold values
+    // Row, Seat, and Studio line with bold values at normal size
     parts.push(this.renderSeatInfo(payload));
 
     // Padding before cut line
@@ -65,6 +65,7 @@ export class TicketRenderer {
       parts.push(this.renderLine(line, width));
     }
 
+    parts.push(this.renderSeatInfo(payload, false));
     parts.push(Buffer.from([ESC, 0x45, 0x00, ESC, 0x64, 0x03, LF]));
     if (options.autoCut) {
       parts.push(Buffer.from([GS, 0x56, 0x42, 0x00]));
@@ -86,25 +87,28 @@ export class TicketRenderer {
     ];
   }
 
-  private renderSeatInfo(payload: TicketPrintPayload): Buffer {
+  private renderSeatInfo(payload: TicketPrintPayload, boldValues = true): Buffer {
     const rowVal = String(payload.row || payload.seat?.charAt(0) || "-");
     const seatVal = String(payload.seatNumber ?? (payload.seat?.slice(1) || "-"));
     const studioVal = String(payload.studio?.split(" ").pop() || payload.studio || "-");
+    const boldOn = boldValues ? Buffer.from([ESC, 0x45, 0x01]) : Buffer.alloc(0);
+    const boldOff = boldValues ? Buffer.from([ESC, 0x45, 0x00]) : Buffer.alloc(0);
 
     const parts: Buffer[] = [
       Buffer.from(" ".repeat(LEFT_MARGIN_COLUMNS), "utf8"),
       Buffer.from("row: ", "utf8"),
-      Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]), // Bold + Double Width & Double Height
+      boldOn,
       Buffer.from(rowVal, "utf8"),
-      Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]), // Normal font
+      boldOff,
       Buffer.from(" seat ", "utf8"),
-      Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]), // Bold + Double Width & Double Height
+      boldOn,
       Buffer.from(seatVal, "utf8"),
-      Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]), // Normal font
+      boldOff,
       Buffer.from(" studio ", "utf8"),
-      Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]), // Bold + Double Width & Double Height
+      boldOn,
       Buffer.from(studioVal, "utf8"),
-      Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00, LF]), // Normal font + Line Feed
+      boldOff,
+      Buffer.from([LF]),
     ];
 
     return Buffer.concat(parts);

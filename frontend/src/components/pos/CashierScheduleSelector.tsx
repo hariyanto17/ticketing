@@ -13,6 +13,7 @@ interface CashierScheduleSelectorProps {
   showTomorrow: boolean;
   setShowTomorrow: (val: boolean) => void;
   selectedSchedule: Schedule | null;
+  isSeatActionPending: boolean;
   onSelectSchedule: (sched: Schedule) => void;
 }
 
@@ -23,6 +24,7 @@ export function CashierScheduleSelector({
   showTomorrow,
   setShowTomorrow,
   selectedSchedule,
+  isSeatActionPending,
   onSelectSchedule,
 }: CashierScheduleSelectorProps) {
   const { t, formatDate, formatCurrency } = useTranslation();
@@ -92,7 +94,8 @@ export function CashierScheduleSelector({
                       key={sched.id}
                       type="button"
                       onClick={() => onSelectSchedule(sched)}
-                      className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
+                      disabled={isSeatActionPending}
+                      className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer disabled:cursor-wait disabled:opacity-60 flex items-center gap-2.5 ${
                         isSelected
                           ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 ring-2 ring-emerald-500/20 shadow-sm"
                           : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-800 dark:text-zinc-200"
@@ -144,7 +147,8 @@ export function CashierScheduleSelector({
                       key={sched.id}
                       type="button"
                       onClick={() => onSelectSchedule(sched)}
-                      className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
+                      disabled={isSeatActionPending}
+                      className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition-all cursor-pointer disabled:cursor-wait disabled:opacity-60 flex items-center gap-2.5 ${
                         isSelected
                           ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-500/20 shadow-sm"
                           : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-800 dark:text-zinc-200"

@@ -12,6 +12,7 @@ router.get("/", catchAsync(controller.getMoviesController));
 router.get("/now-showing", catchAsync(controller.getNowShowingMoviesController));
 router.get("/coming-soon", catchAsync(controller.getComingSoonMoviesController));
 router.post("/import", authorize("Admin", "Projectionist"), catchAsync(controller.importMoviesController));
+router.get("/:id/poster", catchAsync(controller.getMoviePosterController));
 router.get("/:id", catchAsync(controller.getMovieByIdController));
 
 router.post("/", authorize("Admin", "Projectionist"), catchAsync(controller.createMovieController));

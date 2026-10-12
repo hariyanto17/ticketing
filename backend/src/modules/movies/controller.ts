@@ -7,6 +7,7 @@ import { responseHandler } from "../../utils/responseHandler";
 import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
 import { JWT_SECRET, COOKIE_NAME } from "../../config/constant";
+import { getMoviePosterAsset } from "./posterProxy";
 
 export const getMoviesController = async (req: Request, res: Response) => {
   const { page, limit, search, status, genreId, sortBy, sortOrder, hasSchedule, scheduleStartDate, scheduleEndDate, startDate, endDate } = req.query;
@@ -64,6 +65,22 @@ export const getComingSoonMoviesController = async (req: Request, res: Response)
 export const getMovieByIdController = async (req: Request, res: Response) => {
   const movie = await movieService.getMovieById(req.params.id);
   return responseHandler.ok(res, movie, "Movie retrieved");
+};
+
+export const getMoviePosterController = async (req: Request, res: Response) => {
+  const movie = await movieService.getMovieById(req.params.id);
+  if (!movie.poster) {
+    throw new AppError("NOT_FOUND", `Movie "${movie.title}" does not have a poster URL`);
+  }
+
+  const poster = await getMoviePosterAsset(movie.poster);
+  res.set({
+    "Cache-Control": "private, max-age=3600",
+    "Content-Length": String(poster.body.length),
+    "Content-Type": poster.contentType,
+    "X-Content-Type-Options": "nosniff",
+  });
+  return res.status(200).send(poster.body);
 };
 
 export const getPublicMoviesController = async (req: Request, res: Response) => {

@@ -40,7 +40,7 @@ export class TicketRenderer {
     }
     parts.push(this.renderLine("", width));
 
-    // Row, Seat, and Studio line with bold values at normal size
+    // Row, Seat, and Studio line with prominent bold values on the ticket.
     parts.push(this.renderSeatInfo(payload));
 
     // Padding before cut line
@@ -97,17 +97,17 @@ export class TicketRenderer {
     const parts: Buffer[] = [
       Buffer.from(" ".repeat(LEFT_MARGIN_COLUMNS), "utf8"),
       Buffer.from("row: ", "utf8"),
-      boldOn,
+      boldValues ? Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]) : boldOn,
       Buffer.from(rowVal, "utf8"),
-      boldOff,
+      boldValues ? Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]) : boldOff,
       Buffer.from(" seat ", "utf8"),
-      boldOn,
+      boldValues ? Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]) : boldOn,
       Buffer.from(seatVal, "utf8"),
-      boldOff,
+      boldValues ? Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]) : boldOff,
       Buffer.from(" studio ", "utf8"),
-      boldOn,
+      boldValues ? Buffer.from([ESC, 0x45, 0x01, GS, 0x21, 0x11]) : boldOn,
       Buffer.from(studioVal, "utf8"),
-      boldOff,
+      boldValues ? Buffer.from([GS, 0x21, 0x00, ESC, 0x45, 0x00]) : boldOff,
       Buffer.from([LF]),
     ];
 

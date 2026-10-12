@@ -28,6 +28,7 @@ import { ScheduleCopyModal } from "@/components/admin/schedules/ScheduleCopyModa
 import { ScheduleFormModal } from "@/components/admin/schedules/ScheduleFormModal";
 import { ScheduleStudioCards, StudioScheduleGroup } from "@/components/admin/schedules/ScheduleStudioCards";
 import { SchedulePosterGenerator } from "@/components/admin/schedules/SchedulePosterGenerator";
+import { ScheduleTvPosterGenerator } from "@/components/admin/schedules/ScheduleTvPosterGenerator";
 
 const scheduleSchema = (t: (key: string, ...args: any[]) => string) =>
   z.object({
@@ -361,6 +362,7 @@ export default function SchedulesManagement() {
             schedules={schedulesResponse?.data}
             movies={moviesResponse?.data}
           />
+          <ScheduleTvPosterGenerator schedules={schedulesResponse?.data} />
           <Button
             onClick={() => handleOpenAdd()}
             className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-semibold px-4 py-2 rounded-xl shadow-2xs transition-all cursor-pointer"

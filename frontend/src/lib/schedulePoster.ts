@@ -4,6 +4,8 @@ import { API_BASE_URL } from "@/lib/api/api";
 
 export const SCHEDULE_POSTER_WIDTH = 1080;
 export const SCHEDULE_POSTER_HEIGHT = 1350;
+export const SCHEDULE_TV_POSTER_WIDTH = 1920;
+export const SCHEDULE_TV_POSTER_HEIGHT = 1080;
 
 const CINEMA_TIME_ZONE = "Asia/Makassar";
 const RATING_BADGE_SIZE = 52;
@@ -25,6 +27,11 @@ export interface SchedulePosterMovie {
 
 export interface SchedulePosterResult {
   blob: Blob;
+}
+
+export interface ScheduleTvPosterResult extends SchedulePosterResult {
+  studioId: string;
+  studioName: string;
 }
 
 export class PosterImageLoadError extends Error {
@@ -247,22 +254,23 @@ function formatPosterDuration(minutes: number): string {
   return `${hours}h, ${remainingMinutes} menit`;
 }
 
-function getRatingColor(rating: string | null): string {
+export function getRatingColor(rating: string | null): string {
   switch (rating?.trim().toUpperCase()) {
     case "SU":
-      return "#16a34a";
+      return "#08A32F";
     case "13+":
+    case "R13":
     case "R13+":
     case "D13+":
-      return "#0284c7";
+      return "#FEC708";
     case "17+":
     case "R17+":
     case "D17+":
-      return "#d97706";
+      return "#FF383C";
     case "21+":
     case "R21+":
     case "D21+":
-      return "#e11d48";
+      return "#000000";
     default:
       return "#52525b";
   }
@@ -287,11 +295,7 @@ function getCanvasFontFamily(): string {
 
 async function loadRoboto(): Promise<string> {
   const fontFamily = getCanvasFontFamily();
-  await Promise.all([
-    document.fonts.load(`400 16px ${fontFamily}`),
-    document.fonts.load(`500 16px ${fontFamily}`),
-    document.fonts.load(`700 16px ${fontFamily}`),
-  ]);
+  await document.fonts.load(`700 16px ${fontFamily}`);
   return fontFamily;
 }
 
@@ -350,9 +354,9 @@ function calculatePosterRows(
         ? (RATING_BADGE_SIZE + RATING_BADGE_GAP) * scale
         : 0);
     const metadata = getMetadata(movie);
-    context.font = `500 ${metadataFontSize}px ${fontFamily}`;
+    context.font = `700 ${metadataFontSize}px ${fontFamily}`;
     const metadataLines = wrapText(context, metadata, detailWidth);
-    context.font = `400 ${timeFontSize}px ${fontFamily}`;
+    context.font = `700 ${timeFontSize}px ${fontFamily}`;
     const showtimes = movie.times.map(formatShowtime);
     const showtimeRows = Math.max(
       Math.min(2, showtimes.length),
@@ -457,7 +461,7 @@ function drawScheduleRows(
       );
       context.fill();
       context.fillStyle = "#ffffff";
-      context.font = `700 ${13 * scale}px ${fontFamily}`;
+      context.font = `700 ${16 * scale}px ${fontFamily}`;
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText(
@@ -476,7 +480,7 @@ function drawScheduleRows(
     let textY = detailTop + titleLineHeight;
     if (metadataLines.length) {
       context.fillStyle = "rgba(255,255,255,0.82)";
-      context.font = `400 ${metadataFontSize}px ${fontFamily}`;
+      context.font = `700 ${metadataFontSize}px ${fontFamily}`;
       metadataLines.forEach((line) => {
         textY += metadataLineHeight;
         context.fillText(line, titleX, textY);
@@ -485,7 +489,7 @@ function drawScheduleRows(
     }
 
     context.fillStyle = "#ffffff";
-    context.font = `500 ${timeFontSize}px ${fontFamily}`;
+    context.font = `700 ${timeFontSize}px ${fontFamily}`;
     const showtimeRows = Math.max(
       Math.min(2, showtimes.length),
       Math.max(0, showtimes.length - 2)
@@ -542,7 +546,7 @@ export async function renderSchedulePoster(
   context.fillStyle = "#ffffff";
   context.font = `700 39px ${fontFamily}`;
   context.fillText("JADWAL TAYANG FILM", SCHEDULE_POSTER_WIDTH / 2, 180);
-  context.font = `500 28px ${fontFamily}`;
+  context.font = `700 28px ${fontFamily}`;
   context.fillText(getPosterDateLabel(dateKey), SCHEDULE_POSTER_WIDTH / 2, 232);
 
   const posterTop = 302;
@@ -592,6 +596,224 @@ export async function renderSchedulePoster(
     canvas.toBlob((result) => {
       if (result) resolve(result);
       else reject(new Error("The browser could not export the poster as PNG."));
+    }, "image/png");
+  });
+
+  return { blob };
+}
+
+interface TvPosterMovie {
+  id: string;
+  title: string;
+  censorshipRating: string | null;
+  times: string[];
+}
+
+interface TvPosterStudio {
+  id: string;
+  name: string;
+  movies: TvPosterMovie[];
+}
+
+export async function renderScheduleTvPoster(
+  schedules: Schedule[],
+  dateKey: string
+): Promise<SchedulePosterResult> {
+  const selectedSchedules = schedules
+    .filter(
+      (schedule) =>
+        schedule.status === "PUBLISHED" &&
+        getScheduleDateKey(schedule.businessDate) === dateKey
+    )
+    .sort(
+      (first, second) =>
+        new Date(first.startTime).getTime() - new Date(second.startTime).getTime()
+    );
+
+  if (!selectedSchedules.length) {
+    throw new Error("No published schedules are available for this date.");
+  }
+
+  const studioMap = new Map<string, TvPosterStudio>();
+  selectedSchedules.forEach((schedule) => {
+    const studio = studioMap.get(schedule.studioId) ?? {
+      id: schedule.studioId,
+      name: schedule.studio.name,
+      movies: [],
+    };
+    let movie = studio.movies.find((item) => item.id === schedule.movieId);
+    if (!movie) {
+      movie = {
+        id: schedule.movieId,
+        title: schedule.movie.title,
+        censorshipRating: schedule.movie.censorshipRating ?? null,
+        times: [],
+      };
+      studio.movies.push(movie);
+    }
+    movie.times.push(schedule.startTime);
+    studioMap.set(schedule.studioId, studio);
+  });
+  const studios = [...studioMap.values()];
+
+  const canvas = document.createElement("canvas");
+  canvas.width = SCHEDULE_TV_POSTER_WIDTH;
+  canvas.height = SCHEDULE_TV_POSTER_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas rendering is not available in this browser.");
+
+  const background = await loadImage("/background-tv.png");
+  const fontFamily = await loadRoboto();
+  drawCoverImage(
+    context,
+    background,
+    0,
+    0,
+    SCHEDULE_TV_POSTER_WIDTH,
+    SCHEDULE_TV_POSTER_HEIGHT
+  );
+
+  const topMargin = 200;
+  const bottomMargin = 64;
+  const leftMargin = 160;
+  const rightMargin = 160;
+  const contentHeight = SCHEDULE_TV_POSTER_HEIGHT - topMargin - bottomMargin;
+  const contentRight = SCHEDULE_TV_POSTER_WIDTH - rightMargin;
+  const studioAreaWidth = 430;
+  const studioTextX = leftMargin;
+  const listLeft = 660;
+  const ratingBadgeSize = RATING_BADGE_SIZE;
+  const ratingX = contentRight - ratingBadgeSize;
+  const ratingGap = 24;
+  const timesLeft = listLeft + (ratingX - ratingGap - listLeft) * 0.57;
+  const timeColumnGap = 24;
+  const timeColumnWidth =
+    (ratingX - ratingGap - timesLeft - timeColumnGap) / 2;
+  const titleWidth = timesLeft - listLeft - 36;
+  const totalMovieRows = studios.reduce(
+    (count, studio) => count + Math.max(1, studio.movies.length),
+    0
+  );
+  const separatorWidth = 8;
+  let studioTop = topMargin;
+
+  studios.forEach((studio, studioIndex) => {
+    const studioWeight = Math.max(1, studio.movies.length);
+    const studioHeight = contentHeight * studioWeight / totalMovieRows;
+    const hasSeparatorAbove = studioIndex > 0;
+    const hasSeparatorBelow = studioIndex < studios.length - 1;
+    const separatorGap = separatorWidth + 16;
+    const rowContentTop = studioTop + (hasSeparatorAbove ? separatorGap / 2 : 0);
+    const rowContentBottom =
+      studioTop + studioHeight - (hasSeparatorBelow ? separatorGap / 2 : 0);
+    const rowContentHeight = rowContentBottom - rowContentTop;
+
+    if (hasSeparatorAbove) {
+      context.fillStyle = "#ffffff";
+      context.beginPath();
+      context.roundRect(
+        leftMargin,
+        studioTop - separatorWidth / 2,
+        contentRight - leftMargin,
+        separatorWidth,
+        2
+      );
+      context.fill();
+    }
+
+    let studioFontSize = 78;
+    context.font = `700 ${studioFontSize}px ${fontFamily}`;
+    const studioName = studio.name.toLocaleUpperCase("id-ID");
+    let studioLines = wrapText(context, studioName, studioAreaWidth);
+    while (
+      studioFontSize > 28 &&
+      studioLines.length * (studioFontSize + 12) > rowContentHeight
+    ) {
+      studioFontSize -= 2;
+      context.font = `700 ${studioFontSize}px ${fontFamily}`;
+      studioLines = wrapText(context, studioName, studioAreaWidth);
+    }
+    context.fillStyle = "#ffffff";
+    context.font = `700 ${studioFontSize}px ${fontFamily}`;
+    context.textAlign = "left";
+    context.textBaseline = "middle";
+    const studioLineHeight = studioFontSize + 12;
+    const studioTextTop =
+      rowContentTop + (rowContentHeight - studioLines.length * studioLineHeight) / 2;
+    studioLines.forEach((line, lineIndex) => {
+      context.fillText(
+        line,
+        studioTextX,
+        studioTextTop + lineIndex * studioLineHeight + studioLineHeight / 2,
+        studioAreaWidth
+      );
+    });
+
+    const movieHeight = rowContentHeight / Math.max(1, studio.movies.length);
+    studio.movies.forEach((movie, movieIndex) => {
+      const movieTop = rowContentTop + movieIndex * movieHeight;
+      const movieCenterY = movieTop + movieHeight / 2;
+      const showtimes = movie.times.map(formatShowtime);
+      const showtimeRows = Math.max(
+        Math.min(2, showtimes.length),
+        Math.max(0, showtimes.length - 2)
+      );
+      const timeRowHeight = Math.min(34, movieHeight / Math.max(1, showtimeRows));
+      const timeFontSize = Math.max(14, Math.min(24, timeRowHeight * 0.75 + 4));
+      const titleFontSize = Math.max(20, Math.min(44, movieHeight * 0.3 + 8));
+
+      context.fillStyle = "#ffffff";
+      context.font = `700 ${titleFontSize}px ${fontFamily}`;
+      context.textAlign = "left";
+      context.textBaseline = "middle";
+      context.fillText(
+        ellipsize(context, movie.title, titleWidth),
+        listLeft,
+        movieCenterY,
+        titleWidth
+      );
+
+      context.font = `700 ${timeFontSize}px ${fontFamily}`;
+      context.textAlign = "center";
+      const timesTop = movieCenterY - showtimeRows * timeRowHeight / 2;
+      showtimes.forEach((showtime, timeIndex) => {
+        const column = timeIndex < 2 ? 0 : 1;
+        const row = column === 0 ? timeIndex : timeIndex - 2;
+        const x = timesLeft + column * (timeColumnWidth + timeColumnGap);
+        context.fillText(
+          showtime,
+          x + timeColumnWidth / 2,
+          timesTop + (row + 0.5) * timeRowHeight,
+          timeColumnWidth
+        );
+      });
+
+      if (movie.censorshipRating) {
+        const badgeY = movieCenterY - ratingBadgeSize / 2;
+        context.fillStyle = getRatingColor(movie.censorshipRating);
+        context.beginPath();
+        context.roundRect(ratingX, badgeY, ratingBadgeSize, ratingBadgeSize, 12);
+        context.fill();
+        context.fillStyle = "#ffffff";
+        context.font = `700 16px ${fontFamily}`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(
+          movie.censorshipRating,
+          ratingX + ratingBadgeSize / 2,
+          movieCenterY,
+          ratingBadgeSize - 8
+        );
+      }
+    });
+
+    studioTop += studioHeight;
+  });
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error("The browser could not export the TV poster as PNG."));
     }, "image/png");
   });
 

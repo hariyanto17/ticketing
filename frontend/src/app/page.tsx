@@ -58,7 +58,6 @@ export default function PublicHome() {
       const res = await triggerGetMovies(
         {
           status: "NOW_SHOWING",
-          hasSchedule: true,
           startDate: todayStr,
           search: search || undefined,
           page: 1,

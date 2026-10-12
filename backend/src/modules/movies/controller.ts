@@ -133,7 +133,7 @@ export const importMoviesController = async (req: Request, res: Response) => {
     throw new AppError("BAD_REQUEST", result.error.issues.map((i) => i.message).join(", "));
   }
 
-  const summary = await movieImportService.importMovies(result.data);
+  const summary = await movieImportService.importMovies(result.data, { skipManuallyUpdated: true });
   if (req.user) {
     await logActivity({
       userId: req.user.id,

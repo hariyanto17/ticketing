@@ -349,8 +349,7 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus, skipMan
 
   const rawDate = detail?.published_date || detail?.date_show || movie.date_show || movie.published_date;
   const releaseDate = parseDate(rawDate);
-  const productionHouseName = IMPORT_PRODUCTION_HOUSE;
-  const snapshot = toSnapshot(movie, detail, finalGenreNames, releaseDate, productionHouseName);
+  const snapshot = toSnapshot(movie, detail, finalGenreNames, releaseDate, IMPORT_PRODUCTION_HOUSE);
 
   const previous = existingByExternalId || await prisma.movie.findFirst({
     where: { title: { equals: snapshot.title, mode: "insensitive" } },
@@ -364,6 +363,12 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus, skipMan
     snapshot.externalDistributorId,
     previous?.distributorId
   );
+  const effectiveDistributor = distributor || (previous?.distributorId
+    ? await prisma.distributor.findUnique({ where: { id: previous.distributorId } })
+    : null);
+  const productionHouseName = effectiveDistributor?.name || IMPORT_PRODUCTION_HOUSE;
+  snapshot.productionHouseName = productionHouseName;
+  const productionHouse = await ensureProductionHouse(productionHouseName);
 
   // Jika data sudah ada di database, update informasi terkini
   if (previous) {
@@ -380,6 +385,7 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus, skipMan
         director: snapshot.director || previous.director,
         writer: snapshot.writer || previous.writer,
         producer: snapshot.producer || previous.producer,
+        productionHouseId: productionHouse.id,
         distributorId: distributor?.id || previous.distributorId,
         externalMovieId: previous.externalMovieId || movie.parent_movie_id,
         externalDistributorId: snapshot.externalDistributorId || previous.externalDistributorId,
@@ -389,8 +395,6 @@ const importOne = async (rawMovie: unknown, status: ImportedMovieStatus, skipMan
     });
     return { action: "updated" as const, movie: updated };
   }
-
-  const productionHouse = await ensureProductionHouse(productionHouseName);
 
   const genres = await Promise.all(
     finalGenreNames.map(async (name) => {

@@ -654,7 +654,13 @@ export async function renderScheduleTvPoster(
     movie.times.push(schedule.startTime);
     studioMap.set(schedule.studioId, studio);
   });
-  const studios = [...studioMap.values()];
+  const studios = [...studioMap.values()].sort(
+    (first, second) =>
+      first.name.localeCompare(second.name, "id", {
+        numeric: true,
+        sensitivity: "base",
+      }) || first.id.localeCompare(second.id)
+  );
 
   const canvas = document.createElement("canvas");
   canvas.width = SCHEDULE_TV_POSTER_WIDTH;

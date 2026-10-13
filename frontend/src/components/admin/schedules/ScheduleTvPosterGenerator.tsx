@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Download, RefreshCw, Tv } from "lucide-react";
+import { Download, RefreshCw, Tv, Video } from "lucide-react";
 import { Button } from "@/components/ui/form-controls";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useTranslation } from "@/lib/i18n";
 import type { Schedule } from "@/services/studioApi";
-import { getScheduleDateKey, renderScheduleTvPoster } from "@/lib/schedulePoster";
+import {
+  createScheduleTvPosterMp4,
+  getScheduleDateKey,
+  renderScheduleTvPoster,
+} from "@/lib/schedulePoster";
 
 interface ScheduleTvPosterGeneratorProps {
   schedules: Schedule[] | undefined;
@@ -21,6 +25,7 @@ export function ScheduleTvPosterGenerator({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloadingMp4, setIsDownloadingMp4] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [posterBlob, setPosterBlob] = useState<Blob | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -114,9 +119,35 @@ export function ScheduleTvPosterGenerator({
     toastSuccess(t("schedules.posterDownloaded"));
   };
 
+  const handleDownloadMp4 = async () => {
+    if (!posterBlob) return;
+    setIsDownloadingMp4(true);
+    setGenerationError(null);
+    try {
+      const videoBlob = await createScheduleTvPosterMp4(posterBlob);
+      const videoUrl = URL.createObjectURL(videoBlob);
+      const link = document.createElement("a");
+      link.href = videoUrl;
+      link.download = `planet-cinema-tv-${selectedDate}.mp4`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(videoUrl), 1_000);
+      toastSuccess(t("schedules.tvPosterVideoDownloaded"));
+    } catch (error) {
+      console.error("Failed to generate TV schedule poster video:", error);
+      const message = error instanceof Error
+        ? error.message
+        : t("schedules.tvPosterVideoFailed");
+      setGenerationError(message);
+      toastError(message);
+    } finally {
+      setIsDownloadingMp4(false);
+    }
+  };
+
   const handleClose = () => {
     generationId.current += 1;
     setIsGenerating(false);
+    setIsDownloadingMp4(false);
     setIsOpen(false);
     clearPreview();
   };
@@ -148,6 +179,7 @@ export function ScheduleTvPosterGenerator({
               <select
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
+                disabled={isDownloadingMp4}
                 className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               >
                 {dateOptions.map((date) => (
@@ -160,13 +192,13 @@ export function ScheduleTvPosterGenerator({
                 ))}
               </select>
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => void generatePreview()}
                 isLoading={isGenerating}
-                disabled={!selectedDate}
+                disabled={!selectedDate || isDownloadingMp4}
                 className="gap-2 text-xs"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -177,11 +209,22 @@ export function ScheduleTvPosterGenerator({
               <Button
                 type="button"
                 onClick={handleDownload}
-                disabled={!posterBlob || isGenerating}
+                disabled={!posterBlob || isGenerating || isDownloadingMp4}
                 className="gap-2 text-xs"
               >
                 <Download className="h-3.5 w-3.5" />
-                {t("schedules.posterDownload")}
+                {t("schedules.posterDownloadPng")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleDownloadMp4()}
+                isLoading={isDownloadingMp4}
+                disabled={!posterBlob || isGenerating}
+                className="gap-2 text-xs"
+              >
+                <Video className="h-3.5 w-3.5" />
+                {t("schedules.posterDownloadMp4")}
               </Button>
             </div>
           </div>

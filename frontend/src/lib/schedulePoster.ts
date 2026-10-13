@@ -825,3 +825,49 @@ export async function renderScheduleTvPoster(
 
   return { blob };
 }
+
+export async function createScheduleTvPosterMp4(poster: Blob): Promise<Blob> {
+  const headers = new Headers({ "Content-Type": "image/png" });
+  const token = localStorage.getItem("token");
+  if (token) headers.set("authorization", `Bearer ${token}`);
+
+  const response = await fetch(
+    `${API_BASE_URL.replace(/\/$/, "")}/movies/schedule-poster/video`,
+    {
+      method: "POST",
+      body: poster,
+      credentials: "include",
+      headers,
+    }
+  );
+
+  if (!response.ok) {
+    let message = `MP4 generation failed with HTTP ${response.status}.`;
+    try {
+      const payload: unknown = await response.json();
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "message" in payload &&
+        typeof payload.message === "string"
+      ) {
+        message = payload.message;
+      }
+    } catch {
+      // Keep the explicit HTTP status when the server does not return JSON.
+    }
+    throw new Error(message);
+  }
+
+  const contentType = response.headers
+    .get("content-type")
+    ?.split(";")[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== "video/mp4") {
+    throw new Error(
+      `MP4 generation returned an unexpected content type (${contentType || "missing"}).`
+    );
+  }
+  return response.blob();
+}

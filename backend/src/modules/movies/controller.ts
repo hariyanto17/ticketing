@@ -8,6 +8,7 @@ import { AppError } from "../../utils/errorHandler";
 import { logActivity } from "../../utils/activityLogger";
 import { JWT_SECRET, COOKIE_NAME } from "../../config/constant";
 import { getMoviePosterAsset } from "./posterProxy";
+import { createSchedulePosterMp4 } from "./schedulePosterVideo";
 
 export const getMoviesController = async (req: Request, res: Response) => {
   const { page, limit, search, status, genreId, sortBy, sortOrder, hasSchedule, scheduleStartDate, scheduleEndDate, startDate, endDate } = req.query;
@@ -81,6 +82,24 @@ export const getMoviePosterController = async (req: Request, res: Response) => {
     "X-Content-Type-Options": "nosniff",
   });
   return res.status(200).send(poster.body);
+};
+
+export const createSchedulePosterVideoController = async (
+  req: Request,
+  res: Response
+) => {
+  if (!Buffer.isBuffer(req.body)) {
+    throw new AppError("BAD_REQUEST", "Upload the TV poster as an image/png request body.");
+  }
+  const video = await createSchedulePosterMp4(req.body);
+  res.set({
+    "Cache-Control": "no-store",
+    "Content-Length": String(video.length),
+    "Content-Type": "video/mp4",
+    "Content-Disposition": 'attachment; filename="planet-cinema-tv-schedule.mp4"',
+    "X-Content-Type-Options": "nosniff",
+  });
+  return res.status(200).send(video);
 };
 
 export const getPublicMoviesController = async (req: Request, res: Response) => {

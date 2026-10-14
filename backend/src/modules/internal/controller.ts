@@ -99,3 +99,25 @@ export const handlePlatformPaymentNotificationHandler = async (req: Request, res
     `Notification received with status ${status}`
   );
 };
+
+export const getAuditLogsHandler = async (req: Request, res: Response) => {
+  const page = Math.max(1, parseInt(req.query.page?.toString() || "1", 10));
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit?.toString() || "20", 10)));
+  const module = req.query.module ? req.query.module.toString() : undefined;
+  const action = req.query.action ? req.query.action.toString() : undefined;
+  const search = req.query.search ? req.query.search.toString() : undefined;
+  const startDate = req.query.startDate ? req.query.startDate.toString() : undefined;
+  const endDate = req.query.endDate ? req.query.endDate.toString() : undefined;
+
+  const result = await internalService.getAuditLogsList({
+    page,
+    limit,
+    module,
+    action,
+    search,
+    startDate,
+    endDate,
+  });
+
+  return responseHandler.ok(res, result.logs, "Ticketing audit logs retrieved successfully", result.meta);
+};

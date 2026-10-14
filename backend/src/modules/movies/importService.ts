@@ -122,6 +122,12 @@ const parseDate = (value?: string | null) => {
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
 
+export const normalizeImportedDistributorName = (value?: string | null) => {
+  const cleanedName = value?.split(",")[0]?.trim();
+  if (!cleanedName) return null;
+  return cleanedName;
+};
+
 const splitGenres = (value?: string | null) =>
   (value || "")
     .split(",")
@@ -305,7 +311,7 @@ const toSnapshot = (
   const rawSynopsis = detail?.description?.trim() || detail?.synopsis?.trim() || movie.synopsis?.trim() || null;
   const rawPoster = detail?.movie_image?.trim() || movie.movie_image?.trim() || null;
   const rawTrailer = detail?.movie_trailer?.trim() || detail?.trailer?.trim() || movie.trailer?.trim() || null;
-  const rawDistributorName = detail?.distributor?.trim() || null;
+  const rawDistributorName = normalizeImportedDistributorName(detail?.distributor);
 
   return {
     title: (detail?.title || movie.title).trim(),

@@ -1,3 +1,4 @@
+import "./envGuard";
 import { prisma } from "../utils/prisma";
 import * as orderService from "../modules/orders/service";
 import * as promotionService from "../modules/promotions/service";

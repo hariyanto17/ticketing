@@ -1,3 +1,4 @@
+import "./envGuard";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getFilmShowingDates, getFilmSalesReport, getScheduledMovies } from "../modules/reports/service";

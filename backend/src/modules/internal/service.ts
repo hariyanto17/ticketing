@@ -294,3 +294,104 @@ export const cancelOrderBooking = async (orderId: string) => {
   const { cancelBooking } = await import("../bookings/service");
   return cancelBooking(orderId);
 };
+
+export const getAuditLogsList = async (filters: {
+  page: number;
+  limit: number;
+  module?: string;
+  action?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}) => {
+  const { page, limit, module: modFilter, action, search, startDate, endDate } = filters;
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+
+  if (modFilter) {
+    where.module = modFilter;
+  }
+
+  if (action) {
+    where.action = action;
+  }
+
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) {
+      const s = new Date(startDate);
+      s.setUTCHours(0, 0, 0, 0);
+      where.createdAt.gte = s;
+    }
+    if (endDate) {
+      const e = new Date(endDate);
+      e.setUTCHours(23, 59, 59, 999);
+      where.createdAt.lte = e;
+    }
+  }
+
+  if (search) {
+    where.OR = [
+      { module: { contains: search, mode: "insensitive" } },
+      { action: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+      { entity: { contains: search, mode: "insensitive" } },
+      { entityId: { contains: search, mode: "insensitive" } },
+      { user: { name: { contains: search, mode: "insensitive" } } },
+      { user: { email: { contains: search, mode: "insensitive" } } },
+      { user: { username: { contains: search, mode: "insensitive" } } },
+    ];
+  }
+
+  const [total, logs] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const formattedLogs = logs.map((log) => ({
+    id: log.id,
+    source: "TICKETING",
+    action: log.action,
+    entity: log.entity || log.module,
+    entityId: log.entityId || log.id,
+    module: log.module,
+    description: log.description || null,
+    oldData: log.oldData || null,
+    newData: log.newData || null,
+    ipAddress: log.ipAddress,
+    createdAt: log.createdAt.toISOString(),
+    user: log.user
+      ? {
+          id: log.user.id,
+          name: log.user.name || log.user.username,
+          email: log.user.email || `${log.user.username}@pos.local`,
+        }
+      : null,
+  }));
+
+  return {
+    logs: formattedLogs,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};

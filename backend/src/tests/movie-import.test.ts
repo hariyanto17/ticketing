@@ -1,3 +1,4 @@
+import "./envGuard";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { prisma } from "../utils/prisma";
@@ -43,6 +44,19 @@ test("Movie Import Business Invariants (21 Cineplex)", async (t) => {
     assert.strictEqual(raw21Movie.director, "Jacob Chase");
     assert.strictEqual(raw21Movie.writer, "Jacob Chase, David Leslie Johnson-McGoldrick");
     assert.strictEqual(raw21Movie.producer, "Jason Blum, Oren Peli, James Wan, Leigh Whannell");
+  });
+
+  await t.test("Distributor import uses only the first comma-separated name", () => {
+    assert.strictEqual(
+      importService.normalizeImportedDistributorName(
+        "Amadeus Sinemagna, Emtek Media, Legacy Pictures, Virtuelines Entertainment"
+      ),
+      "Amadeus Sinemagna"
+    );
+    assert.strictEqual(importService.normalizeImportedDistributorName(" Emtek Media, Legacy Pictures"), "Emtek Media");
+    assert.strictEqual(importService.normalizeImportedDistributorName("Falcon Pictures"), "Falcon Pictures");
+    assert.strictEqual(importService.normalizeImportedDistributorName(" , Legacy Pictures"), null);
+    assert.strictEqual(importService.normalizeImportedDistributorName(null), null);
   });
 
   await t.test("Movie Scheduler initializes cron task for 10:00 AM", async () => {

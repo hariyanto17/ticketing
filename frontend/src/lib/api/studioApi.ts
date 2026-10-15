@@ -34,7 +34,7 @@ export interface Schedule {
   endTime: string | null;
   ticketPrice: number;
   status: "DRAFT" | "PUBLISHED" | "CLOSED";
-  movie: { id: string; title: string; durationMinutes?: number | null; poster?: string | null; censorshipRating?: string | null };
+  movie: { id: string; title: string; durationMinutes?: number | null; poster?: string | null; censorshipRating?: string | null; kdmExpiredAt?: string | null };
   studio: { id: string; name: string; code: string; type?: "REGULAR" | "PREMIERE" | "VIP" | string };
 }
 

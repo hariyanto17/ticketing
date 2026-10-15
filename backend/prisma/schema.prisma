@@ -135,6 +135,7 @@ model Movie {
   externalDistributorId String?
   externalSnapshot  Json?
   manualUpdatedAt   DateTime?
+  kdmExpiredAt      DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   slug              String           @unique

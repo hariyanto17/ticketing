@@ -150,6 +150,7 @@ export default function MoviesDashboard() {
         productionHouseId: "",
         distributorId: "",
         genreIds: [],
+        kdmExpiredAt: "",
       });
     } else if (activeTab === "genres") {
       genreForm.reset({ name: "", description: "", isActive: true });
@@ -179,6 +180,7 @@ export default function MoviesDashboard() {
         productionHouseId: item.productionHouseId,
         distributorId: item.distributorId || "",
         genreIds: item.genres ? item.genres.map((g: any) => g.genreId) : [],
+        kdmExpiredAt: item.kdmExpiredAt ? new Date(item.kdmExpiredAt).toISOString().slice(0, 16) : "",
       });
     } else if (activeTab === "genres") {
       genreForm.reset({
@@ -218,6 +220,7 @@ export default function MoviesDashboard() {
       if (activeTab === "movies") {
         const payload = {
           ...data,
+          kdmExpiredAt: data.kdmExpiredAt ? new Date(data.kdmExpiredAt).toISOString() : null,
           synopsis: data.synopsis === "" ? null : data.synopsis,
           durationMinutes:
             data.durationMinutes === "" || data.durationMinutes === undefined || data.durationMinutes === null

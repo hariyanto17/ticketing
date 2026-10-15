@@ -162,6 +162,41 @@ export function ScheduleStudioCards({
                                     {formatDuration(s.movie.durationMinutes, locale)}
                                   </span>
                                 ) : null}
+                                {s?.movie?.kdmExpiredAt ? (
+                                  (() => {
+                                    const kdmDate = new Date(s.movie.kdmExpiredAt);
+                                    const showDate = new Date(s.startTime);
+                                    const isExpired = !isNaN(kdmDate.getTime()) && !isNaN(showDate.getTime()) && showDate > kdmDate;
+                                    const kdmFormatted = !isNaN(kdmDate.getTime())
+                                      ? kdmDate.toLocaleDateString(locale, {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "-";
+
+                                    return (
+                                      <div
+                                        className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                          isExpired
+                                            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                                            : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
+                                        }`}
+                                        title={
+                                          isExpired
+                                            ? t("schedules.kdmTooltipExpired", { date: kdmFormatted })
+                                            : t("schedules.kdmTooltipValid", { date: kdmFormatted })
+                                        }
+                                      >
+                                        <Clock className="w-2.5 h-2.5 shrink-0" />
+                                        <span>{t("schedules.kdmBadge")} {kdmFormatted}</span>
+                                        {isExpired && <span className="font-bold underline ml-0.5">{t("schedules.kdmExpiredBadge")}</span>}
+                                      </div>
+                                    );
+                                  })()
+                                ) : null}
                               </div>
                             </div>
                           </td>

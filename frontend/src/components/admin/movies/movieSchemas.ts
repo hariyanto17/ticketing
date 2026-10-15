@@ -19,6 +19,7 @@ export const movieFormSchema = (t: (key: string) => string) =>
     productionHouseId: z.string().uuid(t("validation.productionRequired")),
     distributorId: z.string().uuid(t("validation.distributorRequired")).optional().nullable(),
     genreIds: z.array(z.string().uuid()).min(1, t("validation.genreRequired")),
+    kdmExpiredAt: z.string().optional().nullable(),
   });
 
 export const genreFormSchema = (t: (key: string) => string) =>

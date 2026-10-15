@@ -123,12 +123,18 @@ export default function SchedulesManagement() {
   const movieOptions = useMemo(() => {
     const opts = [
       { value: "", label: t("schedules.selectMovie") },
-      ...(moviesResponse?.data?.filter(Boolean)?.map((m) => ({
-        value: m.id,
-        label: m.durationMinutes
-          ? `${m.title} (${formatDuration(m.durationMinutes, locale)})`
-          : `${m.title} (${t("movies.unspecified")})`,
-      })) || []),
+      ...(moviesResponse?.data?.filter(Boolean)?.map((m) => {
+        const durationStr = m.durationMinutes
+          ? ` (${formatDuration(m.durationMinutes, locale)})`
+          : ` (${t("movies.unspecified")})`;
+        const kdmStr = m.kdmExpiredAt
+          ? ` • KDM: ${new Date(m.kdmExpiredAt).toLocaleDateString(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
+          : "";
+        return {
+          value: m.id,
+          label: `${m.title}${durationStr}${kdmStr}`,
+        };
+      }) || []),
     ];
 
     if (
@@ -136,11 +142,15 @@ export default function SchedulesManagement() {
       selectedSchedule.movie &&
       !opts.some((opt) => opt.value === selectedSchedule.movieId)
     ) {
+      const durationStr = selectedSchedule.movie.durationMinutes
+        ? ` (${formatDuration(selectedSchedule.movie.durationMinutes, locale)})`
+        : "";
+      const kdmStr = selectedSchedule.movie.kdmExpiredAt
+        ? ` • KDM: ${new Date(selectedSchedule.movie.kdmExpiredAt).toLocaleDateString(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
+        : "";
       opts.push({
         value: selectedSchedule.movieId,
-        label: selectedSchedule.movie.durationMinutes
-          ? `${selectedSchedule.movie.title} (${formatDuration(selectedSchedule.movie.durationMinutes, locale)})`
-          : selectedSchedule.movie.title,
+        label: `${selectedSchedule.movie.title}${durationStr}${kdmStr}`,
       });
     }
 

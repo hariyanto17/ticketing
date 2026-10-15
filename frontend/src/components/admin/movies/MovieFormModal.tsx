@@ -3,7 +3,8 @@
 import React from "react";
 import { Modal } from "@/components/ui/modal";
 import { Input, Select, Button } from "@/components/ui/form-controls";
-import { UseFormReturn } from "react-hook-form";
+import { Controller, UseFormReturn } from "react-hook-form";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Genre, ProductionHouse, Distributor } from "@/services/movieApi";
 import { useTranslation } from "@/lib/i18n";
 
@@ -36,6 +37,7 @@ export function MovieFormModal({
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = form;
 
@@ -164,12 +166,28 @@ export function MovieFormModal({
           <Input label={t("movies.cast")} placeholder="Cast members" {...register("cast")} />
         </div>
 
-        <Select
-          label={t("movies.status")}
-          options={statusOptions}
-          error={errors.status?.message as string | undefined}
-          {...register("status")}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <Controller
+            control={control}
+            name="kdmExpiredAt"
+            render={({ field }) => (
+              <DateTimePicker
+                mode="datetime"
+                label={t("movies.kdmExpiredAt")}
+                placeholder={t("movies.kdmExpiredAtPlaceholder")}
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.kdmExpiredAt?.message as string | undefined}
+              />
+            )}
+          />
+          <Select
+            label={t("movies.status")}
+            options={statusOptions}
+            error={errors.status?.message as string | undefined}
+            {...register("status")}
+          />
+        </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-800">
           <Button variant="secondary" type="button" onClick={onClose}>

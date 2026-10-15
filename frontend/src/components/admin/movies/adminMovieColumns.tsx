@@ -33,6 +33,12 @@ export function getMovieColumns({ t, locale, onEdit, onDelete }: MovieColumnProp
               {m.title}
             </Link>
             <div className="text-xs text-zinc-400">{m.originalTitle || m.title}</div>
+            {m.kdmExpiredAt && (
+              <div className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5 font-medium">
+                <span>{t("movies.kdmExpiredAt")}:</span>
+                <span>{new Date(m.kdmExpiredAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+            )}
           </div>
         </div>
       ),

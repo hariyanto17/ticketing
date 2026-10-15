@@ -35,6 +35,7 @@ export interface Movie {
   durationMinutes?: number | null;
   releaseDate?: string | null;
   endDate?: string | null;
+  kdmExpiredAt?: string | null;
   censorshipRating: string;
   language?: string | null;
   subtitle?: string | null;
